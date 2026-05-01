@@ -1,0 +1,68 @@
+Relation Name	Level	Context	Notation	Formal Definition	OWL Characteristics	OWL / CCO Realization	subPropertyOf	Domain	Range	IRI	Notes
+Binary Relation	Meta	FOL	R(x,y)	subset of X × Y	n/a	Not representable	—	—	—	—	Schema-level; not a property in OWL
+Equivalence Relation	Meta	Algebra	x ~ y	Reflexive ∧ Symmetric ∧ Transitive	owl:ReflexiveProperty + owl:SymmetricProperty + owl:TransitiveProperty	Combine three characteristics on one ObjectProperty	—	—	—	—	Permitted but rare outside identity-like properties
+Partial Order	Meta	Algebra	x ⪯ y	Reflexive ∧ Antisymmetric ∧ Transitive	owl:ReflexiveProperty + owl:TransitiveProperty	Antisymmetry NOT OWL-expressible	—	—	—	—	Antisymmetry must live in CL/FOL axiom layer
+Strict Partial Order	Meta	Algebra	x ≺ y	Irreflexive ∧ Transitive	Cannot combine in OWL 2 DL	Annotation only	—	—	—	—	OWL 2 forbids Transitive + (Irreflexive ∨ Asymmetric) for decidability
+Membership	Class-level	Set Theory	x ∈ A	Primitive	n/a	Built-in	—	—	—	rdf:type	
+Subset	Class-level	Set Theory	A ⊆ B	∀x (x ∈ A → x ∈ B)	n/a	Built-in	—	—	—	rdfs:subClassOf	
+Proper Subset	Class-level	Set Theory	A ⊂ B	A ⊆ B ∧ A ≠ B	n/a	subClassOf + class inequality	rdfs:subClassOf	—	—	—	Not directly expressible as a primitive
+Equality (Individuals)	Class-level	Logic	x = y	Identity	n/a	Built-in	—	—	—	owl:sameAs	
+Inequality (Individuals)	Class-level	Logic	x ≠ y	Distinctness	n/a	Built-in	—	—	—	owl:differentFrom	
+Equality (Classes)	Class-level	Logic	A = B	mutual subset	n/a	Built-in	—	—	—	owl:equivalentClass	
+Equality (Properties)	Class-level	Logic	P = Q	mutual subProperty	n/a	Built-in	—	—	—	owl:equivalentProperty	Relevant for vocabulary alignment
+Disjointness (Classes)	Class-level	Logic	A ∩ B = ∅	¬∃x (x ∈ A ∧ x ∈ B)	n/a	Built-in	—	—	—	owl:disjointWith	Class-level analogue of mereological disjointness
+Part Of	Object-level	Mereology	P(x,y)	Reflexive ∧ Antisymmetric ∧ Transitive (CL)	owl:TransitiveProperty (only)	obo:BFO_0000050	—	Entity	Entity	obo:BFO_0000050	CL definition diverges from OWL: reflexivity & antisymmetry not declared in BFO 2020 OWL
+Has Part	Object-level	Mereology	HP(x,y)	inverse of part_of	owl:TransitiveProperty + owl:inverseOf BFO_0000050	obo:BFO_0000051	—	Entity	Entity	obo:BFO_0000051	
+Continuant Part Of	Object-level	Mereology	CP(x,y,t)	parthood-at-a-time among continuants	owl:TransitiveProperty	obo:BFO_0000176	obo:BFO_0000050	Continuant	Continuant	obo:BFO_0000176	Truly ternary; OWL binary form is approximation
+Has Continuant Part	Object-level	Mereology	—	inverse	owl:TransitiveProperty + owl:inverseOf	obo:BFO_0000178	obo:BFO_0000051	Continuant	Continuant	obo:BFO_0000178	
+Occurrent Part Of	Object-level	Mereology	OP(x,y)	parthood among occurrents	owl:TransitiveProperty	obo:BFO_0000132	obo:BFO_0000050	Occurrent	Occurrent	obo:BFO_0000132	
+Has Occurrent Part	Object-level	Mereology	—	inverse	owl:TransitiveProperty + owl:inverseOf	obo:BFO_0000117	obo:BFO_0000051	Occurrent	Occurrent	obo:BFO_0000117	
+Temporal Part Of	Object-level	Mereology	—	occurrent parthood specialised to temporal stages	owl:TransitiveProperty	obo:BFO_0000219	obo:BFO_0000132	Occurrent	Occurrent	obo:BFO_0000219	Now correctly under occurrent_part_of
+Has Temporal Part	Object-level	Mereology	—	inverse	owl:TransitiveProperty + owl:inverseOf	obo:BFO_0000218	obo:BFO_0000117	Occurrent	Occurrent	obo:BFO_0000218	
+Member Part Of	Object-level	Mereology	—	aggregate membership	—	obo:BFO_0000129	obo:BFO_0000176	Object	Object Aggregate	obo:BFO_0000129	
+Has Member Part	Object-level	Mereology	—	inverse	owl:inverseOf	obo:BFO_0000115	obo:BFO_0000178	Object Aggregate	Object	obo:BFO_0000115	
+Proper Part Of	Object-level	Mereology	PP(x,y)	P(x,y) ∧ ¬P(y,x)	Transitive + Asymmetric (defined)	Derived; not a BFO OWL primitive	obo:BFO_0000050	Entity	Entity	—	Definition only
+Overlaps	Object-level	Mereology	O(x,y)	∃z (P(z,x) ∧ P(z,y))	Symmetric + Reflexive	obo:RO_0002131	—	Entity	Entity	obo:RO_0002131	
+Proper Overlap	Object-level	Mereology	PO(x,y)	O(x,y) ∧ ¬P(x,y) ∧ ¬P(y,x)	Symmetric + Irreflexive (defined)	Derived	obo:RO_0002131	Entity	Entity	—	Definition only
+Underlaps	Object-level	Mereology	U(x,y)	∃z (P(x,z) ∧ P(y,z))	Symmetric + Reflexive (defined)	Non-core	—	Entity	Entity	—	Optional; not in BFO/CCO core
+Disjoint (mereological)	Object-level	Mereology	D(x,y)	¬O(x,y)	Symmetric + Irreflexive	Not OWL-expressible at individual level	—	Entity	Entity	—	Class-level analogue: owl:disjointWith
+Participates In	Object-level	Participation	—	Continuant takes part in Occurrent	—	obo:BFO_0000056	—	Continuant	Occurrent	obo:BFO_0000056	
+Has Participant	Object-level	Participation	—	inverse	owl:inverseOf	obo:BFO_0000057	—	Occurrent	Continuant	obo:BFO_0000057	
+Realizes	Object-level	Realization	—	Process realizes Realizable Entity	—	obo:BFO_0000055	—	Process	Role ∪ Disposition ∪ Function	obo:BFO_0000055	BFO narrows realizable to role/disposition/function
+Realized In	Object-level	Realization	—	inverse	owl:inverseOf	obo:BFO_0000054	—	Role ∪ Disposition ∪ Function	Process	obo:BFO_0000054	
+Inheres In	Object-level	Dependence	—	SDC inheres in Independent Continuant	—	obo:BFO_0000197	obo:BFO_0000084	Specifically Dependent Continuant	Independent Continuant	obo:BFO_0000197	
+Bearer Of	Object-level	Dependence	—	inverse of inheres_in	owl:inverseOf	obo:BFO_0000196	obo:BFO_0000195	Independent Continuant	Specifically Dependent Continuant	obo:BFO_0000196	
+Specifically Depends On	Object-level	Dependence	—	SDC specifically depends on Entity	—	obo:BFO_0000084	—	Specifically Dependent Continuant	Entity	obo:BFO_0000084	
+Specifically Depended On By	Object-level	Dependence	—	inverse	owl:inverseOf	obo:BFO_0000195	—	Entity	Specifically Dependent Continuant	obo:BFO_0000195	
+Generically Depends On	Object-level	Dependence	—	GDC generically depends on bearer	—	obo:BFO_0000101	—	Generically Dependent Continuant	Independent Continuant	obo:BFO_0000101	
+Concretizes	Object-level	Information	—	SDC concretizes a GDC	—	obo:BFO_0000058	—	Specifically Dependent Continuant	Generically Dependent Continuant	obo:BFO_0000058	Domain is SDC, not ICE; ICE is an IAO subclass
+Is Concretized By	Object-level	Information	—	inverse	owl:inverseOf	obo:BFO_0000059	—	Generically Dependent Continuant	Specifically Dependent Continuant	obo:BFO_0000059	
+Occurs In	Object-level	Spatial	—	Process occurs in Site or Material Entity	—	obo:BFO_0000066	—	Process	Site ∪ Material Entity	obo:BFO_0000066	Range includes material_entity in BFO 2020
+Site Of	Object-level	Spatial	—	inverse	owl:inverseOf	obo:BFO_0000067	—	Site ∪ Material Entity	Process	obo:BFO_0000067	
+Occupies Spatial Region	Object-level	Spatial	—	Material Entity occupies Spatial Region at t	—	obo:BFO_0000200	—	Material Entity	Spatial Region	obo:BFO_0000200	Domain is material_entity; ternary in BFO 2020
+Occupies Temporal Region	Object-level	Temporal	—	Occurrent occupies Temporal Region	—	obo:BFO_0000199	—	Occurrent	Temporal Region	obo:BFO_0000199	
+Environs	Object-level	Spatial	—	Site environs Site	—	obo:BFO_0000183	—	Site	Site	obo:BFO_0000183	
+Environed By	Object-level	Spatial	—	inverse	owl:inverseOf	obo:BFO_0000184	—	Site	Site	obo:BFO_0000184	
+Precedes	Object-level	Temporal	—	Occurrent ordering	owl:TransitiveProperty	obo:BFO_0000063	—	Occurrent	Occurrent	obo:BFO_0000063	
+Preceded By	Object-level	Temporal	—	inverse	owl:TransitiveProperty + owl:inverseOf	obo:BFO_0000062	—	Occurrent	Occurrent	obo:BFO_0000062	
+Exists At	Object-level	Time-indexing	—	Continuant present during Temporal Region	—	obo:BFO_0000108	—	Continuant	Temporal Region	obo:BFO_0000108	OWL approximation of instance-of-at-t
+First Instant Of	Object-level	Temporal	—	t is first instant of temporal interval	owl:FunctionalProperty	obo:BFO_0000222	—	Temporal Instant	Temporal Region	obo:BFO_0000222	[VERIFY] against current bfo-2020.owl release
+Last Instant Of	Object-level	Temporal	—	t is last instant of temporal interval	owl:FunctionalProperty	obo:BFO_0000223	—	Temporal Instant	Temporal Region	obo:BFO_0000223	[VERIFY]
+Connected With	Object-level	Mereotopology	C(x,y)	Primitive (mereotopological connection)	owl:SymmetricProperty + owl:ReflexiveProperty	cco:ont00001810	—	Immaterial Entity	Immaterial Entity	cco:ont00001810	BFO/CCO leave C primitive. To recover mereotopological inference, layer bridge axioms in OFI: P(x,y) → ∀z (C(z,x) → C(z,y)). Do NOT define C as immaterial overlap — that conflates external connection with overlap.
+Is About	Object-level	Information	—	ICE is about Entity	—	obo:IAO_0000136	—	Information Content Entity	Entity	obo:IAO_0000136	Foundational for HIRI/Fandaws
+Denotes	Object-level	Information	—	Designative ICE denotes Entity	—	(IAO/CCO)	obo:IAO_0000136	Designative Information Content Entity	Entity	[VERIFY]	
+Designates	Object-level	Information	—	Designative Name designates Entity	—	(CCO)	—	Designative Name	Entity	[VERIFY CCO IRI]	
+Is Token Of	Object-level	Information	—	Information Quality concretizes an ICE	—	(IAO/CCO)	obo:BFO_0000058	Specifically Dependent Continuant	Information Content Entity	[VERIFY]	Domain tightened to SDC (Information Quality) so subPropertyOf concretizes is sound. Material book/file is bearer of the SDC, not subject of this property.
+Has Role	Object-level	CCO/Realizable	—	Independent Continuant has Role	—	(CCO)	obo:BFO_0000196	Independent Continuant	Role	[VERIFY CCO IRI]	subPropertyOf bearer_of
+Has Disposition	Object-level	CCO/Realizable	—	Material Entity has Disposition	—	(CCO)	obo:BFO_0000196	Material Entity	Disposition	[VERIFY CCO IRI]	subPropertyOf bearer_of
+Has Function	Object-level	CCO/Realizable	—	Material Entity has Function	—	(CCO)	obo:BFO_0000196	Material Entity	Function	[VERIFY CCO IRI]	subPropertyOf bearer_of
+Agent In	Object-level	CCO/Agency	—	Agent participates in Process as agent	—	(CCO)	obo:BFO_0000056	Agent	Process	[VERIFY CCO IRI]	subPropertyOf participates_in
+Patient In	Object-level	CCO/Agency	—	Entity participates in Process as patient	—	(CCO)	obo:BFO_0000056	Entity	Process	[VERIFY CCO IRI]	subPropertyOf participates_in
+Prescribed By	Object-level	Deontic	—	Directive ICE issued by Agent	—	OFI extension	—	Directive ICE	Agent	ofi:prescribedBy	Mint local IRI in OFI namespace
+Prescribes	Object-level	Deontic	—	inverse	owl:inverseOf	OFI extension	—	Agent	Directive ICE	ofi:prescribes	
+Has Obligation Bearer	Object-level	Deontic	—	Directive ICE binds Agent (target)	—	OFI extension	—	Directive ICE	Agent	ofi:hasObligationBearer	The bound party, not the issuer
+Realizes Directive	Object-level	Deontic	—	Process realizes a Directive ICE via concretized Realizable	—	OFI extension	—	Process	Directive ICE	ofi:realizesDirective	STANDALONE — NOT subPropertyOf realizes (would crash: range conflict between SDC and GDC). OWL property chain: realizes o concretizes → realizesDirective. Mediates through the Realizable that concretizes the Directive (per RDM v1.2.1 chain).
+Discharges	Object-level	Deontic	—	Process satisfies Directive ICE	—	OFI extension	ofi:realizesDirective	Process	Directive ICE	ofi:discharges	Disjoint with violates over the same directive
+Violates	Object-level	Deontic	—	Process fails Directive ICE conditions	—	OFI extension	ofi:realizesDirective	Process	Directive ICE	ofi:violates	Disjoint with discharges
+Commits To	Object-level	Deontic	—	Agent commits to Plan Specification	—	OFI extension	—	Agent	Plan Specification	ofi:commitsTo	Ground for binding-act semantics
+Has Commitment	Object-level	Deontic	—	inverse	owl:inverseOf	OFI extension	—	Plan Specification	Agent	ofi:hasCommitment	
