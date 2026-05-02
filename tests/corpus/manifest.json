@@ -1,4 +1,201 @@
 {
   "manifestVersion": "0.1.0",
-  "fixtures": []
+  "fixtures": [
+    {
+      "fixtureId": "p1_subclass_chain",
+      "phase": 1,
+      "specSections": ["§5.3", "API §3.2", "API §6.1"],
+      "acceptanceCriteria": ["§12 lifter correctness", "API-9"],
+      "arcEntries": [],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "two SubClassOf axioms lift to two Horn implications, transitive subsumption derivable via SLD"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "lifter loses or duplicates SubClassOf chain semantics; emits reverse-direction implications; or silently collapses the chain to a single axiom",
+      "expected_v0.1_verdict": { "ringStatus": "ring1-passes", "phaseAuthored": 1, "phaseActivated": 1 },
+      "expected_v0.2_elk_verdict": null
+    },
+    {
+      "fixtureId": "p1_equivalent_and_disjoint_named",
+      "phase": 1,
+      "specSections": ["§5.3", "API §3.2"],
+      "acceptanceCriteria": ["§12 lifter correctness"],
+      "arcEntries": [],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "EquivalentClasses lifts to two universals (mutual implication); DisjointWith lifts to a conjunction implying ⊥"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "EquivalentClasses lifted as a single biconditional that decomposes incorrectly; DisjointWith lifted as a single negated atom rather than as the impossibility of co-membership",
+      "expected_v0.1_verdict": { "ringStatus": "ring1-passes", "phaseAuthored": 1, "phaseActivated": 1 },
+      "expected_v0.2_elk_verdict": null
+    },
+    {
+      "fixtureId": "p1_restrictions_object_value",
+      "phase": 1,
+      "specSections": ["§5.3", "API §3.4"],
+      "acceptanceCriteria": ["§12 lifter correctness"],
+      "arcEntries": [],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "someValuesFrom→existential conjunction; allValuesFrom→universal-implication; hasValue→fact via named individual"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "someValuesFrom lifted without an existential witness; allValuesFrom lifted as an existential rather than a universal-implication; hasValue lifted as an existential rather than as a direct fact",
+      "expected_v0.1_verdict": { "ringStatus": "ring1-passes", "phaseAuthored": 1, "phaseActivated": 1 },
+      "expected_v0.2_elk_verdict": null
+    },
+    {
+      "fixtureId": "p1_restrictions_cardinality",
+      "phase": 1,
+      "specSections": ["§5.3", "API §3.4"],
+      "acceptanceCriteria": ["§12 lifter correctness"],
+      "arcEntries": [],
+      "regime": "reversible",
+      "expectedOutcome": {
+        "summary": "cardinality restrictions lift preserving count + property + (for QCR) onClass; counting axioms outside Horn route to Annotated Approximation at projection time"
+      },
+      "expectedLossSignatureReasons": ["unsupported_construct"],
+      "intendedToCatch": "cardinality silently dropped; QCR onClass filter erased; counting semantics lifted via a wrong existentialisation that loses the count",
+      "expected_v0.1_verdict": { "ringStatus": "ring1-passes-with-loss-signature", "phaseAuthored": 1, "phaseActivated": 1 },
+      "expected_v0.2_elk_verdict": null
+    },
+    {
+      "fixtureId": "p1_abox_assertions",
+      "phase": 1,
+      "specSections": ["§5.1", "API §3.5"],
+      "acceptanceCriteria": ["§12 lifter correctness"],
+      "arcEntries": [],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "class assertion → unary fact; object property assertion → binary fact; data property assertion → binary fact preserving typed literal"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "data property assertion silently dropping the datatype IRI to a bare string; object property assertion folding source/target into the wrong order; class assertion treated as TBox rather than ABox",
+      "expected_v0.1_verdict": { "ringStatus": "ring1-passes", "phaseAuthored": 1, "phaseActivated": 1 },
+      "expected_v0.2_elk_verdict": null
+    },
+    {
+      "fixtureId": "p1_owl_same_and_different",
+      "phase": 1,
+      "specSections": ["§5.5.1", "API §3.5"],
+      "acceptanceCriteria": ["§12 lifter correctness"],
+      "arcEntries": [],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "owl:sameAs and owl:differentFrom lift to facts under reserved predicate names; sameAs equivalence axiomatization (reflexivity/symmetry/transitivity) injected"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "owl:sameAs / owl:differentFrom dropped as 'metadata'; equivalence axiomatization not injected (which would silently disable identity propagation through other predicates)",
+      "expected_v0.1_verdict": { "ringStatus": "ring1-passes", "phaseAuthored": 1, "phaseActivated": 1 },
+      "expected_v0.2_elk_verdict": null
+    },
+    {
+      "fixtureId": "p1_property_characteristics",
+      "phase": 1,
+      "specSections": ["§5.2", "§5.4", "ADR-011", "API §3.7"],
+      "acceptanceCriteria": ["§12 lifter correctness", "§12.cycle-detection"],
+      "arcEntries": [],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "Functional/Transitive/Symmetric/InverseOf lift to canonical FOL axioms; recursive characteristics rewritten with visited-ancestor cycle guards per ADR-011; SLD resolution terminates"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "lifter emits naive transitive/symmetric rules without visited-ancestor guards (loops indefinitely); InverseOf lifted as a single-direction subPropertyOf; Functional axiom expressed in non-Horn form rather than the implication",
+      "expected_v0.1_verdict": { "ringStatus": "ring1-passes", "phaseAuthored": 1, "phaseActivated": 1 },
+      "expected_v0.2_elk_verdict": null
+    },
+    {
+      "fixtureId": "p1_prov_domain_range",
+      "phase": 1,
+      "specSections": ["§5.8", "API §3.7.1"],
+      "acceptanceCriteria": ["§12.13 PROV-O domain/range correctness", "API-9"],
+      "arcEntries": [],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "domain and range axioms lift to conditional universals (∀x,y. P(x,y) → Domain(x); symmetric for range); structural FOL-tree match per API §3.7.1.1 worked example",
+        "phase4Reactivation": "at Phase 4, additional expectation: prov:Entity(project_alpha) and prov:Entity(project_beta) entailed via the conditional implications once PROV-O ARC is loaded"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "domain/range axioms silently dropped or lifted as existential restrictions on the domain/range class — companion canary catches the wrong-translation, this fixture catches the right-shape regression",
+      "expected_v0.1_verdict": { "ringStatus": "ring1-passes-structural-only", "phaseAuthored": 1, "phaseActivated": 1, "phaseFullyExercised": 4 },
+      "expected_v0.2_elk_verdict": null
+    },
+    {
+      "fixtureId": "p1_blank_node_anonymous_restriction",
+      "phase": 1,
+      "specSections": ["§5.7", "API §6.1.1"],
+      "acceptanceCriteria": ["§12 lifter correctness", "§12.determinism"],
+      "arcEntries": [],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "blank-node-bearing class expression lifts with deterministic Skolem identifiers via rdf-canonize (RDFC-1.0); 100 lift runs produce byte-identical Skolem IDs"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "non-canonical blank-node naming producing different Skolem IDs each run; determinism failure surfaced as byte-diff across runs",
+      "expected_v0.1_verdict": { "ringStatus": "ring1-passes", "phaseAuthored": 1, "phaseActivated": 1 },
+      "expected_v0.2_elk_verdict": null
+    },
+    {
+      "fixtureId": "canary_domain_range_existential",
+      "phase": 1,
+      "specSections": ["§5.8", "API §3.7.1.2"],
+      "acceptanceCriteria": ["§12.13 PROV-O domain/range correctness", "API-9 (HIGH PRIORITY)"],
+      "arcEntries": [],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "wrong existentialised translation forbidden; lifted FOL state has no synthesized ∀x. Domain(x) → ∃y. P(x,y) axiom and no SubClassOf(Domain, ObjectSomeValuesFrom(P, owl:Thing)) on the OWL side; query ∃y. P(lonely_entity, y) returns 'undetermined' (open-world) rather than 'true' via fabricated Skolem successor"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "wrong existentialisation of domain/range axioms — would entail a fabricated Skolem successor for any class member, producing false existential entailments the source did not assert",
+      "expected_v0.1_verdict": { "ringStatus": "ring1-passes-canary", "phaseAuthored": 1, "phaseActivated": 1 },
+      "expected_v0.2_elk_verdict": null
+    },
+    {
+      "fixtureId": "canary_same_as_propagation",
+      "phase": 1,
+      "specSections": ["§5.5.2"],
+      "acceptanceCriteria": ["§12 lifter correctness", "§12.identity-propagation"],
+      "arcEntries": [],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "identity propagation through other predicates: same_as(a,b) ∧ p(b,c) ⊨ p(a,c) — query worksAt(superman, dailyplanet) returns 'true' (not 'undetermined')"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "lifter that lifts owl:sameAs to facts but fails to inject identity-aware predicate variants per spec §5.5.2 — queries on substituted-individual names silently return 'undetermined' rather than the entailed 'true' verdict",
+      "expected_v0.1_verdict": { "ringStatus": "ring1-passes-canary", "phaseAuthored": 1, "phaseActivated": 1 },
+      "expected_v0.2_elk_verdict": null
+    },
+    {
+      "fixtureId": "canary_iri_canonicalization",
+      "phase": 1,
+      "specSections": ["§4.2.1", "API §3.10"],
+      "acceptanceCriteria": ["§12 lifter correctness", "API-9 (partial)"],
+      "arcEntries": [],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "three IRI input forms (full URI, CURIE, bare URI) of the same axiom lift to byte-identical FOL after stableStringify; canonical internal form is expanded full URI"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "lifter that fails to expand CURIEs against the prefix table or stores prefix-shorthand-form internally, leaking surface form into the canonical FOL state and producing different lifted output for semantically-identical inputs",
+      "expected_v0.1_verdict": { "ringStatus": "ring1-passes-canary", "phaseAuthored": 1, "phaseActivated": 1 },
+      "expected_v0.2_elk_verdict": null
+    },
+    {
+      "fixtureId": "canary_punned_construct_rejection",
+      "phase": 1,
+      "specSections": ["§13.1", "API §10.2"],
+      "acceptanceCriteria": ["§12 lifter correctness", "§12.error-class-discipline"],
+      "arcEntries": [],
+      "regime": "true_loss",
+      "expectedOutcome": {
+        "summary": "five punted-construct cases (owl:hasKey, NegativeObjectPropertyAssertion, punning, faceted-datatype-restriction, annotation-on-annotation) each throw UnsupportedConstructError with the documented `construct` field set to the specific construct identifier"
+      },
+      "expectedLossSignatureReasons": ["unsupported_construct"],
+      "intendedToCatch": "lifter that silently accepts a spec §13.1 punted construct and emits degraded FOL — or throws a generic Error rather than the typed UnsupportedConstructError with the documented `construct` field",
+      "expected_v0.1_verdict": { "ringStatus": "ring1-passes-canary", "phaseAuthored": 1, "phaseActivated": 1 },
+      "expected_v0.2_elk_verdict": null
+    }
+  ]
 }

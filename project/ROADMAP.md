@@ -202,7 +202,7 @@ Every fixture below MUST be registered in `tests/corpus/manifest.json` per Phase
 Each canary asserts the **wrong** shape is absent, not just that the right shape is present. Failure of a canary indicates the lifter has regressed into a known-bad translation pattern.
 
 - [ ] `canary_domain_range_existential.fixture.js` — PROV-O domain/range; asserts no `subClassOf [Restriction someValuesFrom Y]` synthesis on `X`
-- [ ] `canary_sameAs_propagation.fixture.js` — `same_as(a,b) ∧ p(a,c)` lifted; query for `p(b,c)` MUST be entailed; asserts the lifter does not silently drop identity propagation per spec §5.5
+- [ ] `canary_same_as_propagation.fixture.js` — `same_as(a,b) ∧ p(a,c)` lifted; query for `p(b,c)` MUST be entailed; asserts the lifter does not silently drop identity propagation per spec §5.5 (renamed from `canary_sameAs_propagation` for Phase 0.8 manifest schema conformance — fixtureId pattern is `^[a-z0-9_]+$`)
 - [ ] `canary_iri_canonicalization.fixture.js` — same axiom expressed in three input IRI forms (full URI, CURIE, bracketed); asserts byte-identical lifted FOL across all three per API spec §3.10
 - [ ] `canary_punned_construct_rejection.fixture.js` — input containing each spec §13.1 punted construct; asserts `UnsupportedConstructError` thrown with the construct-specific `construct` field, not silent acceptance with degraded output
 
