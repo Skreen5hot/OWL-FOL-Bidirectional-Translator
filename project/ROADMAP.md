@@ -2,7 +2,7 @@
 
 This is the task tracker for the OFBT (OWL ↔ FOL Bidirectional Translator) v0.1 build. It is the operational view of [`OFBT_implementation_plan_v1 (1).md`](OFBT_implementation_plan_v1%20(1).md), which is the authoritative sequencing document. The frozen build target is [`OFBT_spec_v0.1.7.md`](OFBT_spec_v0.1.7.md) + [`OFBT_API_v0.1.7.md`](OFBT_API_v0.1.7.md).
 
-**Current Phase:** Phase 0 — Foundations **EXITED 2026-05-02** (architect-approved 2026-05-02; 47/47 tests passing, tightened purity check green per ADR-006, corpus manifest gate green; CLI restructured per ADR-005; Module-column workstream scheduled to begin at Phase 1 entry per architect gating item 3). Pending Orchestrator commit pass to insert commit SHA + CI run ID in [`project/reviews/phase-0-exit.md`](reviews/phase-0-exit.md). Next: Phase 1 entry review.
+**Current Phase:** Phase 1 — Built-In OWL Lifter (IN PROGRESS, Steps 1-2 of 9 complete; CI green on commit `75d7c62`). Phase 0 EXITED 2026-05-02 (CI runs `25258319623` and `25258966785` green on remote).
 
 **Validation discipline:** every phase exits only when all three rings (Conversion Correctness, Round-Trip Parity + Audit Artifacts, Validator + Consistency Check) pass against the phase's corpus. See implementation plan §2.
 
@@ -20,87 +20,87 @@ This is the task tracker for the OFBT (OWL ↔ FOL Bidirectional Translator) v0.
 
 ### 0.1 Package and Build Tooling
 
-**Status:** Not Started | **Priority:** High
+**Status:** ✅ COMPLETE 2026-05-02 (commit `0ef7827`) | **Priority:** High
 
 **Acceptance Criteria:**
-- [ ] `package.json` declares `tau-prolog@0.3.4` as peer dependency per API spec §13.7
-- [ ] `package.json` declares `rdf-canonize` as runtime dependency
-- [ ] ES Module structure per API spec §13.1; named exports preferred
-- [ ] esbuild configuration in place for browser + Node bundles
-- [ ] Bundle measurement script per API spec §13.4.3 (measurement only; no enforcement)
-- [ ] CI pipeline skeleton runs `npm run build`, `npm test`, `npm run test:purity`
-- [ ] **Purity checker (`scripts/ensure-kernel-purity.ts`) updated for OFBT-specific allowlist:**
-  - Forbidden in `src/kernel/`: `Date.now()`, `new Date()`, `Date.prototype.getTime()`, `Math.random()`, `crypto.getRandomValues`, `crypto.randomUUID`, `process.env`, `process.hrtime()`, `process.platform`, `fetch`, `XMLHttpRequest`, dynamic `import('...')` with non-literal specifier, `require('fs')`, `require('http')`, iteration over plain `Object` literals where order matters (use `Map` with sorted keys), `Array.prototype.sort` without explicit comparator
-  - **Allowlisted in `src/kernel/`:** `tau-prolog`, `rdf-canonize`, `crypto.subtle.digest` (SHA-256 only; the rest of `crypto` remains forbidden)
+- [x] `package.json` declares `tau-prolog@0.3.4` as peer dependency per API spec §13.7
+- [x] `package.json` declares `rdf-canonize` as runtime dependency
+- [x] ES Module structure per API spec §13.1; named exports preferred
+- [x] esbuild configuration in place for browser + Node bundles
+- [x] Bundle measurement script per API spec §13.4.3 (measurement only; no enforcement)
+- [x] CI pipeline skeleton runs `npm run build`, `npm test`, `npm run test:purity`
+- [x] **Purity checker (`scripts/ensure-kernel-purity.ts`) updated for OFBT-specific allowlist** (tightened further by ADR-006):
+  - Forbidden in `src/kernel/`: `Date.now()`, `new Date()`, `Date.prototype.getTime()`, `Math.random()`, `crypto.getRandomValues`, `crypto.randomUUID`, `process.env`, `process.hrtime()`, `process.platform`, `process.argv`, `process.stdout`, `process.stderr`, `process.exit()`, `process.cwd()`, `process.pid`, `console.*`, `fetch`, `XMLHttpRequest`, dynamic `import('...')` with non-literal specifier, `require('fs')`, `require('http')`, all `node:*` builtins except `node:crypto`, all `crypto.*` except `crypto.subtle.digest`, iteration over plain `Object` literals where order matters (use `Map` with sorted keys), `Array.prototype.sort` without explicit comparator
+  - **Allowlisted in `src/kernel/`:** `tau-prolog`, `rdf-canonize`, `crypto.subtle.digest` (SHA-256 only)
   - Imports from `src/composition/` or `src/adapters/` remain forbidden
-- [ ] Package imports successfully in Node v22+ (per `package.json` `engines.node`; chosen for native test runner support and stable ESM behavior) and modern browsers
+- [x] Package imports successfully in Node v22+ (per `package.json` `engines.node`) and modern browsers
 
 ### 0.2 Typed Error Class Hierarchy
 
-**Status:** Not Started | **Priority:** High
+**Status:** ✅ COMPLETE 2026-05-02 (commit `0168fce`) | **Priority:** High
 
 Implement all twelve error classes per API spec §10 plus `TauPrologVersionMismatchError`.
 
 **Acceptance Criteria:**
-- [ ] `OFBTError` base class with documented fields
-- [ ] All 11 subclasses implemented: `ParseError`, `UnsupportedConstructError`, `IRIFormatError`, `RoundTripError`, `SessionRequiredError`, `SessionDisposedError`, `StepCapExceededError`, `SessionStepCapExceededError`, `CycleDetectedError`, `ARCManifestError`, `TauPrologVersionMismatchError`
-- [ ] Every subclass extends `OFBTError` and carries documented fields
-- [ ] Unit tests verify instantiation and field shape for each class
+- [x] `OFBTError` base class with documented fields (`code`, `libraryVersion`)
+- [x] All 11 subclasses implemented: `ParseError`, `UnsupportedConstructError`, `IRIFormatError`, `RoundTripError`, `SessionRequiredError`, `SessionDisposedError`, `StepCapExceededError`, `SessionStepCapExceededError`, `CycleDetectedError`, `ARCManifestError`, `TauPrologVersionMismatchError`
+- [x] Every subclass extends `OFBTError` and carries documented fields
+- [x] Unit tests verify instantiation and field shape for each class (13 cases in `tests/errors.test.ts`)
 
 ### 0.3 Frozen Reason Enum
 
-**Status:** Not Started | **Priority:** High
+**Status:** ✅ COMPLETE 2026-05-02 (commit `0168fce`) | **Priority:** High
 
 **Acceptance Criteria:**
-- [ ] `REASON_CODES` exported as `Object.freeze`d constant per API spec §11
-- [ ] All 16 enum members present
-- [ ] Mutation attempts throw at runtime
-- [ ] Consumers can switch exhaustively over the enum
+- [x] `REASON_CODES` exported as `Object.freeze`d constant per API spec §11
+- [x] All 16 enum members present
+- [x] Mutation attempts throw at runtime (verified by 7 tests in `tests/reason-codes.test.ts`)
+- [x] Consumers can switch exhaustively over the enum (`ReasonCode` discriminated union)
 
 ### 0.4 Version Surfacing and Tau Prolog Verification
 
-**Status:** Not Started | **Priority:** High
+**Status:** ✅ COMPLETE 2026-05-02 (commit `0168fce`; ADR-004 records the probe seam) | **Priority:** High
 
 **Acceptance Criteria:**
-- [ ] Sync `getVersionInfo()` returns documented shape with `apiSpecVersion: '0.1.7'` per API spec §9.1
-- [ ] Sync `verifyTauPrologVersion()` per API spec §9.2: returns `{match: true, expected: '0.3.4', found: '0.3.4'}` when v0.3.4 is loaded; `{match: false, ...}` otherwise
-- [ ] Mismatches throw `TauPrologVersionMismatchError` with `expected`, `found`, `resolution` fields populated
+- [x] Sync `getVersionInfo()` returns documented shape with `apiSpecVersion: '0.1.7'` per API spec §9.1
+- [x] Sync `verifyTauPrologVersion()` per API spec §9.2: returns `{match: true, expected: '0.3.4', found: '0.3.4'}` when v0.3.4 is loaded; `{match: false, ...}` otherwise
+- [x] Mismatches throw `TauPrologVersionMismatchError` with `expected`, `found`, `resolution` fields populated (verified by 9 tests in `tests/version.test.ts` via the `registerTauPrologProbe` testing seam per ADR-004)
 
 ### 0.5 Session Lifecycle Skeletons
 
-**Status:** Not Started | **Priority:** High
+**Status:** ✅ COMPLETE 2026-05-02 (commit `0168fce`) | **Priority:** High
 
 **Acceptance Criteria:**
-- [ ] `createSession()` allocates Tau Prolog state and calls `verifyTauPrologVersion()` internally per API spec §13.7.2
-- [ ] `disposeSession()` releases resources fully
-- [ ] `disposeSession(null)` throws `SessionRequiredError` per API spec §5.2
-- [ ] Session is caller-owned; no module-level singletons
+- [x] `createSession()` allocates Tau Prolog state and calls `verifyTauPrologVersion()` internally per API spec §13.7.2
+- [x] `disposeSession()` releases resources fully (idempotent on re-call)
+- [x] `disposeSession(null)` and `disposeSession(undefined)` throw `SessionRequiredError` per API spec §5.2
+- [x] Session is caller-owned; no module-level singletons; frozen-config snapshot (verified by 11 tests in `tests/session.test.ts`)
 
 ### 0.6 ARC Manifest TSV→JSON-LD Migration
 
-**Status:** Not Started | **Priority:** High | **Owner:** Aaron + engineering
+**Status:** ✅ Engineering scaffolding COMPLETE 2026-05-02 (commit `d990353`); SME-side Module-column population is the Aaron-led parallel workstream (per ADR-003) gating Phase 4 entry, not Phase 0 exit. | **Priority:** High | **Owner:** Aaron (Module column) + engineering (compiler tooling)
 
-The current ARC catalogue is TSV-only (`project/relations_catalogue_v3.tsv`). Phases 4-7 cannot begin until the five JSON-LD modules per spec §3.6.1 exist. This is a Phase 0 prerequisite, not a Phase 4 deliverable.
+The current ARC catalogue is TSV-only (`project/relations_catalogue_v3.tsv`). Phases 4-7 cannot begin until the five JSON-LD modules per spec §3.6.1 exist. Per ADR-003 the engineering compiler scaffolding ships in Phase 0; the SME-authored `Module` column / `arc/module-assignments.json` population is the parallel SME workstream.
 
 **Acceptance Criteria:**
-- [ ] `relations_catalogue_v3.tsv` gains a `Module` column assigning each row to one of the five modules from spec §3.6.1
-- [ ] Five JSON-LD module files generated: `arc/core/bfo-2020.json`, `arc/core/iao-information.json`, `arc/cco/realizable-holding.json`, `arc/cco/mereotopology.json`, `arc/ofi/deontic.json`
-- [ ] Disjointness commitments currently in the Notes column (rows 65-66 `discharges`/`violates`) are formalized into machine-readable axiom entries
-- [ ] TSV remains as auto-generated human-readable view per spec §14 Q1 resolution
-- [ ] Round-trip script: TSV → JSON-LD modules → regenerated TSV produces byte-identical TSV
+- [ ] **(Aaron parallel workstream, gates Phase 4 entry)** `relations_catalogue_v3.tsv` gains a `Module` column assigning each row to one of the five modules from spec §3.6.1 — OR `arc/module-assignments.json` is populated as the transition affordance per ADR-003
+- [x] Compiler scaffolding for five JSON-LD module file targets: `arc/core/bfo-2020.json`, `arc/core/iao-information.json`, `arc/cco/realizable-holding.json`, `arc/cco/mereotopology.json`, `arc/ofi/deontic.json` (`scripts/build-arc.js`; populates from TSV Module column or `arc/module-assignments.json`)
+- [ ] **(Phase 7 deliverable per architect)** Disjointness commitments currently in the Notes column (rows 65-66 `discharges`/`violates`) are formalized into machine-readable axiom entries in `arc/ofi/deontic.json`
+- [x] TSV remains as auto-generated human-readable view per spec §14 Q1 resolution (`scripts/regenerate-arc-tsv.js`)
+- [x] Round-trip script: TSV → JSON-LD modules → regenerated TSV produces byte-identical TSV (`scripts/round-trip-arc.js`; runs in non-strict mode in Phase 0; `--strict` gates Phase 4 entry per the per-phase ARC Authoring Exit Criteria below)
 
 ### 0.7 SME Tooling and Authoring Infrastructure
 
-**Status:** Not Started | **Priority:** High | **Owner:** Engineering (tooling) + Aaron (conventions)
+**Status:** ✅ COMPLETE 2026-05-02 (commit `d990353`) | **Priority:** High | **Owner:** Engineering (tooling) + Aaron (conventions)
 
 The Logic SME role authors ARC entries and test fixtures across Phases 1-7. Without explicit tooling and conventions in Phase 0, the SME workstream improvises and the engineering team can't lint authored content.
 
 **Acceptance Criteria:**
-- [ ] `scripts/build-arc.js` — TSV → JSON-LD ARC module compiler (drives the round-trip script in 0.6)
-- [ ] `scripts/lint-arc.js` — checks every Verified ARC entry has at least one fixture; checks IRIs resolve against an offline canonical-vocabulary cache (BFO 2020, CCO 2.0, RO release, IAO release, PROV-O); checks declared parent properties exist in the entry's module or its declared dependencies; fails CI on violation
-- [ ] `arc/AUTHORING_DISCIPLINE.md` — per-entry sign-off ritual: required fields, Verified/[VERIFY]/Draft state machine, peer-review checklist (citation to canonical literature, OWL characteristics declared, FOL definition in CL or KIF, domain/range with disjointness implications, inverse / property-chain dependencies, at least one worked-example fixture)
-- [ ] `tests/corpus/README.md` — fixture-authoring conventions: file-naming convention (`<phase>_<theme>_<intent>.fixture.js`), the plain-objects + JSDoc DSL discipline (no test-framework lock-in), the manifest-update-on-add discipline (see 0.8)
-- [ ] `tests/corpus/manifest.json` — initial empty manifest with schema documented (see 0.8)
+- [x] `scripts/build-arc.js` — TSV → JSON-LD ARC module compiler (drives the round-trip script in 0.6)
+- [x] `scripts/lint-arc.js` — checks every Verified ARC entry has at least one fixture (enforced under `--strict` per ADR-006 / S2 amendment); checks IRIs resolve against an offline canonical-vocabulary cache (BFO 2020, CCO 2.0, RO release, IAO release, PROV-O — see 0.7.1); checks declared parent properties exist in the entry's module or its declared dependencies; fails CI on violation under `--strict`
+- [x] `arc/AUTHORING_DISCIPLINE.md` — per-entry sign-off ritual: required fields (including `subPropertyOf` per N2 amendment), Verified/[VERIFY]/Draft state machine, peer-review checklist
+- [x] `tests/corpus/README.md` — fixture-authoring conventions: file-naming convention (`<phase>_<theme>_<intent>.fixture.js`), the plain-objects + JSDoc DSL discipline (no test-framework lock-in), the manifest-update-on-add discipline (see 0.8)
+- [x] `tests/corpus/manifest.json` — initial empty manifest with schema documented (see 0.8)
 
 #### 0.7.1 Canonical-Vocabulary IRI Cache (sub-item of 0.7)
 
@@ -125,13 +125,13 @@ The Logic SME role authors ARC entries and test fixtures across Phases 1-7. With
 
 ### 0.8 Test Corpus Manifest
 
-**Status:** Not Started | **Priority:** High | **Owner:** Aaron + engineering
+**Status:** ✅ COMPLETE 2026-05-02 (commit `d990353`; tightened by ADR-006 / S1 amendment requiring `expected_v0.2_elk_verdict` presence) | **Priority:** High | **Owner:** Aaron + engineering
 
 The corpus needs machine-checkable traceability from fixture → spec section → ARC entry → expected outcome. API §14.11's coverage matrix CI lands at Phase 7, but per-phase corpus authoring (Phases 1-6) requires equivalent traceability from day one or fixtures drift from criteria.
 
 **Acceptance Criteria:**
-- [ ] `tests/corpus/manifest.json` schema defined with the following per-fixture columns:
-  - `fixtureId` (stable string, matches filename)
+- [x] `tests/corpus/manifest.json` schema defined ([`tests/corpus/manifest.schema.json`](../tests/corpus/manifest.schema.json)) with the following per-fixture columns:
+  - `fixtureId` (stable string, matches filename, pattern `^[a-z0-9_]+$`)
   - `phase` (1-7)
   - `specSections` (array of spec / API spec section refs)
   - `acceptanceCriteria` (array of §12 / API §14 criterion IDs the fixture exercises)
@@ -139,21 +139,21 @@ The corpus needs machine-checkable traceability from fixture → spec section �
   - `regime` (`equivalent` | `reversible` | `true_loss`)
   - `expectedOutcome` (free-form structured per fixture type — entailment-set, consistency verdict, round-trip diff, etc.)
   - `expectedLossSignatureReasons` (array of reason-enum members; empty for clean round-trip fixtures)
-  - `intendedToCatch` (free-text — what wrong translation or silent failure this fixture is engineered to expose)
+  - `intendedToCatch` (free-text — what wrong translation or silent failure this fixture is engineered to expose; required non-empty)
   - `expected_v0.1_verdict` (the verdict v0.1 produces today)
-  - `expected_v0.2_elk_verdict` (the verdict v0.2 should produce after ELK lands; `null` if no expected change). When ELK lands, fixtures whose v0.2 verdict differs from v0.1 are tracked as expected-upgrades; fixtures whose v0.1 verdict was `'undetermined'` and v0.2 verdict is definite are the regression-suite signal that ELK is doing what it should.
-- [ ] CI gate: every fixture under `tests/corpus/` has a manifest entry; every manifest entry references an existing fixture file; orphan entries and orphan fixtures fail CI
-- [ ] Manifest update is part of the Definition of Done for any fixture-authoring PR (see `tests/corpus/README.md` from 0.7)
+  - `expected_v0.2_elk_verdict` (REQUIRED per ADR-006; `null` permitted but absent forbidden — collapses the ELK regression-suite signal otherwise). When ELK lands, fixtures whose v0.2 verdict differs from v0.1 are tracked as expected-upgrades; fixtures whose v0.1 verdict was `'undetermined'` and v0.2 verdict is definite are the regression-suite signal that ELK is doing what it should.
+- [x] CI gate: every fixture under `tests/corpus/` has a manifest entry; every manifest entry references an existing fixture file; orphan entries and orphan fixtures fail CI (`scripts/check-corpus-manifest.ts`; runs in `npm run ci` and CI workflow)
+- [x] Manifest update is part of the Definition of Done for any fixture-authoring PR (see `tests/corpus/README.md` from 0.7)
 
 ### Phase 0 Entry Review
 - [x] Entry criteria confirmed met (spec v0.1.7 frozen, team assembled, Tau Prolog v0.3.4 confirmed; npm name reservation flagged as external, non-blocking)
 - [x] Entry summary committed to repo: [`project/reviews/phase-0-entry.md`](reviews/phase-0-entry.md)
 
 ### Phase 0 Exit Review
-- [x] All listed exit criteria pass in CI — verified 2026-05-02; 47/47 tests pass; purity check green after fixing `canonicalize.ts` bare-sort
+- [x] All listed exit criteria pass in CI — verified 2026-05-02 locally then on remote (GitHub Actions runs `25258319623` and `25258966785`, both green); 47/47 tests pass; purity check green after fixing `canonicalize.ts` bare-sort
 - [x] Risk retrospective recorded (per plan §6.3) in [`project/reviews/phase-0-exit.md`](reviews/phase-0-exit.md)
-- [x] Exit summary committed to repo: [`project/reviews/phase-0-exit.md`](reviews/phase-0-exit.md)
-- [x] ADRs logged: ADR-002 (purity allowlist), ADR-003 (TSV Module column ownership), ADR-004 (Tau Prolog probe seam) in [`project/DECISIONS.md`](DECISIONS.md)
+- [x] Exit summary committed to repo: [`project/reviews/phase-0-exit.md`](reviews/phase-0-exit.md) (commit SHAs + run IDs inserted in commit `7cefc25`)
+- [x] ADRs logged: ADR-002 (purity allowlist), ADR-003 (TSV Module column ownership), ADR-004 (Tau Prolog probe seam), ADR-005 (CLI restructure), ADR-006 (tightened purity rules) in [`project/DECISIONS.md`](DECISIONS.md)
 
 **Validation Rings:** N/A — no conversion or evaluation logic exists yet.
 
@@ -168,43 +168,61 @@ The corpus needs machine-checkable traceability from fixture → spec section �
 
 **Goal:** Implement `owlToFol` for OWL constructs whose semantics are fixed by the OWL standard, independent of any ARC manifest content.
 
-**Status:** Not Started
+**Status:** IN PROGRESS — Steps 1-2 of 9 complete (see Phase 1 Implementation Progress below). Phase 1 Entry Review committed 2026-05-02 ([`project/reviews/phase-1-entry.md`](reviews/phase-1-entry.md)).
 
 **Plan reference:** §3.2
 
+### Phase 1 Implementation Progress (Step-level tracker)
+
+The architect ratified the corpus + canaries as the contract; the developer's internal nine-step sequencing per [`phase-1-entry.md`](reviews/phase-1-entry.md) §"Phase 1 Implementation Sequencing" is non-binding for the architect but useful for grounding here. Each Step activates a slice of the Deliverables Checklist below:
+
+| Step | Scope | Status | Activates |
+|---|---|---|---|
+| 1 | `owlToFol` skeleton, IRI canonicalization (§3.10), JSON-LD-shaped output type definitions, §13.1 punted-construct rejection from day one, ABox lifting | ✅ Complete (commit `75d7c62`) | `canary_punned_construct_rejection`, `canary_iri_canonicalization`, `p1_abox_assertions`, `p1_owl_same_and_different` |
+| 2 | TBox: SubClassOf / EquivalentClasses / DisjointWith / ClassDefinition; class-expression lifting for someValuesFrom / allValuesFrom / hasValue / IntersectionOf / UnionOf / ComplementOf | ✅ Complete (this session, pending commit) | `p1_subclass_chain`, `p1_equivalent_and_disjoint_named`, `p1_restrictions_object_value` |
+| 3 | RBox `ObjectPropertyDomain` + `ObjectPropertyRange` conditional translation (HIGH-PRIORITY per §3.7.1) | ⏳ Pending | `canary_domain_range_existential`, `p1_prov_domain_range` |
+| 4 | `owl:sameAs` identity-aware predicate variants per spec §5.5.2 (propagation through other predicates, beyond Step 1's reserved-predicate facts) | ⏳ Pending | `canary_same_as_propagation` |
+| 5 | RBox property characteristics (`Functional`, `Transitive`, `Symmetric`, `InverseOf`) with cycle-guarded rewrites per ADR-011 + **Skolem-naming convention ADR (anticipated ADR-007)** committing to one convention propagated to all STRUCTURAL_ONLY fixtures | ⏳ Pending | `p1_property_characteristics` |
+| 6 | RDFC-1.0 blank-node canonicalization via `rdf-canonize`; uses Skolem prefix from Step 5 ADR | ⏳ Pending | `p1_blank_node_anonymous_restriction` |
+| 7 | Cardinality restrictions (min / max / exact + qualified `onClass`); fills the second STRUCTURAL_ONLY placeholder using the Step 5 ADR convention | ⏳ Pending | `p1_restrictions_cardinality` |
+| 8 | Datatype canonicalization per spec §5.6.5 (XSD canonical lexical-form normalization beyond pass-through); structural annotation declaration consistency machinery skeleton | ⏳ Pending | (informational; supports later phases) |
+| 9 | 100-run determinism harness per API §6.1.1; STRUCTURAL_ONLY placeholders' byte-exact `expectedFOL` literals filled in consistently with the Step 5 ADR; `verifiedStatus: 'Draft'` → `'Verified'` promotion across the 13 fixtures | ⏳ Pending | (drives Phase 1 Exit Review) |
+
 ### Deliverables Checklist
-- [ ] `owlToFol()` per API spec §6.1 with structured OWL input handling per API spec §3
-- [ ] Class expressions: `Class`, `SubClassOf`, `EquivalentClasses`, `DisjointWith`, `ClassDefinition`, `ObjectIntersectionOf`, `ObjectUnionOf`, `ObjectComplementOf`
-- [ ] Restrictions per API spec §3.4: `ObjectSomeValuesFrom`, `ObjectAllValuesFrom`, `ObjectHasValue`, all cardinality variants
-- [ ] ABox per API spec §3.5; RBox per API spec §3.7
-- [ ] **HIGH PRIORITY:** `ObjectPropertyDomain` and `ObjectPropertyRange` lift to **conditional implications**, NOT existential restrictions (API spec §3.7.1, behavioral spec §5.8). PROV-O fixture mandatory in this phase's corpus.
-- [ ] IRI canonicalization per API spec §3.10 (input forms accepted, internal canonical, FOL output in full URI form)
-- [ ] Datatype canonicalization per spec §5.6.5 (XSD canonical lexical forms)
-- [ ] Identity rules per spec §5.5 (`owl:sameAs` propagation)
-- [ ] RDFC-1.0 blank node canonicalization per spec §5.7 via `rdf-canonize`
-- [ ] JSON-LD-shaped FOL output per API spec §4
-- [ ] ARC manifest stub: `arcCoverage: 'permissive'` always (callers cannot select strict in Phase 1; strict-mode operational behavior arrives in Phase 4); properties go through §6.4 fallback with `unknown_relation` Loss Signature
-- [ ] Lifter rejects all spec §13.1 punted constructs with `UnsupportedConstructError`. The `construct` field names the specific construct (e.g., `'owl:hasKey'`, `'owl:NegativePropertyAssertion'`, `'punning'`, `'faceted-datatype-restriction'`, `'annotation-on-annotation'`). One test fixture per punted construct verifies the rejection.
+Per-deliverable status reflects which Steps have landed. `~` indicates partially complete; `✅` complete; `⏳` pending.
+
+- [~] `owlToFol()` per API spec §6.1 with structured OWL input handling per API spec §3 (Steps 1-2 complete; Steps 3-9 outstanding)
+- [~] Class expressions: `Class`, `SubClassOf`, `EquivalentClasses`, `DisjointWith`, `ClassDefinition`, `ObjectIntersectionOf`, `ObjectUnionOf`, `ObjectComplementOf` (✅ all complete in Step 2)
+- [~] Restrictions per API spec §3.4: `ObjectSomeValuesFrom`, `ObjectAllValuesFrom`, `ObjectHasValue` (✅ Step 2); all cardinality variants (⏳ Step 7)
+- [~] ABox per API spec §3.5 (✅ Step 1); RBox per API spec §3.7 (⏳ Steps 3 + 5)
+- [ ] **HIGH PRIORITY:** `ObjectPropertyDomain` and `ObjectPropertyRange` lift to **conditional implications**, NOT existential restrictions (API spec §3.7.1, behavioral spec §5.8). PROV-O fixture mandatory in this phase's corpus. (⏳ Step 3)
+- [x] IRI canonicalization per API spec §3.10 (input forms accepted, internal canonical, FOL output in full URI form) — Step 1; canary verifies three input forms produce byte-identical FOL
+- [ ] Datatype canonicalization per spec §5.6.5 (XSD canonical lexical forms) — ⏳ Step 8 (Step 1 ships pass-through TypedLiteral handling)
+- [~] Identity rules per spec §5.5 (`owl:sameAs` propagation) — Step 1 ships sameAs facts; Step 4 wires identity-aware predicate variants per §5.5.2
+- [ ] RDFC-1.0 blank node canonicalization per spec §5.7 via `rdf-canonize` — ⏳ Step 6
+- [x] JSON-LD-shaped FOL output per API spec §4 — Step 1
+- [x] ARC manifest stub: `arcCoverage: 'permissive'` always (callers cannot select strict in Phase 1; strict-mode operational behavior arrives in Phase 4); properties go through §6.4 fallback with `unknown_relation` Loss Signature
+- [x] Lifter rejects all spec §13.1 punted constructs with `UnsupportedConstructError`. The `construct` field names the specific construct (e.g., `'owl:hasKey'`, `'owl:NegativeObjectPropertyAssertion'`, `'punning'`, `'faceted-datatype-restriction'`, `'annotation-on-annotation'`). One test fixture per punted construct verifies the rejection. — Step 1; `canary_punned_construct_rejection` exercises all 5 cases
 
 ### Phase 1 Test Corpus
-Every fixture below MUST be registered in `tests/corpus/manifest.json` per Phase 0.8 with `intendedToCatch` populated.
+All 13 fixtures below are registered in [`tests/corpus/manifest.json`](../tests/corpus/manifest.json) per Phase 0.8 with `intendedToCatch` populated; manifest gate green. "Active" indicates the lifter passes the fixture; "deferred" indicates the activating Step has not yet landed.
 
-- [ ] Simple `subClassOf` chains
-- [ ] `EquivalentClasses` and `DisjointWith` between named classes
-- [ ] All restriction variants (`ObjectSomeValuesFrom`, `ObjectAllValuesFrom`, `ObjectHasValue`, cardinality)
-- [ ] ABox class assertions, object property assertions, datatype property assertions
-- [ ] `owl:sameAs` and `owl:differentFrom` between named individuals
-- [ ] Property characteristics: `Functional`, `Transitive`, `Symmetric`, `InverseOf`
-- [ ] **PROV-O domain/range fixtures** (`prov:wasInfluencedBy` with domain + range both `prov:Entity`, plus property assertion) — verifies the conditional translation, asserts the existential wrong translation is absent
-- [ ] Blank-node-bearing class expressions (anonymous restrictions)
+- [x] **active** — Simple `subClassOf` chains ([`p1_subclass_chain`](../tests/corpus/p1_subclass_chain.fixture.js); Step 2)
+- [x] **active** — `EquivalentClasses` and `DisjointWith` between named classes ([`p1_equivalent_and_disjoint_named`](../tests/corpus/p1_equivalent_and_disjoint_named.fixture.js); Step 2)
+- [~] **partial** — Restriction variants: `ObjectSomeValuesFrom`, `ObjectAllValuesFrom`, `ObjectHasValue` active ([`p1_restrictions_object_value`](../tests/corpus/p1_restrictions_object_value.fixture.js); Step 2); cardinality deferred ([`p1_restrictions_cardinality`](../tests/corpus/p1_restrictions_cardinality.fixture.js); Step 7)
+- [x] **active** — ABox class assertions, object property assertions, datatype property assertions ([`p1_abox_assertions`](../tests/corpus/p1_abox_assertions.fixture.js); Step 1)
+- [x] **active** — `owl:sameAs` and `owl:differentFrom` between named individuals ([`p1_owl_same_and_different`](../tests/corpus/p1_owl_same_and_different.fixture.js); Step 1)
+- [ ] **deferred** — Property characteristics: `Functional`, `Transitive`, `Symmetric`, `InverseOf` ([`p1_property_characteristics`](../tests/corpus/p1_property_characteristics.fixture.js); Step 5)
+- [ ] **deferred** — **PROV-O domain/range fixtures** (`prov:wasInfluencedBy` with domain + range both `prov:Entity`, plus property assertion) — verifies the conditional translation, asserts the existential wrong translation is absent ([`p1_prov_domain_range`](../tests/corpus/p1_prov_domain_range.fixture.js); Step 3)
+- [ ] **deferred** — Blank-node-bearing class expressions (anonymous restrictions) ([`p1_blank_node_anonymous_restriction`](../tests/corpus/p1_blank_node_anonymous_restriction.fixture.js); Step 6)
 
 #### Phase 1 Wrong-Translation Canary Set
 Each canary asserts the **wrong** shape is absent, not just that the right shape is present. Failure of a canary indicates the lifter has regressed into a known-bad translation pattern.
 
-- [ ] `canary_domain_range_existential.fixture.js` — PROV-O domain/range; asserts no `subClassOf [Restriction someValuesFrom Y]` synthesis on `X`
-- [ ] `canary_same_as_propagation.fixture.js` — `same_as(a,b) ∧ p(a,c)` lifted; query for `p(b,c)` MUST be entailed; asserts the lifter does not silently drop identity propagation per spec §5.5 (renamed from `canary_sameAs_propagation` for Phase 0.8 manifest schema conformance — fixtureId pattern is `^[a-z0-9_]+$`)
-- [ ] `canary_iri_canonicalization.fixture.js` — same axiom expressed in three input IRI forms (full URI, CURIE, bracketed); asserts byte-identical lifted FOL across all three per API spec §3.10
-- [ ] `canary_punned_construct_rejection.fixture.js` — input containing each spec §13.1 punted construct; asserts `UnsupportedConstructError` thrown with the construct-specific `construct` field, not silent acceptance with degraded output
+- [ ] **deferred** — [`canary_domain_range_existential.fixture.js`](../tests/corpus/canary_domain_range_existential.fixture.js) — PROV-O domain/range; asserts no `subClassOf [Restriction someValuesFrom Y]` synthesis on `X` (Step 3)
+- [ ] **deferred** — [`canary_same_as_propagation.fixture.js`](../tests/corpus/canary_same_as_propagation.fixture.js) — `same_as(a,b) ∧ p(a,c)` lifted; query for `p(b,c)` MUST be entailed; asserts the lifter does not silently drop identity propagation per spec §5.5 (renamed from `canary_sameAs_propagation` for Phase 0.8 manifest schema conformance — fixtureId pattern is `^[a-z0-9_]+$`) (Step 4)
+- [x] **active** — [`canary_iri_canonicalization.fixture.js`](../tests/corpus/canary_iri_canonicalization.fixture.js) — same axiom expressed in three input IRI forms (full URI, CURIE, bracketed); asserts byte-identical lifted FOL across all three per API spec §3.10 (Step 1; bug-found-and-fixed during initial implementation, see commit `75d7c62` body)
+- [x] **active** — [`canary_punned_construct_rejection.fixture.js`](../tests/corpus/canary_punned_construct_rejection.fixture.js) — input containing each spec §13.1 punted construct; asserts `UnsupportedConstructError` thrown with the construct-specific `construct` field, not silent acceptance with degraded output (Step 1; all 5 cases pass)
 
 ### Exit Criteria — Ring 1 only
 - [ ] All corpus members lift to FOL with semantically correct output

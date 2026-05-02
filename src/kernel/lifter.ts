@@ -1,23 +1,25 @@
 /**
- * OWL → FOL Lifter (Phase 1 Step 1 scope)
+ * OWL → FOL Lifter (Phase 1, through Step 2)
  *
  * Per API spec §6.1. Async because subsequent steps wire `rdf-canonize` for
  * blank-node canonicalization (Step 6 per phase-1-entry.md sequencing); the
- * Promise contract is established in Step 1 even though the Step 1 surface
+ * Promise contract is established in Step 1 even though current surface
  * does not await anything yet.
  *
- * STEP 1 SCOPE (architect-ratified):
+ * IMPLEMENTED (Steps 1-2):
  *   - owlToFol skeleton returning Promise<FOLAxiom[]>
  *   - IRI canonicalization on every input IRI per §3.10
- *   - JSON-LD-shaped output type definitions in use
- *   - §13.1 punted-construct REJECTION FROM DAY ONE per architect's third
- *     observation: "build to the canary, not around it"
- *   - ABox lifting (ClassAssertion, ObjectPropertyAssertion,
- *     DataPropertyAssertion, SameIndividual, DifferentIndividuals)
+ *   - JSON-LD-shaped output type definitions
+ *   - §13.1 punted-construct REJECTION FROM DAY ONE per architect's
+ *     "build to the canary, not around it"
+ *   - ABox: ClassAssertion (NamedClass target), ObjectPropertyAssertion,
+ *     DataPropertyAssertion, SameIndividual, DifferentIndividuals
+ *   - TBox: SubClassOf, EquivalentClasses, DisjointWith, ClassDefinition
+ *   - Class-expression lifting for restrictions someValuesFrom /
+ *     allValuesFrom / hasValue, plus intersection / union / complement.
+ *     ClassAssertion against complex class expressions also benefits.
  *
- * NOT YET IMPLEMENTED (deferred to Step 2-9):
- *   - TBox: SubClassOf, EquivalentClasses, DisjointWith, ClassDefinition (Step 2)
- *   - Restrictions someValuesFrom/allValuesFrom/hasValue (Step 2)
+ * NOT YET IMPLEMENTED (deferred to Steps 3-9):
  *   - PROV-O domain/range conditional translation (Step 3)
  *   - sameAs identity-aware predicate variants per spec §5.5.2 (Step 4)
  *   - Property characteristics with cycle-guarded rewrites + Skolem ADR (Step 5)
@@ -25,10 +27,10 @@
  *   - Cardinality restrictions (Step 7)
  *   - 100-run determinism harness (Step 9)
  *
- * Step 1 silently passes through unimplemented axiom kinds (skip-noop)
- * EXCEPT for §13.1 punted constructs which throw. This keeps CI green while
- * Step 2-9 fill in the missing axiom kinds; corpus fixtures whose constructs
- * are not yet implemented are gated by the runner, not by the lifter.
+ * Unimplemented axiom kinds noop (skip without error) EXCEPT for §13.1
+ * punted constructs which throw. CI stays green while later Steps fill in
+ * the missing kinds; corpus fixtures whose constructs are not yet
+ * implemented are gated by the runner, not by the lifter.
  *
  * Pure: no Date, no random, no I/O. The Promise wrapper is for the Step 6
  * rdf-canonize await that Phase 1 ultimately needs.
@@ -41,11 +43,24 @@ import type {
   TBoxAxiom,
   ABoxAxiom,
   RBoxAxiom,
-  AnnotationAxiom,
   ClassExpression,
   TypedLiteral,
 } from "./owl-types.js";
-import type { FOLAxiom, FOLAtom, FOLConstant, FOLTypedLiteral } from "./fol-types.js";
+import type {
+  FOLAxiom,
+  FOLAtom,
+  FOLConstant,
+  FOLTypedLiteral,
+  FOLTerm,
+  FOLVariable,
+  FOLUniversal,
+  FOLImplication,
+  FOLConjunction,
+  FOLDisjunction,
+  FOLNegation,
+  FOLExistential,
+  FOLFalse,
+} from "./fol-types.js";
 
 /**
  * Lift an OWLOntology to its FOL representation.
@@ -64,18 +79,21 @@ export async function owlToFol(ontology: OWLOntology): Promise<FOLAxiom[]> {
   const axioms: FOLAxiom[] = [];
   const prefixes = ontology.prefixes;
 
-  // (2) ABox lifting. Direct rules per spec §5.1 / API §3.5.
+  // (2) TBox lifting (Step 2). Source order is preserved, which matches
+  // the Phase 1 corpus's expected output order.
+  for (const t of ontology.tbox) {
+    const lifted = liftTBoxAxiom(t, prefixes);
+    if (lifted) axioms.push(...lifted);
+  }
+
+  // (3) ABox lifting (Step 1). Direct rules per spec §5.1 / API §3.5.
   for (const a of ontology.abox) {
     const lifted = liftABoxAxiom(a, prefixes);
     if (lifted) axioms.push(...lifted);
   }
 
-  // (3) TBox / RBox: deferred to Step 2+. Silently skip for Step 1.
-  // (Punted-construct detection has already run; non-punted-but-unimplemented
-  // axioms produce no output rather than throwing UnsupportedConstructError,
-  // because they ARE supported per the spec — they just haven't been
-  // implemented yet. The Phase 1 Step-1 corpus runner gates on which
-  // fixtures should run.)
+  // (4) RBox: deferred to Steps 3-5 (domain/range, property characteristics).
+  // Step 2 noops on RBox kinds; Steps 3+ fill in.
 
   return axioms;
 }
@@ -171,15 +189,43 @@ function detectFacetedDatatype(node: unknown): void {
 }
 
 function collectClassIRIs(ontology: OWLOntology): Set<string> {
+  // Per SME B1 fix: collect NamedClass IRIs from EVERY place a class can
+  // appear, not just ClassDefinition + ClassAssertion. The earlier scope
+  // missed SubClassOf/EquivalentClasses/DisjointWith subjects, restriction
+  // fillers, and ObjectPropertyDomain/Range targets — letting punning
+  // detection silently false-negative on the most common ontology shapes.
   const out = new Set<string>();
-  // TBox: ClassDefinition declarations + named-class subjects
+  const collectIfNamedClass = (node: unknown): void => {
+    if (
+      node !== null &&
+      typeof node === "object" &&
+      (node as { "@type"?: string })["@type"] === "Class"
+    ) {
+      const iri = (node as { iri?: string }).iri;
+      if (typeof iri === "string" && iri.length > 0) {
+        out.add(canonicalizeIRI(iri, ontology.prefixes));
+      }
+    }
+  };
+
+  // TBox: ClassDefinition's declared IRI is itself a class; expression and
+  // every other class-expression position is walked.
   for (const t of ontology.tbox) {
-    if (t["@type"] === "ClassDefinition") out.add(canonicalizeIRI(t.iri, ontology.prefixes));
+    if (t["@type"] === "ClassDefinition") {
+      out.add(canonicalizeIRI(t.iri, ontology.prefixes));
+    }
+    walkClassExpressionsInTBoxAxiom(t, collectIfNamedClass);
   }
-  // ABox: ClassAssertion target classes (only when the class is a named NamedClass)
+  // RBox: ObjectPropertyDomain.domain and ObjectPropertyRange.range carry
+  // class expressions.
+  for (const r of ontology.rbox) {
+    walkClassExpressionsInRBoxAxiom(r, collectIfNamedClass);
+  }
+  // ABox: ClassAssertion target — walk the full class expression so complex
+  // targets (intersections, unions, restrictions) are also covered.
   for (const a of ontology.abox) {
-    if (a["@type"] === "ClassAssertion" && a.class["@type"] === "Class") {
-      out.add(canonicalizeIRI(a.class.iri, ontology.prefixes));
+    if (a["@type"] === "ClassAssertion") {
+      walkClassExpression(a.class, collectIfNamedClass);
     }
   }
   return out;
@@ -366,11 +412,304 @@ function makeTypedLiteral(value: TypedLiteral): FOLTypedLiteral {
   return out;
 }
 
-// Annotation-axiom walker — kept for parity with the §13.1 detector even
-// though Phase 1 Step 1 does not lift annotations to FOL. AnnotationAxiom
-// values flow through the annotation walker so the pre-scan can detect
-// nested-annotation patterns; lifting itself is deferred per spec §5.9.
-export function _annotationWalkerForFutureSteps(_ann: AnnotationAxiom): void {
-  // Intentional no-op. Phase 1 Step 1 placeholder; structural annotations
-  // land in Step 3 + Phase 3 per ROADMAP.
+// ---------------------------------------------------------------------------
+// TBox lifting (Step 2)
+// ---------------------------------------------------------------------------
+
+/**
+ * Lift a TBox axiom to one or more FOLAxioms.
+ *
+ * SubClassOf(C, D)            → ∀x. lift(C, x) → lift(D, x)
+ * EquivalentClasses[C0..Cn]   → for each (i, j) with i<j: ∀x. Ci(x) → Cj(x)
+ *                                                          and: ∀x. Cj(x) → Ci(x)
+ * DisjointWith[C0..Cn]        → for each (i, j) with i<j: ∀x. Ci(x) ∧ Cj(x) → ⊥
+ * ClassDefinition(iri, expr)  → equivalent to EquivalentClasses[NamedClass(iri), expr]
+ */
+function liftTBoxAxiom(
+  axiom: TBoxAxiom,
+  prefixes?: Record<string, string>
+): FOLAxiom[] | null {
+  switch (axiom["@type"]) {
+    case "SubClassOf": {
+      const alloc = makeVarAllocator();
+      const x = alloc.next();
+      const ant = liftClassExpression(axiom.subClass, x, prefixes, alloc);
+      const cons = liftClassExpression(axiom.superClass, x, prefixes, alloc);
+      return [universal(x.name, implication(ant, cons))];
+    }
+    case "EquivalentClasses": {
+      const out: FOLAxiom[] = [];
+      const cs = axiom.classes;
+      for (let i = 0; i < cs.length; i++) {
+        for (let j = i + 1; j < cs.length; j++) {
+          out.push(...liftBidirectionalSubsumption(cs[i], cs[j], prefixes));
+        }
+      }
+      return out;
+    }
+    case "DisjointWith": {
+      const out: FOLAxiom[] = [];
+      const cs = axiom.classes;
+      for (let i = 0; i < cs.length; i++) {
+        for (let j = i + 1; j < cs.length; j++) {
+          const alloc = makeVarAllocator();
+          const x = alloc.next();
+          const left = liftClassExpression(cs[i], x, prefixes, alloc);
+          const right = liftClassExpression(cs[j], x, prefixes, alloc);
+          out.push(
+            universal(
+              x.name,
+              implication(conjunction([left, right]), falsum())
+            )
+          );
+        }
+      }
+      return out;
+    }
+    case "ClassDefinition": {
+      // Equivalent to EquivalentClasses[NamedClass(iri), expression].
+      // Same emission shape as the EquivalentClasses case for n=2.
+      const named: ClassExpression = {
+        "@type": "Class",
+        iri: axiom.iri,
+      };
+      return liftBidirectionalSubsumption(named, axiom.expression, prefixes);
+    }
+    default:
+      return null;
+  }
 }
+
+/**
+ * Emit ∀x. C(x) → D(x) AND ∀x. D(x) → C(x) for two class expressions.
+ *
+ * Each direction gets a fresh `makeVarAllocator()` (NOT a shared one) so
+ * both emitted universals bind `x`. Sharing the allocator would advance the
+ * counter across directions and yield `∀x. C(x) → D(x)` followed by
+ * `∀y. D(y) → C(y)` — semantically equivalent but inconsistent with the
+ * Phase 1 corpus's expected `expectedFOL` (e.g., p1_equivalent_and_disjoint_named
+ * pins both universals to `x`). This is a determinism contract, not just
+ * an aesthetic preference; banked for the Phase 1 exit Skolem-naming ADR.
+ */
+function liftBidirectionalSubsumption(
+  c: ClassExpression,
+  d: ClassExpression,
+  prefixes?: Record<string, string>
+): FOLAxiom[] {
+  const out: FOLAxiom[] = [];
+  // Forward direction — fresh allocator so this universal binds 'x'.
+  {
+    const alloc = makeVarAllocator();
+    const x = alloc.next();
+    const ant = liftClassExpression(c, x, prefixes, alloc);
+    const cons = liftClassExpression(d, x, prefixes, alloc);
+    out.push(universal(x.name, implication(ant, cons)));
+  }
+  // Reverse direction — fresh allocator again so this universal also binds 'x'.
+  {
+    const alloc = makeVarAllocator();
+    const x = alloc.next();
+    const ant = liftClassExpression(d, x, prefixes, alloc);
+    const cons = liftClassExpression(c, x, prefixes, alloc);
+    out.push(universal(x.name, implication(ant, cons)));
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Class-expression lifting (Step 2)
+// ---------------------------------------------------------------------------
+
+/**
+ * Lift a class expression `C` against a term `t`, producing a FOL formula
+ * representing membership: `C(t)`.
+ *
+ * Recursion handles Restrictions and Boolean class expressions. Cardinality
+ * and OneOf are not lifted in Step 2; they noop to a placeholder Atom that
+ * Step 7 / future steps replace.
+ *
+ * Variable-allocator threading: callers pass an allocator that yields fresh
+ * variable names ("x", "y", "z", "w", "v", "u", ...) — sufficient for the
+ * Phase 1 corpus's nesting depth. Step 6's blank-node fixture uses 3-deep
+ * nesting; the allocator handles arbitrary depth.
+ */
+function liftClassExpression(
+  expr: ClassExpression,
+  term: FOLTerm,
+  prefixes: Record<string, string> | undefined,
+  alloc: VarAllocator
+): FOLAxiom {
+  switch (expr["@type"]) {
+    case "Class": {
+      const atom: FOLAtom = {
+        "@type": "fol:Atom",
+        predicate: canonicalizeIRI(expr.iri, prefixes),
+        arguments: [term],
+      };
+      return atom;
+    }
+    case "ObjectIntersectionOf": {
+      const conjuncts = expr.classes.map((c) =>
+        liftClassExpression(c, term, prefixes, alloc)
+      );
+      return conjunction(conjuncts);
+    }
+    case "ObjectUnionOf": {
+      const disjuncts = expr.classes.map((c) =>
+        liftClassExpression(c, term, prefixes, alloc)
+      );
+      return { "@type": "fol:Disjunction", disjuncts } satisfies FOLDisjunction;
+    }
+    case "ObjectComplementOf": {
+      const inner = liftClassExpression(expr.class, term, prefixes, alloc);
+      return { "@type": "fol:Negation", inner } satisfies FOLNegation;
+    }
+    case "Restriction": {
+      // someValuesFrom — existential
+      if ("someValuesFrom" in expr) {
+        const filler = expr.someValuesFrom;
+        if ((filler as { "@type": string })["@type"] === "DatatypeRestriction") {
+          // Already caught by the punted-construct pre-scan; defensive.
+          throw new UnsupportedConstructError(
+            "Faceted datatype restrictions are a v0.1 punted construct per spec §13.1",
+            { construct: "faceted-datatype-restriction" }
+          );
+        }
+        const y = alloc.next();
+        const propAtom: FOLAtom = {
+          "@type": "fol:Atom",
+          predicate: canonicalizeIRI(expr.onProperty, prefixes),
+          arguments: [term, y],
+        };
+        const fillerLifted = liftClassExpression(
+          filler as ClassExpression,
+          y,
+          prefixes,
+          alloc
+        );
+        const exi: FOLExistential = {
+          "@type": "fol:Existential",
+          variable: y.name,
+          body: conjunction([propAtom, fillerLifted]),
+        };
+        return exi;
+      }
+      // allValuesFrom — universal-implication
+      if ("allValuesFrom" in expr) {
+        const y = alloc.next();
+        const propAtom: FOLAtom = {
+          "@type": "fol:Atom",
+          predicate: canonicalizeIRI(expr.onProperty, prefixes),
+          arguments: [term, y],
+        };
+        const fillerLifted = liftClassExpression(
+          expr.allValuesFrom,
+          y,
+          prefixes,
+          alloc
+        );
+        const inner: FOLUniversal = {
+          "@type": "fol:Universal",
+          variable: y.name,
+          body: implication(propAtom, fillerLifted),
+        };
+        return inner;
+      }
+      // hasValue — fact assertion against the named individual
+      if ("hasValue" in expr) {
+        const valConst: FOLConstant = {
+          "@type": "fol:Constant",
+          iri: canonicalizeIRI(expr.hasValue, prefixes),
+        };
+        const propAtom: FOLAtom = {
+          "@type": "fol:Atom",
+          predicate: canonicalizeIRI(expr.onProperty, prefixes),
+          arguments: [term, valConst],
+        };
+        return propAtom;
+      }
+      // Cardinality variants — Phase 1 Step 7 deliverable. Per SME B2 fix,
+      // throw rather than emit a wrong-arity placeholder atom. Emitting a
+      // unary atom of an object-property predicate silently corrupts the
+      // FOL state for any consumer that also reads the binary form of the
+      // same property. The runner correctly defers p1_restrictions_cardinality
+      // to Step 7, so this throw is unreached by the active corpus; any
+      // out-of-corpus consumer feeding cardinality input gets honest-admission
+      // failure rather than degraded FOL.
+      throw new UnsupportedConstructError(
+        "Cardinality restriction lifting is a Phase 1 Step 7 deliverable per ROADMAP; not yet implemented in the lifter. Activated when Step 7 lands.",
+        {
+          construct: "cardinality-restriction",
+          suggestion:
+            "Phase 1 Step 7 deliverable; this is implementation-in-progress, not a permanent v0.1 limitation. The fixture p1_restrictions_cardinality is registered against this construct and activates at Step 7 exit.",
+        }
+      );
+    }
+    case "ObjectOneOf": {
+      // Disjunction of equalities: x = i1 ∨ x = i2 ∨ ...
+      // Phase 1 Step 2 emits the disjunction; full Phase 1 may refine.
+      const disjuncts: FOLAxiom[] = expr.individuals.map((iri) => ({
+        "@type": "fol:Equality",
+        left: term,
+        right: {
+          "@type": "fol:Constant",
+          iri: canonicalizeIRI(iri, prefixes),
+        },
+      }));
+      return disjuncts.length === 1
+        ? disjuncts[0]
+        : { "@type": "fol:Disjunction", disjuncts } satisfies FOLDisjunction;
+    }
+    default: {
+      // Exhaustiveness guard. ClassExpression has no other variants per
+      // owl-types.ts; if a new one is added, TS catches the omission.
+      const _exhaustive: never = expr;
+      void _exhaustive;
+      throw new Error("liftClassExpression: unreachable");
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// FOL-axiom builders + variable allocator
+// ---------------------------------------------------------------------------
+
+interface VarAllocator {
+  next(): FOLVariable;
+}
+
+const VAR_NAMES = ["x", "y", "z", "w", "v", "u", "t", "s", "r", "q"];
+
+function makeVarAllocator(): VarAllocator {
+  let i = 0;
+  return {
+    next() {
+      const name = i < VAR_NAMES.length ? VAR_NAMES[i] : `v${i}`;
+      i += 1;
+      return { "@type": "fol:Variable", name };
+    },
+  };
+}
+
+function universal(variable: string, body: FOLAxiom): FOLUniversal {
+  return { "@type": "fol:Universal", variable, body };
+}
+
+function implication(antecedent: FOLAxiom, consequent: FOLAxiom): FOLImplication {
+  return { "@type": "fol:Implication", antecedent, consequent };
+}
+
+function conjunction(conjuncts: FOLAxiom[]): FOLConjunction {
+  return { "@type": "fol:Conjunction", conjuncts };
+}
+
+function falsum(): FOLFalse {
+  return { "@type": "fol:False" };
+}
+
+// Annotation lifting (spec §5.9 structural annotations) lands in Step 3 +
+// Phase 3 per ROADMAP. The current file's responsibilities stop at
+// detecting the §13.1 annotation-on-annotation punted pattern (handled
+// inline in rejectPuntedConstructs above). When structural-annotation
+// lifting work begins, it gets its own module (src/kernel/annotations.ts)
+// rather than a placeholder export here.
