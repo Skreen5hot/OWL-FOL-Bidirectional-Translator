@@ -70,9 +70,11 @@ When the Orchestrator uses these phrases, immediately adopt the persona and its 
 ### Starting a Session
 
 1. Read `project/ROADMAP.md` — identify the current phase and active task
-2. Read `project/SPEC.md` — understand the domain contract
-3. Read `project/DECISIONS.md` — review prior decisions
-4. Confirm your understanding with the Orchestrator before writing code
+2. Read `project/OFBT_spec_v0.1.7.md` and `project/OFBT_API_v0.1.7.md` — the frozen v0.1.7 contract (authoritative on behavior and API surface; editorial corrections only until v0.2)
+3. Read `project/OFBT_implementation_plan_v1 (1).md` — the eight-phase sequencing plan with three-ring validation pipeline
+4. Read `project/owl-fol-library-fandaws-consumer-requirements-v1.md` — Fandaws-side consumption requirements the v0.1.7 spec implements
+5. Read `project/DECISIONS.md` — review prior decisions
+6. Confirm your understanding with the Orchestrator before writing code
 
 ### During a Session
 
@@ -110,8 +112,12 @@ Layer 2: src/adapters/        <- Optional. Infrastructure integration.
 | `src/kernel/transform.ts` | The kernel — edit this for domain logic |
 | `src/kernel/canonicalize.ts` | Deterministic JSON serialization |
 | `examples/expected-output.jsonld` | Update when transform output changes |
-| `project/ROADMAP.md` | Current phase, tasks, acceptance criteria |
-| `project/SPEC.md` | Domain-specific input/output contract |
-| `project/DECISIONS.md` | Architecture decision log |
+| `project/ROADMAP.md` | Current phase, tasks, acceptance criteria (OFBT 8-phase) |
+| `project/OFBT_spec_v0.1.7.md` | Frozen v0.1.7 behavioral specification (authoritative) |
+| `project/OFBT_API_v0.1.7.md` | Frozen v0.1.7 API specification (authoritative) |
+| `project/OFBT_implementation_plan_v1 (1).md` | Eight-phase sequencing plan + validation rings |
+| `project/owl-fol-library-fandaws-consumer-requirements-v1.md` | Fandaws consumer requirements |
+| `project/DECISIONS.md` | Architecture decision log (ADRs) |
+| `config/developer.yaml` | Developer persona role + constraints |
 | `docs/ARCHITECTURE.md` | Normative design contract (6 principles) |
 | `docs/COMPUTATION_MODEL.md` | Formal kernel specification |
