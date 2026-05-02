@@ -413,22 +413,43 @@ await report(
 );
 
 // ===========================================================================
-// DEFERRED — Steps 3-7
+// STEP 3 — RBox ObjectPropertyDomain + ObjectPropertyRange (HIGH-PRIORITY
+// conditional translation per API §3.7.1; defense-in-depth via two fixtures)
 // ===========================================================================
 
-defer(
-  "canary_domain_range_existential",
-  "deferred to Step 3 (PROV-O domain/range conditional translation)"
+await report(
+  "p1_prov_domain_range: domain/range axioms lift to conditional universals (right shape)",
+  async () => {
+    const { fixture } = await loadFixture("p1_prov_domain_range.fixture.js");
+    const lifted = await owlToFol(fixture.input);
+    deepStrictEqual(lifted, fixture.expectedFOL);
+  }
 );
+
+await report(
+  "canary_domain_range_existential: forbidden existential-synthesis patterns are absent (wrong shape)",
+  async () => {
+    const { fixture } = await loadFixture("canary_domain_range_existential.fixture.js");
+    const lifted = await owlToFol(fixture.input);
+    // SME N1 helper put to its first real use: assert the wrong-shape
+    // patterns named in the canary's forbiddenFOLPatterns are absent
+    // anywhere in the lifted FOL state.
+    assertForbiddenPatterns(lifted, fixture.forbiddenFOLPatterns);
+    // expectedQueries on this canary activate at Phase 4 (entailment-query
+    // verification requires an evaluator, deferred to Phase 3 / Phase 4
+    // per the cross-phase activation pattern). Helper is wired with null
+    // evaluator and noops until then.
+    await assertExpectedQueries(fixture.expectedQueries, null);
+  }
+);
+
+// ===========================================================================
+// DEFERRED — Steps 4-7
+// ===========================================================================
 
 defer(
   "canary_same_as_propagation",
   "deferred to Step 4 (identity propagation through other predicates per spec §5.5.2)"
-);
-
-defer(
-  "p1_prov_domain_range",
-  "deferred to Step 3 (RBox ObjectPropertyDomain / ObjectPropertyRange conditional translation per API §3.7.1)"
 );
 
 defer(

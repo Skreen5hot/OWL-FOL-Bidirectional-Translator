@@ -1,36 +1,43 @@
 /**
- * OWL → FOL Lifter (Phase 1, through Step 2)
+ * OWL → FOL Lifter (Phase 1, through Step 3)
  *
  * Per API spec §6.1. Async because subsequent steps wire `rdf-canonize` for
  * blank-node canonicalization (Step 6 per phase-1-entry.md sequencing); the
  * Promise contract is established in Step 1 even though current surface
  * does not await anything yet.
  *
- * IMPLEMENTED (Steps 1-2):
+ * IMPLEMENTED (Steps 1-3):
  *   - owlToFol skeleton returning Promise<FOLAxiom[]>
  *   - IRI canonicalization on every input IRI per §3.10
  *   - JSON-LD-shaped output type definitions
  *   - §13.1 punted-construct REJECTION FROM DAY ONE per architect's
  *     "build to the canary, not around it"
- *   - ABox: ClassAssertion (NamedClass target), ObjectPropertyAssertion,
- *     DataPropertyAssertion, SameIndividual, DifferentIndividuals
+ *   - ABox: ClassAssertion (any class expression target),
+ *     ObjectPropertyAssertion, DataPropertyAssertion, SameIndividual,
+ *     DifferentIndividuals
  *   - TBox: SubClassOf, EquivalentClasses, DisjointWith, ClassDefinition
  *   - Class-expression lifting for restrictions someValuesFrom /
- *     allValuesFrom / hasValue, plus intersection / union / complement.
- *     ClassAssertion against complex class expressions also benefits.
+ *     allValuesFrom / hasValue, plus intersection / union / complement
+ *   - RBox: ObjectPropertyDomain + ObjectPropertyRange CONDITIONAL
+ *     translation per API §3.7.1 (HIGH-PRIORITY): emits
+ *     ∀x,y. P(x,y) → D(x) for domain, ∀x,y. P(x,y) → R(y) for range.
+ *     The lifter MUST NOT emit the existential synthesis form
+ *     (∀x. D(x) → ∃y. P(x,y)) — that is the wrong translation per spec
+ *     §5.8 / API §3.7.1.2 and the canary_domain_range_existential
+ *     fixture asserts its absence.
  *
- * NOT YET IMPLEMENTED (deferred to Steps 3-9):
- *   - PROV-O domain/range conditional translation (Step 3)
+ * NOT YET IMPLEMENTED (deferred to Steps 4-9):
  *   - sameAs identity-aware predicate variants per spec §5.5.2 (Step 4)
  *   - Property characteristics with cycle-guarded rewrites + Skolem ADR (Step 5)
  *   - RDFC-1.0 blank-node canonicalization (Step 6)
- *   - Cardinality restrictions (Step 7)
+ *   - Cardinality restrictions (Step 7) — currently throws
+ *     UnsupportedConstructError per SME B2 fix
  *   - 100-run determinism harness (Step 9)
  *
  * Unimplemented axiom kinds noop (skip without error) EXCEPT for §13.1
- * punted constructs which throw. CI stays green while later Steps fill in
- * the missing kinds; corpus fixtures whose constructs are not yet
- * implemented are gated by the runner, not by the lifter.
+ * punted constructs and cardinality (per SME B2) which throw. CI stays
+ * green while later Steps fill in the missing kinds; corpus fixtures
+ * whose constructs are not yet implemented are gated by the runner.
  *
  * Pure: no Date, no random, no I/O. The Promise wrapper is for the Step 6
  * rdf-canonize await that Phase 1 ultimately needs.
@@ -86,14 +93,21 @@ export async function owlToFol(ontology: OWLOntology): Promise<FOLAxiom[]> {
     if (lifted) axioms.push(...lifted);
   }
 
-  // (3) ABox lifting (Step 1). Direct rules per spec §5.1 / API §3.5.
+  // (3) RBox lifting (Step 3 = ObjectPropertyDomain + ObjectPropertyRange;
+  // remaining RBox kinds noop until Step 5). RBox is processed AFTER TBox
+  // and BEFORE ABox per the Phase 1 corpus's expected output order
+  // (p1_prov_domain_range emits domain+range universals before the
+  // property fact).
+  for (const r of ontology.rbox) {
+    const lifted = liftRBoxAxiom(r, prefixes);
+    if (lifted) axioms.push(...lifted);
+  }
+
+  // (4) ABox lifting (Step 1). Direct rules per spec §5.1 / API §3.5.
   for (const a of ontology.abox) {
     const lifted = liftABoxAxiom(a, prefixes);
     if (lifted) axioms.push(...lifted);
   }
-
-  // (4) RBox: deferred to Steps 3-5 (domain/range, property characteristics).
-  // Step 2 noops on RBox kinds; Steps 3+ fill in.
 
   return axioms;
 }
@@ -514,6 +528,70 @@ function liftBidirectionalSubsumption(
     out.push(universal(x.name, implication(ant, cons)));
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// RBox lifting (Step 3 — ObjectPropertyDomain + ObjectPropertyRange only)
+// ---------------------------------------------------------------------------
+
+/**
+ * Lift an RBox axiom to one or more FOLAxioms.
+ *
+ * Step 3 implements:
+ *   ObjectPropertyDomain(P, D)  → ∀x,y. P(x,y) → lift(D, x)    [API §3.7.1.1]
+ *   ObjectPropertyRange(P, R)   → ∀x,y. P(x,y) → lift(R, y)    [symmetric]
+ *
+ * The conditional translation is the HIGH-PRIORITY contract per API §3.7.1.
+ * The forbidden existential synthesis (∀x. D(x) → ∃y. P(x,y)) is verified
+ * absent by the canary_domain_range_existential fixture using the
+ * assertForbiddenPatterns helper.
+ *
+ * Other RBox axioms (SubObjectPropertyOf, EquivalentObjectProperties,
+ * InverseObjectProperties, ObjectPropertyChain, DisjointObjectProperties,
+ * ObjectPropertyCharacteristic) noop in Step 3; Step 5 fills them in
+ * with cycle-guarded rewrites per ADR-011.
+ */
+function liftRBoxAxiom(
+  r: RBoxAxiom,
+  prefixes?: Record<string, string>
+): FOLAxiom[] | null {
+  switch (r["@type"]) {
+    case "ObjectPropertyDomain": {
+      // ∀x,y. P(x,y) → D(x). Fresh allocator so x = first var, y = second;
+      // inner restrictions in D allocate from index 2 onward (z, w, ...).
+      const alloc = makeVarAllocator();
+      const x = alloc.next();
+      const y = alloc.next();
+      const propAtom: FOLAtom = {
+        "@type": "fol:Atom",
+        predicate: canonicalizeIRI(r.property, prefixes),
+        arguments: [x, y],
+      };
+      const domainLifted = liftClassExpression(r.domain, x, prefixes, alloc);
+      return [
+        universal(x.name, universal(y.name, implication(propAtom, domainLifted))),
+      ];
+    }
+    case "ObjectPropertyRange": {
+      // ∀x,y. P(x,y) → R(y). Same shape, range applied against y.
+      const alloc = makeVarAllocator();
+      const x = alloc.next();
+      const y = alloc.next();
+      const propAtom: FOLAtom = {
+        "@type": "fol:Atom",
+        predicate: canonicalizeIRI(r.property, prefixes),
+        arguments: [x, y],
+      };
+      const rangeLifted = liftClassExpression(r.range, y, prefixes, alloc);
+      return [
+        universal(x.name, universal(y.name, implication(propAtom, rangeLifted))),
+      ];
+    }
+    // Other RBox axioms: deferred to Step 5 (property characteristics with
+    // cycle-guarded rewrites + Skolem ADR). Noop here keeps the lifter total.
+    default:
+      return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
