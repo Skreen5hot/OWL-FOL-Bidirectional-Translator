@@ -38,6 +38,11 @@ import { fileURLToPath } from "node:url";
 import { owlToFol } from "../src/kernel/lifter.js";
 import { stableStringify } from "../src/kernel/canonicalize.js";
 import { UnsupportedConstructError, OFBTError } from "../src/kernel/errors.js";
+import {
+  assertForbiddenPatterns,
+  assertRequiredPattern,
+  assertExpectedQueries,
+} from "./lifter-phase1-helpers.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -75,107 +80,10 @@ async function loadFixture(file: string): Promise<{ fixture: any; meta: any }> {
   return { fixture: mod.fixture, meta: mod.meta };
 }
 
-// ===========================================================================
-// Helper machinery for canary-style assertions (per SME N1 — added now so
-// Step 3 doesn't have to invent it under deadline; unused until then)
-// ===========================================================================
-
-/**
- * Assert that NONE of the given forbidden FOL patterns is structurally
- * present anywhere in the lifted FOL state. A "pattern" is a partial
- * FOLAxiom-shaped object; `subtreeMatches` walks the lifted tree and
- * returns true if any subtree is a structural superset of the pattern
- * (every key the pattern declares is matched; extra keys in the lifted
- * subtree are permitted).
- *
- * Used by canary fixtures whose intent is "the wrong shape MUST be absent"
- * (e.g., canary_domain_range_existential's existential-synthesis patterns).
- */
-export function assertForbiddenPatterns(
-  lifted: unknown,
-  forbiddenPatterns: Array<{ description: string; pattern: unknown }>
-): void {
-  for (const fp of forbiddenPatterns) {
-    if (subtreeMatchesAnywhere(lifted, fp.pattern)) {
-      throw new Error(
-        `Forbidden FOL pattern present in lifted state: ${fp.description}`
-      );
-    }
-  }
-}
-
-function subtreeMatchesAnywhere(node: unknown, pattern: unknown): boolean {
-  if (matchesShape(node, pattern)) return true;
-  if (Array.isArray(node)) {
-    return node.some((child) => subtreeMatchesAnywhere(child, pattern));
-  }
-  if (node !== null && typeof node === "object") {
-    return Object.values(node as Record<string, unknown>).some((child) =>
-      subtreeMatchesAnywhere(child, pattern)
-    );
-  }
-  return false;
-}
-
-function matchesShape(node: unknown, pattern: unknown): boolean {
-  if (pattern === undefined) return true;
-  if (pattern === null) return node === null;
-  if (typeof pattern !== "object") return node === pattern;
-  if (Array.isArray(pattern)) {
-    if (!Array.isArray(node)) return false;
-    if (node.length < pattern.length) return false;
-    return pattern.every((p, i) => matchesShape(node[i], p));
-  }
-  if (node === null || typeof node !== "object") return false;
-  return Object.keys(pattern as Record<string, unknown>).every((k) =>
-    matchesShape(
-      (node as Record<string, unknown>)[k],
-      (pattern as Record<string, unknown>)[k]
-    )
-  );
-}
-
-/**
- * Assert that the expected-query expectations from a canary fixture hold
- * against an evaluator. Phase 1 has no evaluator (Phase 3 deliverable);
- * this helper is wired now so canary fixtures whose `expectedQueries` field
- * activates at Phase 4 (cross-phase activation pattern per architect Gap C
- * resolution) can use it without inventing assertion machinery on the day.
- *
- * The `evaluate` parameter is a caller-supplied function with the API §7.1
- * signature; Phase 1 callers pass null which causes this helper to no-op
- * (consistent with the "deferred" status of every fixture that uses it).
- */
-export async function assertExpectedQueries(
-  expectedQueries: Array<{
-    query: string;
-    expectedResult: string;
-    reason?: string;
-    note?: string;
-  }>,
-  evaluate:
-    | ((query: string) => Promise<{ result: string; reason?: string }>)
-    | null
-): Promise<void> {
-  if (evaluate === null) {
-    // Phase 1 — no evaluator yet. Helper is wired for Phase 3 / Phase 4
-    // activation per the architect's cross-phase activation pattern.
-    return;
-  }
-  for (const eq of expectedQueries) {
-    const r = await evaluate(eq.query);
-    if (r.result !== eq.expectedResult) {
-      throw new Error(
-        `Query "${eq.query}" returned result "${r.result}", expected "${eq.expectedResult}"${eq.note ? ` (${eq.note})` : ""}`
-      );
-    }
-    if (eq.reason !== undefined && r.reason !== eq.reason) {
-      throw new Error(
-        `Query "${eq.query}" returned reason "${r.reason}", expected "${eq.reason}"`
-      );
-    }
-  }
-}
+// Helper machinery extracted to tests/lifter-phase1-helpers.ts at Step 5
+// entry per architect's O3 ruling. See that file for assertForbiddenPatterns,
+// assertRequiredPattern, assertExpectedQueries, and the structural-pattern
+// matchers (subtreeMatchesAnywhere + matchesShape).
 
 // ===========================================================================
 // STEP 1 — punted-construct rejection, IRI canonicalization, ABox
@@ -444,12 +352,142 @@ await report(
 );
 
 // ===========================================================================
-// DEFERRED — Steps 4-7
+// STEP 4 — owl:sameAs identity propagation per spec §5.5.2
+// (lifter rewrites to satisfy the canary contract, not vice versa)
 // ===========================================================================
 
-defer(
-  "canary_same_as_propagation",
-  "deferred to Step 4 (identity propagation through other predicates per spec §5.5.2)"
+await report(
+  "canary_same_as_propagation: lifter emits identity-rewrite rules for predicates used in ABox alongside SameIndividual",
+  async () => {
+    const { fixture } = await loadFixture("canary_same_as_propagation.fixture.js");
+    const lifted = await owlToFol(fixture.input);
+
+    // Structural check: the lifted FOL state MUST contain identity-rewrite
+    // rules for `worksAt` (the binary predicate used in the canary's ABox
+    // alongside the SameIndividual axiom). The two rules are:
+    //   ∀x,y,z. worksAt(x,y) ∧ owl:sameAs(x,z) → worksAt(z,y)
+    //   ∀x,y,z. worksAt(x,y) ∧ owl:sameAs(y,z) → worksAt(x,z)
+    // Plus the equivalence axioms for owl:sameAs (refl/symm/trans).
+    const worksAtIRI = "http://example.org/test/worksAt";
+
+    // First-arg identity rewrite for worksAt.
+    assertRequiredPattern(lifted, {
+      "@type": "fol:Universal",
+      variable: "x",
+      body: {
+        "@type": "fol:Universal",
+        variable: "y",
+        body: {
+          "@type": "fol:Universal",
+          variable: "z",
+          body: {
+            "@type": "fol:Implication",
+            antecedent: {
+              "@type": "fol:Conjunction",
+              conjuncts: [
+                {
+                  "@type": "fol:Atom",
+                  predicate: worksAtIRI,
+                  arguments: [
+                    { "@type": "fol:Variable", name: "x" },
+                    { "@type": "fol:Variable", name: "y" },
+                  ],
+                },
+                {
+                  "@type": "fol:Atom",
+                  predicate: "owl:sameAs",
+                  arguments: [
+                    { "@type": "fol:Variable", name: "x" },
+                    { "@type": "fol:Variable", name: "z" },
+                  ],
+                },
+              ],
+            },
+            consequent: {
+              "@type": "fol:Atom",
+              predicate: worksAtIRI,
+              arguments: [
+                { "@type": "fol:Variable", name: "z" },
+                { "@type": "fol:Variable", name: "y" },
+              ],
+            },
+          },
+        },
+      },
+    }, "first-arg identity rewrite for worksAt");
+
+    // Second-arg identity rewrite for worksAt.
+    assertRequiredPattern(lifted, {
+      "@type": "fol:Universal",
+      body: {
+        "@type": "fol:Universal",
+        body: {
+          "@type": "fol:Universal",
+          body: {
+            "@type": "fol:Implication",
+            antecedent: {
+              "@type": "fol:Conjunction",
+              conjuncts: [
+                { "@type": "fol:Atom", predicate: worksAtIRI },
+                {
+                  "@type": "fol:Atom",
+                  predicate: "owl:sameAs",
+                  arguments: [
+                    { "@type": "fol:Variable", name: "y" },
+                    { "@type": "fol:Variable", name: "z" },
+                  ],
+                },
+              ],
+            },
+            consequent: {
+              "@type": "fol:Atom",
+              predicate: worksAtIRI,
+              arguments: [
+                { "@type": "fol:Variable", name: "x" },
+                { "@type": "fol:Variable", name: "z" },
+              ],
+            },
+          },
+        },
+      },
+    }, "second-arg identity rewrite for worksAt");
+
+    // owl:sameAs symmetry — required for the canary's query to derive
+    // worksAt(superman, dailyplanet) from worksAt(clarkkent, dailyplanet)
+    // plus sameAs(superman, clarkkent).
+    assertRequiredPattern(lifted, {
+      "@type": "fol:Universal",
+      variable: "x",
+      body: {
+        "@type": "fol:Universal",
+        variable: "y",
+        body: {
+          "@type": "fol:Implication",
+          antecedent: {
+            "@type": "fol:Atom",
+            predicate: "owl:sameAs",
+            arguments: [
+              { "@type": "fol:Variable", name: "x" },
+              { "@type": "fol:Variable", name: "y" },
+            ],
+          },
+          consequent: {
+            "@type": "fol:Atom",
+            predicate: "owl:sameAs",
+            arguments: [
+              { "@type": "fol:Variable", name: "y" },
+              { "@type": "fol:Variable", name: "x" },
+            ],
+          },
+        },
+      },
+    }, "owl:sameAs symmetry axiom");
+
+    // expectedQueries on this canary activate at Phase 3 (evaluator
+    // available). Phase 1 satisfies the canary structurally — the rules
+    // needed to derive the queries are present in the lifted state.
+    await assertExpectedQueries(fixture.expectedQueries, null);
+  }
 );
 
 defer(

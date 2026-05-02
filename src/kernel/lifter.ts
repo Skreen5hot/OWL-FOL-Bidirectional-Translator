@@ -1,12 +1,12 @@
 /**
- * OWL → FOL Lifter (Phase 1, through Step 3)
+ * OWL → FOL Lifter (Phase 1, through Step 4)
  *
  * Per API spec §6.1. Async because subsequent steps wire `rdf-canonize` for
  * blank-node canonicalization (Step 6 per phase-1-entry.md sequencing); the
  * Promise contract is established in Step 1 even though current surface
  * does not await anything yet.
  *
- * IMPLEMENTED (Steps 1-3):
+ * IMPLEMENTED (Steps 1-4):
  *   - owlToFol skeleton returning Promise<FOLAxiom[]>
  *   - IRI canonicalization on every input IRI per §3.10
  *   - JSON-LD-shaped output type definitions
@@ -25,9 +25,22 @@
  *     (∀x. D(x) → ∃y. P(x,y)) — that is the wrong translation per spec
  *     §5.8 / API §3.7.1.2 and the canary_domain_range_existential
  *     fixture asserts its absence.
+ *   - Identity machinery per spec §5.5.1-§5.5.2 (Step 4): when the input
+ *     contains SameIndividual axioms, the lifter emits owl:sameAs
+ *     reflexivity / symmetry / transitivity equivalence axioms PLUS
+ *     per-predicate identity-rewrite rules for every class and object-
+ *     property predicate used in the ABox. The canary
+ *     canary_same_as_propagation asserts the contract behaviorally
+ *     (queries on substituted-individual names return 'true'); Step 4
+ *     satisfies it structurally (Phase 1 has no evaluator; Phase 3
+ *     activates the query path via assertExpectedQueries).
+ *     DifferentIndividuals symmetrically emits an owl:differentFrom
+ *     symmetry axiom (no reflexivity; differentFrom is irreflexive).
+ *     Identity-rewrite rules are NOT emitted for the reserved
+ *     owl:sameAs / owl:differentFrom predicates themselves to avoid
+ *     trivial-loop rewrites under SLD resolution.
  *
- * NOT YET IMPLEMENTED (deferred to Steps 4-9):
- *   - sameAs identity-aware predicate variants per spec §5.5.2 (Step 4)
+ * NOT YET IMPLEMENTED (deferred to Steps 5-9):
  *   - Property characteristics with cycle-guarded rewrites + Skolem ADR (Step 5)
  *   - RDFC-1.0 blank-node canonicalization (Step 6)
  *   - Cardinality restrictions (Step 7) — currently throws
@@ -108,6 +121,13 @@ export async function owlToFol(ontology: OWLOntology): Promise<FOLAxiom[]> {
     const lifted = liftABoxAxiom(a, prefixes);
     if (lifted) axioms.push(...lifted);
   }
+
+  // (5) Identity machinery (Step 4) per spec §5.5.1-§5.5.2. Emitted AFTER
+  // ABox so the bare sameAs/differentFrom facts and any object/data property
+  // facts already exist; the equivalence axioms + per-predicate rewrite
+  // rules apply to them. Skipped when the input does not declare any
+  // SameIndividual / DifferentIndividuals (no identity to propagate).
+  axioms.push(...emitIdentityMachinery(ontology));
 
   return axioms;
 }
@@ -592,6 +612,235 @@ function liftRBoxAxiom(
     default:
       return null;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Identity machinery (Step 4) — spec §5.5.1-§5.5.2
+// ---------------------------------------------------------------------------
+
+/**
+ * Emit the identity-discipline FOL axioms for an ontology.
+ *
+ * When SameIndividual is present in the ABox: emits owl:sameAs reflexivity,
+ * symmetry, transitivity equivalence axioms PLUS per-predicate identity-
+ * rewrite rules for every class IRI (used in ClassAssertion) and every
+ * object-property IRI (used in ObjectPropertyAssertion) appearing in the
+ * ABox. The reserved owl:sameAs / owl:differentFrom predicates are excluded
+ * from the per-predicate rewrites to avoid trivial-loop rewrites under SLD
+ * resolution.
+ *
+ * When DifferentIndividuals is present: emits owl:differentFrom symmetry.
+ * differentFrom is irreflexive (NO ∀x. differentFrom(x,x)) and not a
+ * transitive relation, so only symmetry is injected.
+ *
+ * Iteration order over predicate sets is sorted lexicographically so the
+ * emitted axioms are deterministic across runs (banked for Phase 1 exit
+ * Skolem-naming-convention ADR).
+ */
+function emitIdentityMachinery(ontology: OWLOntology): FOLAxiom[] {
+  const out: FOLAxiom[] = [];
+  const prefixes = ontology.prefixes;
+
+  const hasSameIndividual = ontology.abox.some(
+    (a) => a["@type"] === "SameIndividual"
+  );
+  const hasDifferentIndividuals = ontology.abox.some(
+    (a) => a["@type"] === "DifferentIndividuals"
+  );
+
+  if (hasSameIndividual) {
+    out.push(reflexivityAxiom("owl:sameAs"));
+    out.push(symmetryAxiom("owl:sameAs"));
+    out.push(transitivityAxiom("owl:sameAs"));
+  }
+  if (hasDifferentIndividuals) {
+    out.push(symmetryAxiom("owl:differentFrom"));
+  }
+
+  // Per-predicate identity-rewrite rules — only meaningful when an identity
+  // can propagate (SameIndividual present). DifferentIndividuals alone does
+  // not require rewrite rules; differentFrom does not propagate identity.
+  if (hasSameIndividual) {
+    const unaryPredicates = new Set<string>();
+    const binaryPredicates = new Set<string>();
+    for (const a of ontology.abox) {
+      if (a["@type"] === "ClassAssertion" && a.class["@type"] === "Class") {
+        unaryPredicates.add(canonicalizeIRI(a.class.iri, prefixes));
+      } else if (a["@type"] === "ObjectPropertyAssertion") {
+        const pred = canonicalizeIRI(a.property, prefixes);
+        if (pred !== "owl:sameAs" && pred !== "owl:differentFrom") {
+          binaryPredicates.add(pred);
+        }
+      }
+    }
+    const sortedUnary = [...unaryPredicates].sort((a, b) =>
+      a < b ? -1 : a > b ? 1 : 0
+    );
+    const sortedBinary = [...binaryPredicates].sort((a, b) =>
+      a < b ? -1 : a > b ? 1 : 0
+    );
+    for (const p of sortedUnary) {
+      out.push(unaryIdentityRewrite(p));
+    }
+    for (const p of sortedBinary) {
+      out.push(binaryIdentityRewriteFirstArg(p));
+      out.push(binaryIdentityRewriteSecondArg(p));
+    }
+  }
+
+  return out;
+}
+
+/** ∀x. P(x,x) — equivalence reflexivity for a binary predicate. */
+function reflexivityAxiom(predicate: string): FOLUniversal {
+  return universal("x", {
+    "@type": "fol:Atom",
+    predicate,
+    arguments: [varRef("x"), varRef("x")],
+  });
+}
+
+/** ∀x,y. P(x,y) → P(y,x). */
+function symmetryAxiom(predicate: string): FOLUniversal {
+  return universal(
+    "x",
+    universal(
+      "y",
+      implication(
+        {
+          "@type": "fol:Atom",
+          predicate,
+          arguments: [varRef("x"), varRef("y")],
+        },
+        {
+          "@type": "fol:Atom",
+          predicate,
+          arguments: [varRef("y"), varRef("x")],
+        }
+      )
+    )
+  );
+}
+
+/** ∀x,y,z. P(x,y) ∧ P(y,z) → P(x,z). */
+function transitivityAxiom(predicate: string): FOLUniversal {
+  return universal(
+    "x",
+    universal(
+      "y",
+      universal(
+        "z",
+        implication(
+          conjunction([
+            {
+              "@type": "fol:Atom",
+              predicate,
+              arguments: [varRef("x"), varRef("y")],
+            },
+            {
+              "@type": "fol:Atom",
+              predicate,
+              arguments: [varRef("y"), varRef("z")],
+            },
+          ]),
+          {
+            "@type": "fol:Atom",
+            predicate,
+            arguments: [varRef("x"), varRef("z")],
+          }
+        )
+      )
+    )
+  );
+}
+
+/** ∀x,z. P(x) ∧ owl:sameAs(x,z) → P(z) — unary identity rewrite. */
+function unaryIdentityRewrite(predicate: string): FOLUniversal {
+  return universal(
+    "x",
+    universal(
+      "z",
+      implication(
+        conjunction([
+          { "@type": "fol:Atom", predicate, arguments: [varRef("x")] },
+          {
+            "@type": "fol:Atom",
+            predicate: "owl:sameAs",
+            arguments: [varRef("x"), varRef("z")],
+          },
+        ]),
+        { "@type": "fol:Atom", predicate, arguments: [varRef("z")] }
+      )
+    )
+  );
+}
+
+/** ∀x,y,z. P(x,y) ∧ owl:sameAs(x,z) → P(z,y) — binary identity rewrite, first arg. */
+function binaryIdentityRewriteFirstArg(predicate: string): FOLUniversal {
+  return universal(
+    "x",
+    universal(
+      "y",
+      universal(
+        "z",
+        implication(
+          conjunction([
+            {
+              "@type": "fol:Atom",
+              predicate,
+              arguments: [varRef("x"), varRef("y")],
+            },
+            {
+              "@type": "fol:Atom",
+              predicate: "owl:sameAs",
+              arguments: [varRef("x"), varRef("z")],
+            },
+          ]),
+          {
+            "@type": "fol:Atom",
+            predicate,
+            arguments: [varRef("z"), varRef("y")],
+          }
+        )
+      )
+    )
+  );
+}
+
+/** ∀x,y,z. P(x,y) ∧ owl:sameAs(y,z) → P(x,z) — binary identity rewrite, second arg. */
+function binaryIdentityRewriteSecondArg(predicate: string): FOLUniversal {
+  return universal(
+    "x",
+    universal(
+      "y",
+      universal(
+        "z",
+        implication(
+          conjunction([
+            {
+              "@type": "fol:Atom",
+              predicate,
+              arguments: [varRef("x"), varRef("y")],
+            },
+            {
+              "@type": "fol:Atom",
+              predicate: "owl:sameAs",
+              arguments: [varRef("y"), varRef("z")],
+            },
+          ]),
+          {
+            "@type": "fol:Atom",
+            predicate,
+            arguments: [varRef("x"), varRef("z")],
+          }
+        )
+      )
+    )
+  );
+}
+
+function varRef(name: string): FOLVariable {
+  return { "@type": "fol:Variable", name };
 }
 
 // ---------------------------------------------------------------------------

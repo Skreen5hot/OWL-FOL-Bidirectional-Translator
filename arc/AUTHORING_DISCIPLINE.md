@@ -58,6 +58,7 @@ Before promoting from Draft / [VERIFY] to Verified:
 - [ ] Inverse / property-chain dependencies enumerated in `notes` with the dependency relation also Verified
 - [ ] At least one worked-example fixture exists in `tests/corpus/` and is registered in `tests/corpus/manifest.json` with the entry's IRI in its `arcEntries` array
 - [ ] The entry's IRI appears in the corresponding canonical-vocabulary cache file under `arc/vocabulary-cache/`, refreshed via `npm run refresh:vocab-cache -- --vocab=<id> --source=<local-path>` against the canonical `.owl`/`.ttl` release. `lint-arc.js --strict` flags any IRI not present in the cache, or present but flagged `unverified: true`.
+- [ ] **Internal contract consistency.** For every fixture, verify that `intent`, `expectedOutcome.summary` (in `tests/corpus/manifest.json`), and `expectedFOL` describe the same lifter behavior at three levels of precision (free-text, structured summary, byte-exact form). If any two of the three contradict, the fixture is incomplete and cannot be promoted Draft → Verified. When a contradiction is discovered during implementation, escalate per the Failure-Triage Handoff Protocol (ROADMAP cross-cutting §"Failure-Triage Handoff Protocol"); do not autonomously align byte-exact form to implementation — align upward to the prose contracts grounded in spec citations. (Banked from the architect's Phase 1 mid-phase escalation ruling 2026-05-02; first instance: `p1_owl_same_and_different.fixture.js` Step 4 amendment audit-trail.)
 
 ## Canonical-Vocabulary IRI Cache
 
