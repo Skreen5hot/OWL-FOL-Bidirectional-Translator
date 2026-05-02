@@ -27,12 +27,24 @@ jobs:
       - name: Run spec tests
         run: npm test -- --write-json
 
-      - name: Run kernel purity check
+      - name: Run kernel purity check (OFBT allowlist)
         run: npm run test:purity
 
-      - name: Verify CLI
+      - name: Test corpus manifest CI gate
+        run: npm run test:corpus-manifest
+
+      - name: ARC manifest lint
+        run: npm run lint:arc
+
+      - name: Build bundles (measurement only — Phase 0-6; enforcement at Phase 7)
+        run: node esbuild.config.js
+
+      - name: Report bundle sizes
+        run: npm run measure:bundle
+
+      - name: Verify CLI (now at src/adapters/cli.ts per OFBT layer ruling)
         run: |
-          node dist/kernel/index.js examples/input.jsonld > /dev/null
+          node dist/adapters/cli.js examples/input.jsonld > /dev/null
           echo "CLI verification: OK"
 
       - name: Upload test results
