@@ -22,7 +22,13 @@ export type ParsePosition = {
   offset?: number;
 };
 
-export type FOLAxiom = unknown; // refined in Phase 1
+// Local type alias for the StepCapExceededError.query field. Use `unknown`
+// here rather than re-exporting FOLAxiom from fol-types.ts to avoid a
+// circular dependency between errors.ts and lifter.ts (which depends on
+// errors.ts). Consumers casting StepCapExceededError.query should import
+// FOLAxiom from "@ontology-of-freedom/ofbt" directly.
+type LocalFOLAxiom = unknown;
+
 export type RoundTripDiff = unknown; // refined in Phase 2
 
 /**
@@ -119,11 +125,11 @@ export class SessionDisposedError extends OFBTError {
 // --- §10.4 Evaluation errors ---
 
 export class StepCapExceededError extends OFBTError {
-  readonly query: FOLAxiom;
+  readonly query: LocalFOLAxiom;
   readonly steps: number;
   readonly stepCap: number;
 
-  constructor(message: string, opts: { query: FOLAxiom; steps: number; stepCap: number }) {
+  constructor(message: string, opts: { query: LocalFOLAxiom; steps: number; stepCap: number }) {
     super(message, "step_cap_exceeded");
     this.query = opts.query;
     this.steps = opts.steps;

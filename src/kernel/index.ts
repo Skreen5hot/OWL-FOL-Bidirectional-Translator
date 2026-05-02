@@ -28,7 +28,7 @@ export {
   ARCManifestError,
   TauPrologVersionMismatchError,
 } from "./errors.js";
-export type { ParsePosition, FOLAxiom, RoundTripDiff } from "./errors.js";
+export type { ParsePosition, RoundTripDiff } from "./errors.js";
 
 // --- Phase 0.3: frozen reason-code enum (API spec §11) ---
 export { REASON_CODES, REASON_CODES_LIST, isReasonCode } from "./reason-codes.js";
@@ -40,7 +40,65 @@ export type { VersionInfo, TauPrologVerification } from "./version.js";
 export { registerTauPrologProbe } from "./tau-prolog-probe.js";
 export type { TauPrologProbe } from "./tau-prolog-probe.js";
 
-// --- Template carryover (replaced by owlToFol in Phase 1) ---
+// --- Phase 1 Step 1: lifter foundation ---
+export { owlToFol } from "./lifter.js";
+export { canonicalizeIRI, canonicalizeWithOntology } from "./iri.js";
+export type {
+  OWLOntology,
+  TBoxAxiom,
+  ABoxAxiom,
+  RBoxAxiom,
+  AnnotationAxiom,
+  ClassExpression,
+  TypedLiteral,
+  SubClassOfAxiom,
+  EquivalentClassesAxiom,
+  DisjointWithAxiom,
+  ClassDefinitionAxiom,
+  ObjectPropertyDomainAxiom,
+  ObjectPropertyRangeAxiom,
+  ObjectPropertyCharacteristicAxiom,
+  InverseObjectPropertiesAxiom,
+  ObjectPropertyChainAxiom,
+  SubObjectPropertyOfAxiom,
+  EquivalentObjectPropertiesAxiom,
+  DisjointObjectPropertiesAxiom,
+  NamedClass,
+  ClassIntersection,
+  ClassUnion,
+  ClassComplement,
+  ObjectSomeValuesFrom,
+  ObjectAllValuesFrom,
+  ObjectHasValue,
+  ObjectMinCardinality,
+  ObjectMaxCardinality,
+  ObjectExactCardinality,
+  ClassAssertion,
+  ObjectPropertyAssertion,
+  DataPropertyAssertion,
+  SameIndividual,
+  DifferentIndividuals,
+} from "./owl-types.js";
+export type {
+  FOLAxiom,
+  FOLImplication,
+  FOLConjunction,
+  FOLDisjunction,
+  FOLNegation,
+  FOLUniversal,
+  FOLExistential,
+  FOLAtom,
+  FOLEquality,
+  FOLFalse,
+  FOLTerm,
+  FOLVariable,
+  FOLConstant,
+  FOLLiteral,
+  FOLTypedLiteral,
+} from "./fol-types.js";
+
+// --- Template carryover (retired by Phase 1 exit; preserved through Step 1
+//     so the spec tests determinism/no-network/snapshot remain green) ---
 export { transform } from "./transform.js";
 export type {
   JsonLdDocument,
