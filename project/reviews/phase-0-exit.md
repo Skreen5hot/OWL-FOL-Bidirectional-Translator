@@ -18,9 +18,16 @@ The architect approved Phase 0 exit conditional on three gating items. Status of
   - `npm test` — **47/47 tests passing across 7 files** (determinism, no-network, snapshot, errors, reason-codes, version, session)
   - `npm run test:purity` — **8 kernel files checked, no purity violations** under the tightened ADR-006 ruleset (forbids all `node:*` except `node:crypto`; forbids `process.argv/stdout/stderr/exit/cwd/pid`; forbids `console.*`; forbids `crypto.X` where X is not `subtle.digest`)
   - `npm run test:corpus-manifest` — **manifest valid** (0 entries, 0 fixture files)
-- ⚠️ **Commit SHA pending Orchestrator action.** Per CLAUDE.md §4, no commit was created by the developer. All Phase 0 work currently sits on the working tree. The architect-required commit SHA + CI run ID will be inserted into this section after Aaron commits and the GitHub Actions CI run completes on the pushed commit. Suggested commit message:
-  > `Phase 0 exit: foundations complete (errors, REASON_CODES, version surface, session lifecycle, ARC scaffolding, corpus manifest); CLI restructured to src/adapters/cli.ts per ADR-005; purity rules tightened per ADR-006`
-- **Insert here after commit:** `Commit SHA: <sha>` / `CI run ID: <run-id>` / `CI run URL: <url>`
+- ✅ **Verified green on remote 2026-05-02.**
+  - **Phase 0 commits (post-rebase onto `f036d9b` MIT license commit):**
+    - `09181aa` — Pre-Phase-0 setup (persona configs, authoritative inputs, .gitignore)
+    - `0ef7827` — Phase 0.1: build tooling, OFBT-specific purity checker, CI gates
+    - `0168fce` — Phase 0.2-0.5: typed errors, reason enum, version surface, session lifecycle
+    - `d990353` — Phase 0.6-0.8: ARC TSV→JSON-LD tooling, SME authoring discipline, corpus manifest
+    - `58b46d9` — Phase 0: entry/exit reviews, ADRs 002-006, roadmap status update
+    - `f3bfb93` — Phase 0.7.1: ROADMAP documentation of canonical-vocabulary IRI cache infrastructure
+  - **GitHub Actions CI run:** https://github.com/Skreen5hot/OWL-FOL-Bidirectional-Translator/actions/runs/25258023589/job/74060534007
+  - **Run ID:** `25258023589` / **Job ID:** `74060534007` — green
 
 ### Gating item 2 — CLI restructure landed in Phase 0 (not deferred to Phase 1)
 - ✅ **DONE in this session.** Per ADR-005:
