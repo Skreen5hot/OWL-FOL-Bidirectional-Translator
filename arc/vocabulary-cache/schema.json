@@ -1,0 +1,92 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ontology-of-freedom.org/ofbt/arc/vocabulary-cache/schema.json",
+  "title": "OFBT Canonical-Vocabulary IRI Cache",
+  "description": "Phase 0.7 SME deliverable per ROADMAP. Per-vocabulary offline cache of canonical IRIs. The lint-arc.js IRI-existence check reads these caches to validate that every ARC-entry IRI resolves to a known IRI in the corresponding canonical release. Edge-canonical: cache is checked-in JSON; refresh is offline (scripts/refresh-vocab-cache.js consumes a user-supplied .owl/.ttl path).",
+  "type": "object",
+  "required": [
+    "vocabularyId",
+    "displayName",
+    "namespaceURI",
+    "iriPattern",
+    "version",
+    "retrievedAt",
+    "sourceURL",
+    "entries"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "vocabularyId": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$",
+      "description": "Stable cache identifier matching the filename (sans .json). E.g., 'bfo-2020', 'iao', 'ro', 'cco-2.0', 'prov-o', 'ofi-extension'."
+    },
+    "displayName": {
+      "type": "string",
+      "description": "Human-readable vocabulary name."
+    },
+    "namespaceURI": {
+      "type": "string",
+      "format": "uri",
+      "description": "Base URI for IRIs in this vocabulary. Note: BFO and IAO share the OBO Foundry namespace (http://purl.obolibrary.org/obo/) but are separately versioned and live in separate cache files; the iriPattern field discriminates."
+    },
+    "iriPattern": {
+      "type": "string",
+      "description": "Regex matching IRIs that belong to this vocabulary. Used by the linter to route an arbitrary entry IRI to the correct cache (an entry referencing http://purl.obolibrary.org/obo/BFO_0000050 routes to bfo-2020 by pattern, not by manual tag). Anchor with ^ and $."
+    },
+    "version": {
+      "type": "string",
+      "description": "Canonical release identifier (e.g., '2020' for BFO, '2024-11-01' for IAO release date, 'commit-abcdef' for CCO snapshot). Tracked here so retrieval freshness is visible at lint time."
+    },
+    "retrievedAt": {
+      "oneOf": [
+        { "type": "string", "format": "date-time" },
+        { "type": "null" }
+      ],
+      "description": "ISO-8601 timestamp the cache was last refreshed from canonical sources, or null for hand-seeded entries (Phase 0 initial state). The SME is responsible for refreshing pre-Phase-4."
+    },
+    "sourceURL": {
+      "type": "string",
+      "description": "Canonical retrieval URL (informational — refresh-vocab-cache.js reads from a local file path supplied by the SME, not from the network, per edge-canonical principle)."
+    },
+    "entries": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/Entry" },
+      "description": "IRIs known to exist in this vocabulary. Sorted alphabetically by iri to keep diffs minimal across refreshes."
+    }
+  },
+  "definitions": {
+    "Entry": {
+      "type": "object",
+      "required": ["iri", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "iri": {
+          "type": "string",
+          "description": "Full URI form (no angle brackets, no CURIE). Internal canonical form per behavioral spec §4.2.1."
+        },
+        "type": {
+          "type": "string",
+          "enum": ["class", "object-property", "data-property", "annotation-property", "named-individual", "datatype"],
+          "description": "OWL entity type. The linter uses this to flag ARC entries declaring a property IRI that resolves to a class (or vice versa)."
+        },
+        "label": {
+          "type": "string",
+          "description": "Optional rdfs:label. Informational only; not load-bearing."
+        },
+        "deprecated": {
+          "type": "boolean",
+          "description": "True if the canonical release marks this IRI deprecated. ARC entries pointing at deprecated IRIs are warned by the linter."
+        },
+        "unverified": {
+          "type": "boolean",
+          "description": "True if the IRI was hand-seeded from secondary sources (e.g., the relations catalogue) and has NOT yet been confirmed against the canonical .owl/.ttl release. The linter flags ARC entries pointing at unverified IRIs as still-pending in strict mode. SME refreshes the cache against the canonical release to clear this flag."
+        },
+        "seedSource": {
+          "type": "string",
+          "description": "Provenance for hand-seeded entries — typically the catalogue row or spec section the IRI was extracted from. Cleared on first canonical refresh."
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "_doc": "Maps `Relation Name` from project/relations_catalogue_v3.tsv to one of the five ARC modules per spec §3.6.1. This file is a transition affordance until the SME folds a `Module` column directly into the TSV. Per ROADMAP §0.6, the Module column is the canonical SME deliverable; this file exists so engineering tooling can run end-to-end before that lands. Copy to module-assignments.json and fill in for every TSV row.",
+  "_validModules": [
+    "core/bfo-2020",
+    "core/iao-information",
+    "cco/realizable-holding",
+    "cco/mereotopology",
+    "ofi/deontic"
+  ],
+  "_examples": {
+    "Part Of": "core/bfo-2020",
+    "Has Part": "core/bfo-2020",
+    "Continuant Part Of": "core/bfo-2020",
+    "Is About": "core/iao-information",
+    "Denotes": "core/iao-information",
+    "Has Role": "cco/realizable-holding",
+    "Has Disposition": "cco/realizable-holding",
+    "Connected With": "cco/mereotopology",
+    "Realizes Directive": "ofi/deontic"
+  }
+}

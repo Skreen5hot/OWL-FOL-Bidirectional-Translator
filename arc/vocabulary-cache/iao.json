@@ -1,0 +1,12 @@
+{
+  "vocabularyId": "iao",
+  "displayName": "Information Artifact Ontology",
+  "namespaceURI": "http://purl.obolibrary.org/obo/",
+  "iriPattern": "^http://purl\\.obolibrary\\.org/obo/IAO_\\d{7}$",
+  "version": "unverified",
+  "retrievedAt": null,
+  "sourceURL": "http://purl.obolibrary.org/obo/iao.owl",
+  "entries": [
+    { "iri": "http://purl.obolibrary.org/obo/IAO_0000136", "type": "object-property", "label": "is about", "unverified": true, "seedSource": "relations_catalogue_v3.tsv row 52" }
+  ]
+}

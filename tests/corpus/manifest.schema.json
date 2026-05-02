@@ -1,0 +1,96 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ontology-of-freedom.org/ofbt/tests/corpus/manifest.schema.json",
+  "title": "OFBT Test Corpus Manifest",
+  "description": "Per-fixture traceability manifest. Phase 0.8 deliverable per ROADMAP. Every file under tests/corpus/ ending in .fixture.js MUST have an entry in the `fixtures` array; every entry MUST reference an existing fixture file. CI gate: scripts/check-corpus-manifest.js.",
+  "type": "object",
+  "required": ["manifestVersion", "fixtures"],
+  "additionalProperties": false,
+  "properties": {
+    "manifestVersion": {
+      "type": "string",
+      "description": "Semver of this manifest schema. Bumps when columns are added/removed."
+    },
+    "fixtures": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/Fixture" }
+    }
+  },
+  "definitions": {
+    "Fixture": {
+      "type": "object",
+      "required": [
+        "fixtureId",
+        "phase",
+        "specSections",
+        "acceptanceCriteria",
+        "arcEntries",
+        "regime",
+        "expectedOutcome",
+        "expectedLossSignatureReasons",
+        "intendedToCatch",
+        "expected_v0.1_verdict",
+        "expected_v0.2_elk_verdict"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "fixtureId": {
+          "type": "string",
+          "pattern": "^[a-z0-9_]+$",
+          "description": "Stable identifier matching the fixture filename (sans .fixture.js)."
+        },
+        "phase": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 7,
+          "description": "Phase that the fixture activates in (not necessarily the phase that authored it; cross-phase fixtures use the activating phase)."
+        },
+        "specSections": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Spec / API spec section refs, e.g., ['§3.7.1', 'API §6.1']."
+        },
+        "acceptanceCriteria": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Criterion IDs from spec §12 / API §14, e.g., ['§12.13', 'API-2']."
+        },
+        "arcEntries": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "ARC entry IRIs the fixture exercises. Empty for built-in OWL fixtures (Phase 1-3)."
+        },
+        "regime": {
+          "type": "string",
+          "enum": ["equivalent", "reversible", "true_loss"],
+          "description": "Round-trip regime per spec §7."
+        },
+        "expectedOutcome": {
+          "type": "object",
+          "description": "Structured per fixture type — entailment-set, consistency verdict, round-trip diff, etc. Free-form by design; the fixture's own DSL determines the shape."
+        },
+        "expectedLossSignatureReasons": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Reason-enum members expected in emitted Loss Signatures. Empty for clean round-trip fixtures."
+        },
+        "intendedToCatch": {
+          "type": "string",
+          "minLength": 1,
+          "description": "What wrong translation or silent failure this fixture is engineered to expose. REQUIRED — fixtures without an articulated intent get pruned in review."
+        },
+        "expected_v0.1_verdict": {
+          "type": "object",
+          "description": "The verdict v0.1 produces today (under the v0.1 lifter/projector/validator)."
+        },
+        "expected_v0.2_elk_verdict": {
+          "oneOf": [
+            { "type": "object" },
+            { "type": "null" }
+          ],
+          "description": "The verdict v0.2 should produce after ELK lands. null when no change is expected. The regression-suite signal for ELK integration."
+        }
+      }
+    }
+  }
+}

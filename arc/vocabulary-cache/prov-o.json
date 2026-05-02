@@ -1,0 +1,14 @@
+{
+  "vocabularyId": "prov-o",
+  "displayName": "PROV Ontology (W3C Recommendation)",
+  "namespaceURI": "http://www.w3.org/ns/prov#",
+  "iriPattern": "^http://www\\.w3\\.org/ns/prov#[A-Za-z][A-Za-z0-9]*$",
+  "version": "2013-04-30",
+  "retrievedAt": null,
+  "sourceURL": "https://www.w3.org/ns/prov-o",
+  "entries": [
+    { "iri": "http://www.w3.org/ns/prov#Activity", "type": "class", "label": "Activity", "seedSource": "OFBT_API_v0.1.7.md §3.7.1.3 PROV-O worked example" },
+    { "iri": "http://www.w3.org/ns/prov#Entity", "type": "class", "label": "Entity", "seedSource": "OFBT_API_v0.1.7.md §3.7.1.3 PROV-O worked example" },
+    { "iri": "http://www.w3.org/ns/prov#wasInfluencedBy", "type": "object-property", "label": "wasInfluencedBy", "seedSource": "OFBT_API_v0.1.7.md §3.7.1.3 PROV-O worked example" }
+  ]
+}

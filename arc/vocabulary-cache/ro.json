@@ -1,0 +1,12 @@
+{
+  "vocabularyId": "ro",
+  "displayName": "Relation Ontology (OBO Foundry)",
+  "namespaceURI": "http://purl.obolibrary.org/obo/",
+  "iriPattern": "^http://purl\\.obolibrary\\.org/obo/RO_\\d{7}$",
+  "version": "unverified",
+  "retrievedAt": null,
+  "sourceURL": "http://purl.obolibrary.org/obo/ro.owl",
+  "entries": [
+    { "iri": "http://purl.obolibrary.org/obo/RO_0002131", "type": "object-property", "label": "overlaps", "unverified": true, "seedSource": "relations_catalogue_v3.tsv row 25" }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "vocabularyId": "cco-2.0",
+  "displayName": "Common Core Ontologies 2.0",
+  "namespaceURI": "https://www.commoncoreontologies.org/",
+  "iriPattern": "^https://www\\.commoncoreontologies\\.org/ont\\d{8}$",
+  "version": "2.0-unverified",
+  "retrievedAt": null,
+  "sourceURL": "https://github.com/CommonCoreOntology/CommonCoreOntologies",
+  "entries": [
+    { "iri": "https://www.commoncoreontologies.org/ont00001810", "type": "object-property", "label": "Connected With", "unverified": true, "seedSource": "relations_catalogue_v3.tsv row 51 (cco:ont00001810). Namespace URI assumed CCO 2.0 GitHub canonical; SME to verify against current release." }
+  ]
+}

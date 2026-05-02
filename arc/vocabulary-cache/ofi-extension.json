@@ -1,0 +1,19 @@
+{
+  "vocabularyId": "ofi-extension",
+  "displayName": "OFI Extension Vocabulary (OFBT-minted)",
+  "namespaceURI": "http://ontology-of-freedom.org/ofi/",
+  "iriPattern": "^http://ontology-of-freedom\\.org/ofi/[A-Za-z][A-Za-z0-9]*$",
+  "version": "v0.1-draft",
+  "retrievedAt": null,
+  "sourceURL": "internal — IRIs are OFI-minted, not from a third-party canonical release. The 'cache' for this vocabulary IS the catalogue.",
+  "entries": [
+    { "iri": "http://ontology-of-freedom.org/ofi/commitsTo", "type": "object-property", "label": "commits to", "seedSource": "relations_catalogue_v3.tsv row 67 (ofi:commitsTo)" },
+    { "iri": "http://ontology-of-freedom.org/ofi/discharges", "type": "object-property", "label": "discharges", "seedSource": "relations_catalogue_v3.tsv row 65 (ofi:discharges)" },
+    { "iri": "http://ontology-of-freedom.org/ofi/hasCommitment", "type": "object-property", "label": "has commitment", "seedSource": "relations_catalogue_v3.tsv row 68 (ofi:hasCommitment)" },
+    { "iri": "http://ontology-of-freedom.org/ofi/hasObligationBearer", "type": "object-property", "label": "has obligation bearer", "seedSource": "relations_catalogue_v3.tsv row 63 (ofi:hasObligationBearer)" },
+    { "iri": "http://ontology-of-freedom.org/ofi/prescribedBy", "type": "object-property", "label": "prescribed by", "seedSource": "relations_catalogue_v3.tsv row 61 (ofi:prescribedBy)" },
+    { "iri": "http://ontology-of-freedom.org/ofi/prescribes", "type": "object-property", "label": "prescribes", "seedSource": "relations_catalogue_v3.tsv row 62 (ofi:prescribes)" },
+    { "iri": "http://ontology-of-freedom.org/ofi/realizesDirective", "type": "object-property", "label": "realizes directive", "seedSource": "relations_catalogue_v3.tsv row 64 (ofi:realizesDirective). NOTE: STANDALONE — NOT subPropertyOf BFO realizes; OWL property chain realizes ∘ concretizes per RDM v1.2.1." },
+    { "iri": "http://ontology-of-freedom.org/ofi/violates", "type": "object-property", "label": "violates", "seedSource": "relations_catalogue_v3.tsv row 66 (ofi:violates)" }
+  ]
+}
