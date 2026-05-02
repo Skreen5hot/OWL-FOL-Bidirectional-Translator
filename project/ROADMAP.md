@@ -221,11 +221,17 @@ Each canary asserts the **wrong** shape is absent, not just that the right shape
 **Aaron-led parallel workstream (per architect Phase 0 review gating item 3, plan §5.2):** ARC manifest content authoring begins at Phase 1 entry (not Phase 4 entry) and proceeds throughout Phases 1-7. The first deliverable is annotating `project/relations_catalogue_v3.tsv` with the `Module` column (or populating `arc/module-assignments.json`) so `scripts/build-arc.js --strict` can run with 0 skipped rows by Phase 4 entry. Beginning this in parallel with Phase 1 lifter implementation prevents Phase 4 from slipping when the ARC content workstream catches up to engineering.
 
 ### Phase 1 Entry Review
-- [ ] Entry criteria confirmed met (Phase 0 exited; built-in OWL test corpus authored)
-- [ ] Test corpus ready for ingestion
-- [ ] Entry summary committed to repo
+- [x] Entry criteria confirmed met (Phase 0 exited with green CI; built-in OWL test corpus authored — 9 standard fixtures + 4 wrong-translation canaries; Aaron's parallel ARC workstream commitment captured)
+- [x] Test corpus ready for ingestion (13 fixtures registered in [`tests/corpus/manifest.json`](../tests/corpus/manifest.json) with complete 11-column entries; manifest gate green)
+- [x] **Architect sign-off received 2026-05-02** on the corpus + canary scope, with banked principles: defense-in-depth on §3.7.1 / §5.8 (two fixtures), `phase4Reactivation` cross-phase activation pattern, schema-as-source-of-truth-over-roadmap, `hasOwnProperty` discrimination on column-presence checks
+- [x] Entry summary committed to repo: [`project/reviews/phase-1-entry.md`](reviews/phase-1-entry.md)
 
 ### Phase 1 Exit Review
+- [ ] All 13 corpus fixtures pass against running `owlToFol` (Ring 1)
+- [ ] 100-run determinism on each fixture per API §6.1.1
+- [ ] **Skolem-naming-convention ADR landed in [`project/DECISIONS.md`](DECISIONS.md)** (architect-banked Phase 1 exit commitment) — one convention covering cardinality witnesses, transitive/symmetric visited-ancestor threading, and RDFC-1.0 b-node Skolem prefix; tied to API §6.1.1 determinism contract
+- [ ] **Three STRUCTURAL_ONLY placeholder fixtures filled in with byte-exact `expectedFOL` literals** consistent with the Skolem-naming ADR, applied uniformly (no fixture-by-fixture conventions): [`p1_restrictions_cardinality`](../tests/corpus/p1_restrictions_cardinality.fixture.js), [`p1_property_characteristics`](../tests/corpus/p1_property_characteristics.fixture.js), [`p1_blank_node_anonymous_restriction`](../tests/corpus/p1_blank_node_anonymous_restriction.fixture.js)
+- [ ] `verifiedStatus: 'Draft'` on each fixture's `meta` promoted to `'Verified'`
 - [ ] All listed exit criteria pass in CI
 - [ ] Risk retrospective recorded (per plan §6.3)
 - [ ] Exit summary committed to repo
