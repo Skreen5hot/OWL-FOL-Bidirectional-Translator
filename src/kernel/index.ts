@@ -1,49 +1,52 @@
 /**
- * CLI Entry Point
+ * Kernel Public Barrel
  *
- * Reads a JSON-LD file from the command line, invokes the kernel transform,
- * and writes the canonicalized result to stdout.
+ * Re-exports the kernel layer's public surface. Composition and adapter
+ * surfaces (createSession, CLI, etc.) live in their own barrels;
+ * the package's top-level entry at src/index.ts re-exports across layers.
  *
- * Usage: node dist/kernel/index.js <input-file.jsonld>
+ * Per the architect's purity ruling, this file MUST NOT import from
+ * src/composition/ or src/adapters/. The purity checker enforces this.
  *
- * This file is the ONLY place where I/O occurs. The transform function
- * itself is pure and deterministic.
+ * Phase 1 adds: owlToFol (lifter)
+ * Phase 2 adds: folToOwl, roundTripCheck, audit artifact types
+ * Phase 3 adds: evaluate, checkConsistency
  */
 
-import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
-import { transform } from "./transform.js";
-import { stableStringify } from "./canonicalize.js";
+// --- Phase 0.2: error class hierarchy (API spec §10) ---
+export {
+  OFBTError,
+  ParseError,
+  UnsupportedConstructError,
+  IRIFormatError,
+  RoundTripError,
+  SessionRequiredError,
+  SessionDisposedError,
+  StepCapExceededError,
+  SessionStepCapExceededError,
+  CycleDetectedError,
+  ARCManifestError,
+  TauPrologVersionMismatchError,
+} from "./errors.js";
+export type { ParsePosition, FOLAxiom, RoundTripDiff } from "./errors.js";
 
-async function main(): Promise<void> {
-  const args = process.argv.slice(2);
+// --- Phase 0.3: frozen reason-code enum (API spec §11) ---
+export { REASON_CODES, REASON_CODES_LIST, isReasonCode } from "./reason-codes.js";
+export type { ReasonCode } from "./reason-codes.js";
 
-  if (args.length === 0) {
-    process.stderr.write(
-      "Usage: node dist/kernel/index.js <input-file.jsonld>\n"
-    );
-    process.exit(1);
-  }
+// --- Phase 0.4: version surfacing + Tau Prolog verification (API spec §9) ---
+export { getVersionInfo, verifyTauPrologVersion } from "./version.js";
+export type { VersionInfo, TauPrologVerification } from "./version.js";
+export { registerTauPrologProbe } from "./tau-prolog-probe.js";
+export type { TauPrologProbe } from "./tau-prolog-probe.js";
 
-  const inputPath = resolve(args[0]);
-
-  try {
-    const raw = await readFile(inputPath, "utf-8");
-    const input: unknown = JSON.parse(raw);
-    const output = transform(input);
-    process.stdout.write(stableStringify(output, true) + "\n");
-  } catch (error) {
-    if (error instanceof SyntaxError) {
-      process.stderr.write(`Invalid JSON in input file: ${error.message}\n`);
-    } else if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      process.stderr.write(`File not found: ${inputPath}\n`);
-    } else {
-      process.stderr.write(
-        `Error: ${error instanceof Error ? error.message : String(error)}\n`
-      );
-    }
-    process.exit(1);
-  }
-}
-
-main();
+// --- Template carryover (replaced by owlToFol in Phase 1) ---
+export { transform } from "./transform.js";
+export type {
+  JsonLdDocument,
+  TransformOutput,
+  TransformError,
+  Provenance,
+  UncertaintyAnnotation,
+} from "./transform.js";
+export { stableStringify } from "./canonicalize.js";

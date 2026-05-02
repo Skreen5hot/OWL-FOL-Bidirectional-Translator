@@ -27,9 +27,12 @@ function canonicalize(value: unknown): unknown {
     return value.map(canonicalize);
   }
 
-  // Plain object: sort keys lexicographically
+  // Plain object: sort keys with an explicit lexicographic comparator.
+  // Per ROADMAP Layer Boundaries: kernel must not rely on the default
+  // Array.prototype.sort behavior; explicit comparator keeps ordering
+  // stable across engines and versions.
   const obj = value as Record<string, unknown>;
-  const keys = Object.keys(obj).sort();
+  const keys = Object.keys(obj).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
   const sorted: Record<string, unknown> = {};
   for (const key of keys) {
     sorted[key] = canonicalize(obj[key]);
