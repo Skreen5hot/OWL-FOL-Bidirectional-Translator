@@ -81,4 +81,4 @@ The longer trajectory is the Synthetic Moral Person Architecture. A synthetic ag
 
 ## License
 
-TBD.
+MIT License
