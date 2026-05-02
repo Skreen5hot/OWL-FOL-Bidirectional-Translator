@@ -102,6 +102,27 @@ The Logic SME role authors ARC entries and test fixtures across Phases 1-7. With
 - [ ] `tests/corpus/README.md` — fixture-authoring conventions: file-naming convention (`<phase>_<theme>_<intent>.fixture.js`), the plain-objects + JSDoc DSL discipline (no test-framework lock-in), the manifest-update-on-add discipline (see 0.8)
 - [ ] `tests/corpus/manifest.json` — initial empty manifest with schema documented (see 0.8)
 
+#### 0.7.1 Canonical-Vocabulary IRI Cache (sub-item of 0.7)
+
+**Status:** Code-complete (hand-seeded; canonical refresh is pre-Phase-4 SME work) | **Priority:** High | **Owner:** Engineering (infrastructure) + Aaron (canonical refresh)
+
+`scripts/lint-arc.js` validates every ARC-entry IRI against an offline cache of canonical IRIs under `arc/vocabulary-cache/`. The cache IS the offline truth source; edge-canonical principle applies (no network at lint time). Phase 0 ships the infrastructure plus hand-seeded caches drawn from `relations_catalogue_v3.tsv` and the OFBT spec; pre-Phase-4 SME work refreshes each cache against actual canonical releases.
+
+**Acceptance Criteria:**
+- [x] `arc/vocabulary-cache/schema.json` — JSON Schema for cache files (vocabularyId, displayName, namespaceURI, iriPattern, version, retrievedAt, sourceURL, entries[]); per-entry fields include `type` (class / object-property / data-property / annotation-property / named-individual / datatype), optional `label`, `deprecated`, `unverified`, `seedSource`
+- [x] Six per-vocabulary cache files seeded from existing repo content: `bfo-2020.json` (32 entries), `iao.json`, `ro.json`, `cco-2.0.json`, `prov-o.json`, `ofi-extension.json` — every seed entry carries `seedSource` provenance and (where pulled without canonical confirmation) `unverified: true`
+- [x] `arc/vocabulary-cache/README.md` — purpose, format, refresh process, linter integration, scope (NOT a runtime dependency, NOT a TBox, NOT exhaustive)
+- [x] `scripts/refresh-vocab-cache.js` — offline refresh tool consuming a user-supplied local `.owl`/`.ttl`/`.rdf`/`.nt`/`.xml` path; extracts IRIs via Turtle + RDF/XML regex parsers (no full-RDF parser dependency); merges into cache preserving SME-curated `seedSource` notes by default; supports `--dry-run` and `--prune`
+- [x] `npm run refresh:vocab-cache` script wired in `package.json`
+- [x] `scripts/lint-arc.js` extended with: cache loader, IRI routing by `iriPattern` regex, IRI-existence check (hard error), type-agreement check (object-property vs class — hard error), unverified-IRI surfacing (hard error in `--strict`), deprecated-IRI warning, unrouted-IRI warning. Lint summary line reports `cacheCheckedCount / cacheUnknownCount / cacheUnverifiedCount`.
+- [x] `arc/AUTHORING_DISCIPLINE.md` updated: per-entry peer-review checklist gains the cache-presence item; new "Canonical-Vocabulary IRI Cache" section explains routing / existence / type-agreement / unverified-surfacing / unrouted-IRI behavior
+
+**Pre-Phase-4 SME deliverable (NOT blocking Phase 0 exit; gating Phase 4 entry):**
+- [ ] BFO 2020 cache refreshed against canonical `bfo-2020.owl` release; `unverified` flags cleared; `version` set to canonical release identifier
+- [ ] `[VERIFY]` flags on rows 49 / 50 (BFO_0000222 / BFO_0000223) resolved against current `bfo-2020.owl`
+- [ ] IAO, RO, CCO 2.0, PROV-O caches refreshed against their canonical releases
+- [ ] `npm run lint:arc -- --strict` passes against the BFO module's seeded ARC content with zero unverified-IRI errors
+
 ### 0.8 Test Corpus Manifest
 
 **Status:** Not Started | **Priority:** High | **Owner:** Aaron + engineering
