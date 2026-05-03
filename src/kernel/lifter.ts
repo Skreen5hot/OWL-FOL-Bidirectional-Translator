@@ -1,5 +1,5 @@
 /**
- * OWL → FOL Lifter (Phase 1, through Step 4)
+ * OWL → FOL Lifter (Phase 1, through Step 5)
  *
  * Per API spec §6.1. Async because subsequent steps wire `rdf-canonize` for
  * blank-node canonicalization (Step 6 per phase-1-entry.md sequencing); the
@@ -40,8 +40,18 @@
  *     owl:sameAs / owl:differentFrom predicates themselves to avoid
  *     trivial-loop rewrites under SLD resolution.
  *
- * NOT YET IMPLEMENTED (deferred to Steps 5-9):
- *   - Property characteristics with cycle-guarded rewrites + Skolem ADR (Step 5)
+ * IMPLEMENTED (Step 5):
+ *   - RBox ObjectPropertyCharacteristic for Functional / Transitive /
+ *     Symmetric per spec §5.2 + InverseObjectProperties as bidirectional
+ *     implication pair. CLASSICAL FOL emission — cycle-guarded SLD
+ *     ingestion (visited-ancestor list per ADR-011) is the Phase 3
+ *     evaluator's concern, not the lifter's. The FOL term tree carries
+ *     the equivalent encoding per spec §6.2; the Prolog rule rewrite
+ *     happens at evaluator-ingestion time. Anticipated ADR-007 documents
+ *     this layer-translation alongside the variable-allocator and
+ *     pairwise-emission determinism conventions.
+ *
+ * NOT YET IMPLEMENTED (deferred to Steps 6-9):
  *   - RDFC-1.0 blank-node canonicalization (Step 6)
  *   - Cardinality restrictions (Step 7) — currently throws
  *     UnsupportedConstructError per SME B2 fix
@@ -394,17 +404,17 @@ function liftABoxAxiom(
     }
     case "SameIndividual": {
       // Per spec §5.5.1, same_as facts emitted as binary owl:sameAs atoms.
-      // Pairwise emission for individuals[0..n-1] → [0..1, 0..2, ..., 0..n-1, 1..2, ...]?
-      // The Phase 1 corpus (p1_owl_same_and_different) commits to a single
-      // binary fact for two-element lists. For n>2 elements the spec does not
-      // pin a canonical order; Step 1 emits pairwise (i, j) for i<j.
+      // Pairwise emission for individuals[0..n-1] → [0..1, 0..2, ..., 0..n-1, 1..2, ...].
+      // Step 1 emits pairwise (i, j) for i<j.
+      // Per architect Ruling 3 of Step 5 cycle: predicate IRI is the
+      // expanded full-URI form per API §3.10.3, NOT the CURIE shorthand.
       const out: FOLAxiom[] = [];
       const ids = axiom.individuals.map((i) => canonicalizeIRI(i, prefixes));
       for (let i = 0; i < ids.length; i++) {
         for (let j = i + 1; j < ids.length; j++) {
           out.push({
             "@type": "fol:Atom",
-            predicate: "owl:sameAs",
+            predicate: OWL_SAME_AS_IRI,
             arguments: [makeConstant(ids[i]), makeConstant(ids[j])],
           });
         }
@@ -412,13 +422,14 @@ function liftABoxAxiom(
       return out;
     }
     case "DifferentIndividuals": {
+      // Per architect Ruling 3 of Step 5 cycle: full-URI form per API §3.10.3.
       const out: FOLAxiom[] = [];
       const ids = axiom.individuals.map((i) => canonicalizeIRI(i, prefixes));
       for (let i = 0; i < ids.length; i++) {
         for (let j = i + 1; j < ids.length; j++) {
           out.push({
             "@type": "fol:Atom",
-            predicate: "owl:differentFrom",
+            predicate: OWL_DIFFERENT_FROM_IRI,
             arguments: [makeConstant(ids[i]), makeConstant(ids[j])],
           });
         }
@@ -607,8 +618,145 @@ function liftRBoxAxiom(
         universal(x.name, universal(y.name, implication(propAtom, rangeLifted))),
       ];
     }
-    // Other RBox axioms: deferred to Step 5 (property characteristics with
-    // cycle-guarded rewrites + Skolem ADR). Noop here keeps the lifter total.
+    case "ObjectPropertyCharacteristic": {
+      // Step 5 — property characteristics per spec §5.2 / behavioral §5.4.
+      // Lifter emits CLASSICAL FOL axioms for the semantic content. Cycle-
+      // guarded SLD ingestion (visited-ancestor list per ADR-011) is the
+      // Phase 3 evaluator's concern; the FOL term tree contains the
+      // classical equivalent encoding per spec §6.2 ("equivalent encoding"
+      // framing — the Prolog rule rewrite is the canonical interpretation
+      // when the FOL is loaded into Tau Prolog).
+      // Anticipated ADR-007 documents this layer-translation.
+      const propIRI = canonicalizeIRI(r.property, prefixes);
+      switch (r.characteristic) {
+        case "Functional": {
+          // ∀x,y,z. P(x,y) ∧ P(x,z) → y = z
+          const alloc = makeVarAllocator();
+          const x = alloc.next();
+          const y = alloc.next();
+          const z = alloc.next();
+          return [
+            universal(
+              x.name,
+              universal(
+                y.name,
+                universal(
+                  z.name,
+                  implication(
+                    conjunction([
+                      { "@type": "fol:Atom", predicate: propIRI, arguments: [x, y] },
+                      { "@type": "fol:Atom", predicate: propIRI, arguments: [x, z] },
+                    ]),
+                    { "@type": "fol:Equality", left: y, right: z }
+                  )
+                )
+              )
+            ),
+          ];
+        }
+        case "Transitive": {
+          // ∀x,y,z. P(x,y) ∧ P(y,z) → P(x,z)
+          // Cycle-guarded SLD ingestion is Phase 3's concern.
+          const alloc = makeVarAllocator();
+          const x = alloc.next();
+          const y = alloc.next();
+          const z = alloc.next();
+          return [
+            universal(
+              x.name,
+              universal(
+                y.name,
+                universal(
+                  z.name,
+                  implication(
+                    conjunction([
+                      { "@type": "fol:Atom", predicate: propIRI, arguments: [x, y] },
+                      { "@type": "fol:Atom", predicate: propIRI, arguments: [y, z] },
+                    ]),
+                    { "@type": "fol:Atom", predicate: propIRI, arguments: [x, z] }
+                  )
+                )
+              )
+            ),
+          ];
+        }
+        case "Symmetric": {
+          // ∀x,y. P(x,y) → P(y,x)
+          // Cycle-guarded SLD ingestion is Phase 3's concern.
+          const alloc = makeVarAllocator();
+          const x = alloc.next();
+          const y = alloc.next();
+          return [
+            universal(
+              x.name,
+              universal(
+                y.name,
+                implication(
+                  { "@type": "fol:Atom", predicate: propIRI, arguments: [x, y] },
+                  { "@type": "fol:Atom", predicate: propIRI, arguments: [y, x] }
+                )
+              )
+            ),
+          ];
+        }
+        // InverseFunctional / Asymmetric / Reflexive / Irreflexive — not yet
+        // implemented; Phase 1 corpus does not exercise these. Noop until
+        // Phase 1 exit promotion (or earlier if a corpus extension lands).
+        default:
+          return null;
+      }
+    }
+    case "InverseObjectProperties": {
+      // ∀x,y. P(x,y) ↔ Q(y,x). Decomposed as two implications, each with
+      // its own fresh allocator so both bind 'x' and 'y' (banked
+      // determinism convention from liftBidirectionalSubsumption per
+      // ADR-007).
+      const p = canonicalizeIRI(r.first, prefixes);
+      const q = canonicalizeIRI(r.second, prefixes);
+      const out: FOLAxiom[] = [];
+      // Forward: ∀x,y. P(x,y) → Q(y,x)
+      {
+        const alloc = makeVarAllocator();
+        const x = alloc.next();
+        const y = alloc.next();
+        out.push(
+          universal(
+            x.name,
+            universal(
+              y.name,
+              implication(
+                { "@type": "fol:Atom", predicate: p, arguments: [x, y] },
+                { "@type": "fol:Atom", predicate: q, arguments: [y, x] }
+              )
+            )
+          )
+        );
+      }
+      // Reverse: ∀x,y. Q(x,y) → P(y,x). Renamed via alpha-equivalence
+      // from ∀x,y. Q(y,x) → P(x,y) so both implications bind 'x' and 'y'.
+      {
+        const alloc = makeVarAllocator();
+        const x = alloc.next();
+        const y = alloc.next();
+        out.push(
+          universal(
+            x.name,
+            universal(
+              y.name,
+              implication(
+                { "@type": "fol:Atom", predicate: q, arguments: [x, y] },
+                { "@type": "fol:Atom", predicate: p, arguments: [y, x] }
+              )
+            )
+          )
+        );
+      }
+      return out;
+    }
+    // Other RBox axioms (SubObjectPropertyOf, EquivalentObjectProperties,
+    // ObjectPropertyChain, DisjointObjectProperties): deferred. Phase 1
+    // corpus does not exercise them; Phase 2 (projector) and beyond may
+    // pick them up.
     default:
       return null;
   }
@@ -649,12 +797,12 @@ function emitIdentityMachinery(ontology: OWLOntology): FOLAxiom[] {
   );
 
   if (hasSameIndividual) {
-    out.push(reflexivityAxiom("owl:sameAs"));
-    out.push(symmetryAxiom("owl:sameAs"));
-    out.push(transitivityAxiom("owl:sameAs"));
+    out.push(reflexivityAxiom(OWL_SAME_AS_IRI));
+    out.push(symmetryAxiom(OWL_SAME_AS_IRI));
+    out.push(transitivityAxiom(OWL_SAME_AS_IRI));
   }
   if (hasDifferentIndividuals) {
-    out.push(symmetryAxiom("owl:differentFrom"));
+    out.push(symmetryAxiom(OWL_DIFFERENT_FROM_IRI));
   }
 
   // Per-predicate identity-rewrite rules — only meaningful when an identity
@@ -668,7 +816,12 @@ function emitIdentityMachinery(ontology: OWLOntology): FOLAxiom[] {
         unaryPredicates.add(canonicalizeIRI(a.class.iri, prefixes));
       } else if (a["@type"] === "ObjectPropertyAssertion") {
         const pred = canonicalizeIRI(a.property, prefixes);
-        if (pred !== "owl:sameAs" && pred !== "owl:differentFrom") {
+        // Per architect Ruling 3 of Step 5 cycle: reserved-predicate exclusion
+        // matches the expanded full-URI canonical form per API §3.10.3.
+        // A user-supplied owl:sameAs / owl:differentFrom in CURIE form goes
+        // through canonicalizeIRI and lands as the expanded form too, so the
+        // single full-URI check catches both surface forms uniformly.
+        if (pred !== OWL_SAME_AS_IRI && pred !== OWL_DIFFERENT_FROM_IRI) {
           binaryPredicates.add(pred);
         }
       }
@@ -765,7 +918,7 @@ function unaryIdentityRewrite(predicate: string): FOLUniversal {
           { "@type": "fol:Atom", predicate, arguments: [varRef("x")] },
           {
             "@type": "fol:Atom",
-            predicate: "owl:sameAs",
+            predicate: OWL_SAME_AS_IRI,
             arguments: [varRef("x"), varRef("z")],
           },
         ]),
@@ -792,7 +945,7 @@ function binaryIdentityRewriteFirstArg(predicate: string): FOLUniversal {
             },
             {
               "@type": "fol:Atom",
-              predicate: "owl:sameAs",
+              predicate: OWL_SAME_AS_IRI,
               arguments: [varRef("x"), varRef("z")],
             },
           ]),
@@ -824,7 +977,7 @@ function binaryIdentityRewriteSecondArg(predicate: string): FOLUniversal {
             },
             {
               "@type": "fol:Atom",
-              predicate: "owl:sameAs",
+              predicate: OWL_SAME_AS_IRI,
               arguments: [varRef("y"), varRef("z")],
             },
           ]),
@@ -842,6 +995,17 @@ function binaryIdentityRewriteSecondArg(predicate: string): FOLUniversal {
 function varRef(name: string): FOLVariable {
   return { "@type": "fol:Variable", name };
 }
+
+// ---------------------------------------------------------------------------
+// Reserved-predicate canonical IRIs (per ADR-007 §9 + architect Ruling 3 of
+// Step 5 cycle: canonical form is full URI per API §3.10.3, NOT CURIE form)
+// ---------------------------------------------------------------------------
+
+/** Canonical IRI for owl:sameAs. Always full-URI form per API §3.10.3. */
+const OWL_SAME_AS_IRI = "http://www.w3.org/2002/07/owl#sameAs";
+
+/** Canonical IRI for owl:differentFrom. Always full-URI form per API §3.10.3. */
+const OWL_DIFFERENT_FROM_IRI = "http://www.w3.org/2002/07/owl#differentFrom";
 
 // ---------------------------------------------------------------------------
 // Class-expression lifting (Step 2)

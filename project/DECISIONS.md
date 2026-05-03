@@ -132,3 +132,84 @@ Phase 1 will replace the underlying call (currently the template `transform` ide
 - Corpus manifest entries MUST explicitly set `expected_v0.2_elk_verdict` to either an outcome or `null` — silent omission is no longer accepted.
 - Phase 4-7 ARC content authoring is on a stricter gate: every Verified entry needs a fixture; every TSV row needs a Module assignment.
 - 47/47 tests + tightened purity check + tightened corpus manifest gate all green after the rule-tightening — confirming the prior CLI restructure (ADR-005) cleaned the kernel sufficiently for the new rules.
+
+---
+
+## ADR-007: Phase 1 lifter determinism conventions + cycle-guard layer translation
+
+**Date:** 2026-05-02 (drafted at Step 5 implementation; ratified Accepted at Step 5 close cycle per architect Ruling 1 of the same cycle)
+
+**Status:** Accepted (architectural commitment per spec §0.1; routes future lifter/evaluator boundary questions). Section 1 (cycle-guard layer translation) is the architectural commitment; sections 2-9 are implementation-choice-tier conventions per spec §0.1 and are approved as authored within the developer's domain.
+
+**Decision:** Pin the eight determinism conventions the Phase 1 lifter has settled on, and document the cycle-guard layer translation that resolves the tension between spec §5.4 ("the lifter rewrites these axioms to thread visited-ancestor lists") and API §4 (which has no list / visited-ancestor primitive in FOLAxiom).
+
+### 1. Cycle-guard layer translation [ARCHITECTURAL COMMITMENT per spec §0.1]
+
+**This section is the load-bearing architectural commitment of ADR-007. It routes future lifter/evaluator boundary questions.** Architect Ruling 1 of the Step 5 close cycle: "Lifter outputs classical FOL form per spec §5; evaluator implementation details (cycle guards, tabling, step caps) are evaluator-side concerns and do not appear in lifted FOL."
+
+The lifter emits CLASSICAL FOL semantic axioms (e.g., `∀x,y,z. P(x,y) ∧ P(y,z) → P(x,z)` for Transitive). Cycle-guarded SLD ingestion (visited-ancestor list per ADR-011) is the **Phase 3 evaluator's** concern, not the lifter's. The FOL term tree carries the equivalent encoding per spec §6.2 ("An OWL TransitiveObjectProperty declaration is logically equivalent to its Prolog rule form `p(X,Z) :- p(X,Y), p(Y,Z)`"); the Phase 3 evaluator (when it lands) translates the FOL state into cycle-guarded Prolog rules at ingestion time per ADR-011's visited-ancestor pattern.
+
+This is the only resolution consistent with API §4 (no list primitive in FOLAxiom). Spec §5.4's "lifter rewrites" language refers to the conceptual lifter→evaluator pipeline; the rewrite to visited-list Prolog form happens at evaluator-ingestion time, not in the FOL term tree.
+
+Architect-banked architectural consequences (from Ruling 1):
+- Honors spec §0.1's three-tier framing — keeps the §0.1 implementation-choice tier (cycle guard) out of the §0.1 architectural-commitment tier (lifter output semantics). v0.2's planned SLG tabling requires only evaluator rework, not lifter rework.
+- Honors API §6.1.1's determinism contract cleanly — the contract bounds to the classical-FOL form, not to a visited-ancestor encoding scheme.
+- Honors round-trip parity per spec §8.1 — `lift(G₂) ≡ F₂ modulo Loss Signatures` is a property of the classical FOL state. v0.2 SLG migration will not break parity for stored audit artifacts.
+
+### 2. Variable-allocator letter sequence
+
+`makeVarAllocator()` yields fresh `FOLVariable` records with names from the sequence `["x", "y", "z", "w", "v", "u", "t", "s", "r", "q", "v10", "v11", ...]`. Index 0 = "x", index 1 = "y", and so on; from index 10, names switch to `v<index>` to avoid collisions with the alphabetic tail.
+
+A fresh allocator is created at every top-level lift call (each TBox / RBox axiom; each ABox axiom). Inner calls (e.g., `liftClassExpression` recursing into restrictions) share the allocator with their enclosing top-level call — so nested restrictions allocate from index 2 onward (z, w, v, ...) without colliding with the outer `x` and `y`.
+
+### 3. Pairwise i<j emission for set-based axioms
+
+For axioms whose input is a set of N classes / individuals (`SameIndividual`, `DifferentIndividuals`, `EquivalentClasses`, `DisjointWith`), the lifter emits one or two FOL axioms per pair `(i, j)` with `i < j`. Within a single set, the iteration order is the source-array order. For `EquivalentClasses` the per-pair emission is BOTH directions (forward then reverse, each with a fresh allocator per direction so both bind `x`); for `SameIndividual` / `DifferentIndividuals` it is the bare pairwise atom; for `DisjointWith` it is the conjunction-implies-False shape.
+
+### 4. Fresh-allocator-per-direction in `liftBidirectionalSubsumption`
+
+When emitting `EquivalentClasses` mutual implications or `ClassDefinition` biconditionals, each direction allocates a fresh `makeVarAllocator()` so both emitted universals bind `x` rather than `x` and `y`. This is a determinism contract; the architect-banked convention from corpus sign-off.
+
+### 5. Top-level pipeline order
+
+`owlToFol` processes the input ontology in this order:
+1. `rejectPuntedConstructs` (pre-scan; throws on §13.1 punted patterns)
+2. TBox lifting (`SubClassOf`, `EquivalentClasses`, `DisjointWith`, `ClassDefinition`)
+3. RBox lifting (`ObjectPropertyDomain`, `ObjectPropertyRange`, `ObjectPropertyCharacteristic`, `InverseObjectProperties`, …)
+4. ABox lifting (`ClassAssertion`, `ObjectPropertyAssertion`, `DataPropertyAssertion`, `SameIndividual`, `DifferentIndividuals`)
+5. Identity machinery emission (`emitIdentityMachinery`) — equivalence axioms + per-predicate identity-rewrite rules
+
+Within each stage, source-array order is preserved.
+
+### 6. Lexicographic sort for predicate sets
+
+Where the lifter iterates over a *set* of predicate IRIs (e.g., `emitIdentityMachinery`'s per-predicate identity-rewrite rule emission), the iteration is a lexicographic sort of the canonical (expanded full-URI) form. Same input set in different traversal order produces the same axiom sequence.
+
+### 7. Cardinality-witness Skolem prefix (Step 7 — to be filled in)
+
+[TO BE COMPLETED at Step 7 implementation, when the cardinality fixture's STRUCTURAL_ONLY placeholder is filled.] Cardinality restrictions require Skolem witnesses for `minCardinality` and `exactCardinality`; the prefix and naming convention land here.
+
+### 8. RDFC-1.0 b-node Skolem prefix (Step 6 — to be filled in)
+
+[TO BE COMPLETED at Step 6 implementation, when the blank-node fixture's STRUCTURAL_ONLY placeholder is filled and `rdf-canonize` is wired in.] The RDFC-1.0 canonical b-node label gets transformed to a Skolem constant IRI using a documented prefix; the prefix and the transformation rule land here.
+
+### 9. Reserved-predicate canonical form [RESOLVED in Step 5 close commit per architect Ruling 3]
+
+Reserved OWL predicates (`owl:sameAs`, `owl:differentFrom`) previously minted in CURIE-form when emitted from `SameIndividual` / `DifferentIndividuals` axioms and from the identity-machinery emission (Step 4); user-supplied predicate IRIs went through `canonicalizeIRI` and landed in expanded full-URI form. **Consequence (now closed):** a user-supplied `ObjectPropertyAssertion(property: "owl:sameAs", ...)` with `prefixes.owl` declared produced a fact with the expanded URI form, which would have been treated as a different predicate from the lifter-minted `owl:sameAs` CURIE form. SME O1 from the Step 4 review surfaced this; SME's Step 5 review re-escalated for resolution in the Step 5 cycle.
+
+**Decision (architect Ruling 3 of the Step 5 close cycle, 2026-05-02):** **Resolution A** — internal canonical form is full URI per API §3.10.3 ("FOLAtom.predicate and FOLConstant.iri strings in OFBT's FOL output use expanded full URI form by default"). Reserved OWL predicates are no exception. The lifter canonicalizes reserved predicates the same as user-supplied ones — minted constants land as `http://www.w3.org/2002/07/owl#sameAs` (and `http://www.w3.org/2002/07/owl#differentFrom`), not as `owl:sameAs` (and `owl:differentFrom`).
+
+Resolution B (distinct OFBT-internal namespace for reserved predicates) was rejected because (i) it would require a spec carve-out from API §3.10.3, (ii) post-freeze spec changes per §0.2 require implementation evidence not present here, and (iii) the visual minted-vs-user distinction concern (the only argument for Resolution B) lives in the rendering layer (CURIE form for human-facing diagnostics per API §3.10.4), not in the canonical FOL state.
+
+**Implementation status:** Implemented in the Step 5 close commit. Two constants `OWL_SAME_AS_IRI` and `OWL_DIFFERENT_FROM_IRI` declared in `src/kernel/lifter.ts` carrying the expanded full-URI form; four mint sites updated (SameIndividual ABox, DifferentIndividuals ABox, identity-machinery equivalence-axiom emissions, identity-machinery per-predicate identity-rewrite-rule inner sameAs atoms); reserved-predicate exclusion check in per-predicate identity-rewrite emission switched to the expanded-form match. Coordinated re-amendment of `tests/corpus/p1_owl_same_and_different.fixture.js` updates expectedFOL from CURIE to expanded form (six atom-predicate strings) with audit-trail addendum.
+
+**Banked principle:** "When the spec already pins a canonical form, 'we'll figure it out later' is not a deferral, it's a contradiction with the spec that compounds with each step. Resolve at the moment the contradiction surfaces." (Architect Ruling 3 of Step 5 close cycle, 2026-05-02.)
+
+**Context:** Step 5 implementation surfaces three concrete needs for these conventions: (1) Functional/Transitive/Symmetric/InverseObjectProperties emission requires the variable-allocator and per-direction allocator-freshness conventions; (2) the `p1_property_characteristics` STRUCTURAL_ONLY placeholder fill-in commits the lifter to a byte-exact term-tree shape that becomes the determinism contract per API §6.1.1; (3) the cycle-guard layer-translation question (lifter vs evaluator responsibility) cannot be deferred — it is a load-bearing decision for what the FOL term tree is allowed to contain.
+
+**Consequences:**
+- Future contributors implementing Phase 1 Steps 6-9 (or any post-Phase-1 lifter extension) inherit these conventions; deviations require a follow-up ADR with implementation evidence.
+- The Phase 3 evaluator's Prolog-rule-emission algorithm has a documented contract: ingest classical-FOL term trees and apply the visited-ancestor cycle-guard at ingestion time.
+- The ADR-007 placeholder text for §7 (cardinality Skolem) and §8 (RDFC-1.0 b-node Skolem) must be filled in at Steps 7 and 6 respectively before Phase 1 exit; they are not omitted but explicitly deferred.
+- Per architect ruling 2026-05-02: ADR-007 promotes Draft → Accepted on architect ratification; until then, fixture amendments referencing it (notably `p1_property_characteristics` Step 5 fill-in) are also Draft.
+

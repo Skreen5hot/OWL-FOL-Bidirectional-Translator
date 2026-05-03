@@ -66,6 +66,47 @@
  * expectedOutcome.summary / expectedFOL are mutually consistent, satisfying
  * the architect-ratified promotion criterion.
  * ============================================================================
+ *
+ * AMENDMENT AUDIT TRAIL — Step 5 close cycle, 2026-05-02 (re-amendment)
+ * ============================================================================
+ *
+ * (a) Re-amendment scope. Reserved-predicate `owl:sameAs` and
+ *     `owl:differentFrom` predicate-name strings flipped from CURIE form
+ *     ("owl:sameAs", "owl:differentFrom") to expanded full-URI form
+ *     ("http://www.w3.org/2002/07/owl#sameAs",
+ *      "http://www.w3.org/2002/07/owl#differentFrom") throughout
+ *     `expectedFOL`. Six atom-predicate strings updated. No other content
+ *     change.
+ *
+ * (b) Direction of alignment. The flip aligns expectedFOL with API §3.10.3
+ *     ("FOLAtom.predicate and FOLConstant.iri strings in OFBT's FOL output
+ *     use expanded full URI form by default"). The Step 4 amendment was
+ *     correct in shape (equivalence axioms injected) but used CURIE-form
+ *     reserved-predicate names that were inconsistent with the spec's
+ *     canonical-form rule for user-supplied predicates. SME O1 escalation
+ *     surfaced the inconsistency; architect Ruling 3 of the Step 5 cycle
+ *     resolved: reserved predicates use full-URI form per API §3.10.3,
+ *     no exception.
+ *
+ * (c) Spec citation. API specification §3.10.3 (Output: FOL predicates
+ *     and constants) — the canonical form rule that reserved OWL
+ *     predicates were not previously honoring. Spec §0.2 governs the
+ *     no-spec-carve-out rationale (Resolution B was not on the table
+ *     without implementation evidence).
+ *
+ * (d) Architect ruling reference. Architect Ruling 3 of the Phase 1
+ *     Step 5 mid-phase cycle, 2026-05-02 ("RESOLVE NOW; PICK
+ *     RESOLUTION A"). ADR-007 §9 promoted from "Step 6 placeholder"
+ *     to "Resolved in Step 5 close commit" with the canonical-form
+ *     decision recorded.
+ *
+ * Note on the audit-trail format. The (a/b/c/d) lettered subsections
+ * are emerging as the canonical Draft-fixture amendment audit-trail
+ * shape. The Step 4 amendment used the same shape (above); this Step 5
+ * re-amendment continues the pattern. Per SME's Step 5 review, the
+ * pattern itself should be banked into AUTHORING_DISCIPLINE.md at
+ * Phase 1 exit doc pass.
+ * ============================================================================
  */
 
 /** @type {object} */
@@ -96,7 +137,7 @@ export const fixture = {
     // Bare ABox facts (Step 1).
     {
       "@type": "fol:Atom",
-      predicate: "owl:sameAs",
+      predicate: "http://www.w3.org/2002/07/owl#sameAs",
       arguments: [
         { "@type": "fol:Constant", iri: "http://example.org/test/superman" },
         { "@type": "fol:Constant", iri: "http://example.org/test/clarkkent" },
@@ -104,7 +145,7 @@ export const fixture = {
     },
     {
       "@type": "fol:Atom",
-      predicate: "owl:differentFrom",
+      predicate: "http://www.w3.org/2002/07/owl#differentFrom",
       arguments: [
         { "@type": "fol:Constant", iri: "http://example.org/test/superman" },
         { "@type": "fol:Constant", iri: "http://example.org/test/lexluthor" },
@@ -117,7 +158,7 @@ export const fixture = {
       variable: "x",
       body: {
         "@type": "fol:Atom",
-        predicate: "owl:sameAs",
+        predicate: "http://www.w3.org/2002/07/owl#sameAs",
         arguments: [
           { "@type": "fol:Variable", name: "x" },
           { "@type": "fol:Variable", name: "x" },
@@ -135,7 +176,7 @@ export const fixture = {
           "@type": "fol:Implication",
           antecedent: {
             "@type": "fol:Atom",
-            predicate: "owl:sameAs",
+            predicate: "http://www.w3.org/2002/07/owl#sameAs",
             arguments: [
               { "@type": "fol:Variable", name: "x" },
               { "@type": "fol:Variable", name: "y" },
@@ -143,7 +184,7 @@ export const fixture = {
           },
           consequent: {
             "@type": "fol:Atom",
-            predicate: "owl:sameAs",
+            predicate: "http://www.w3.org/2002/07/owl#sameAs",
             arguments: [
               { "@type": "fol:Variable", name: "y" },
               { "@type": "fol:Variable", name: "x" },
@@ -169,7 +210,7 @@ export const fixture = {
               conjuncts: [
                 {
                   "@type": "fol:Atom",
-                  predicate: "owl:sameAs",
+                  predicate: "http://www.w3.org/2002/07/owl#sameAs",
                   arguments: [
                     { "@type": "fol:Variable", name: "x" },
                     { "@type": "fol:Variable", name: "y" },
@@ -177,7 +218,7 @@ export const fixture = {
                 },
                 {
                   "@type": "fol:Atom",
-                  predicate: "owl:sameAs",
+                  predicate: "http://www.w3.org/2002/07/owl#sameAs",
                   arguments: [
                     { "@type": "fol:Variable", name: "y" },
                     { "@type": "fol:Variable", name: "z" },
@@ -187,7 +228,7 @@ export const fixture = {
             },
             consequent: {
               "@type": "fol:Atom",
-              predicate: "owl:sameAs",
+              predicate: "http://www.w3.org/2002/07/owl#sameAs",
               arguments: [
                 { "@type": "fol:Variable", name: "x" },
                 { "@type": "fol:Variable", name: "z" },
@@ -209,7 +250,7 @@ export const fixture = {
           "@type": "fol:Implication",
           antecedent: {
             "@type": "fol:Atom",
-            predicate: "owl:differentFrom",
+            predicate: "http://www.w3.org/2002/07/owl#differentFrom",
             arguments: [
               { "@type": "fol:Variable", name: "x" },
               { "@type": "fol:Variable", name: "y" },
@@ -217,7 +258,7 @@ export const fixture = {
           },
           consequent: {
             "@type": "fol:Atom",
-            predicate: "owl:differentFrom",
+            predicate: "http://www.w3.org/2002/07/owl#differentFrom",
             arguments: [
               { "@type": "fol:Variable", name: "y" },
               { "@type": "fol:Variable", name: "x" },

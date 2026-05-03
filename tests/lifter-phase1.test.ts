@@ -395,7 +395,7 @@ await report(
                 },
                 {
                   "@type": "fol:Atom",
-                  predicate: "owl:sameAs",
+                  predicate: "http://www.w3.org/2002/07/owl#sameAs",
                   arguments: [
                     { "@type": "fol:Variable", name: "x" },
                     { "@type": "fol:Variable", name: "z" },
@@ -431,7 +431,7 @@ await report(
                 { "@type": "fol:Atom", predicate: worksAtIRI },
                 {
                   "@type": "fol:Atom",
-                  predicate: "owl:sameAs",
+                  predicate: "http://www.w3.org/2002/07/owl#sameAs",
                   arguments: [
                     { "@type": "fol:Variable", name: "y" },
                     { "@type": "fol:Variable", name: "z" },
@@ -465,7 +465,7 @@ await report(
           "@type": "fol:Implication",
           antecedent: {
             "@type": "fol:Atom",
-            predicate: "owl:sameAs",
+            predicate: "http://www.w3.org/2002/07/owl#sameAs",
             arguments: [
               { "@type": "fol:Variable", name: "x" },
               { "@type": "fol:Variable", name: "y" },
@@ -473,7 +473,7 @@ await report(
           },
           consequent: {
             "@type": "fol:Atom",
-            predicate: "owl:sameAs",
+            predicate: "http://www.w3.org/2002/07/owl#sameAs",
             arguments: [
               { "@type": "fol:Variable", name: "y" },
               { "@type": "fol:Variable", name: "x" },
@@ -490,10 +490,26 @@ await report(
   }
 );
 
-defer(
-  "p1_property_characteristics",
-  "deferred to Step 5 (Functional/Transitive/Symmetric/InverseOf with cycle-guarded rewrites + Skolem ADR)"
+// ===========================================================================
+// STEP 5 — RBox property characteristics (Functional/Transitive/Symmetric)
+//          + InverseObjectProperties bidirectional implication pair.
+//          Cycle-guard layer translation per anticipated ADR-007: lifter
+//          emits classical FOL; Phase 3 evaluator handles cycle-guarded
+//          SLD ingestion.
+// ===========================================================================
+
+await report(
+  "p1_property_characteristics: Functional/Transitive/Symmetric/InverseOf lift to classical FOL axioms (ADR-007 layer translation)",
+  async () => {
+    const { fixture } = await loadFixture("p1_property_characteristics.fixture.js");
+    const lifted = await owlToFol(fixture.input);
+    deepStrictEqual(lifted, fixture.expectedFOL);
+  }
 );
+
+// ===========================================================================
+// DEFERRED — Steps 6-7
+// ===========================================================================
 
 defer(
   "p1_blank_node_anonymous_restriction",

@@ -2,7 +2,7 @@
 
 This is the task tracker for the OFBT (OWL ↔ FOL Bidirectional Translator) v0.1 build. It is the operational view of [`OFBT_implementation_plan_v1 (1).md`](OFBT_implementation_plan_v1%20(1).md), which is the authoritative sequencing document. The frozen build target is [`OFBT_spec_v0.1.7.md`](OFBT_spec_v0.1.7.md) + [`OFBT_API_v0.1.7.md`](OFBT_API_v0.1.7.md).
 
-**Current Phase:** Phase 1 — Built-In OWL Lifter (IN PROGRESS, Steps 1-4 of 9 complete + Step 5 entry housekeeping landed; CI green locally; pending push). Phase 0 EXITED 2026-05-02 (CI runs `25258319623` and `25258966785` green on remote).
+**Current Phase:** Phase 1 — Built-In OWL Lifter (IN PROGRESS, Steps 1-5 of 9 complete; CI green locally; pending Step 5 close push). ADR-007 ratified Accepted at Step 5 close per architect Ruling 1; reserved-predicate canonical-form (full URI per API §3.10.3) resolved per architect Ruling 3. Phase 0 EXITED 2026-05-02.
 
 **Validation discipline:** every phase exits only when all three rings (Conversion Correctness, Round-Trip Parity + Audit Artifacts, Validator + Consistency Check) pass against the phase's corpus. See implementation plan §2.
 
@@ -182,7 +182,7 @@ The architect ratified the corpus + canaries as the contract; the developer's in
 | 2 | TBox: SubClassOf / EquivalentClasses / DisjointWith / ClassDefinition; class-expression lifting for someValuesFrom / allValuesFrom / hasValue / IntersectionOf / UnionOf / ComplementOf | ✅ Complete (commit `33dd01e`; includes SME B1/B2/S2/S3/N1 amendments) | `p1_subclass_chain`, `p1_equivalent_and_disjoint_named`, `p1_restrictions_object_value` |
 | 3 | RBox `ObjectPropertyDomain` + `ObjectPropertyRange` conditional translation (HIGH-PRIORITY per §3.7.1) | ✅ Complete (commit `159e0e5`, run `25259730068`) | `canary_domain_range_existential`, `p1_prov_domain_range` |
 | 4 | `owl:sameAs` identity machinery per spec §5.5.1-§5.5.2: equivalence axioms for sameAs (refl/symm/trans), symmetry-only for differentFrom, per-predicate identity-rewrite rules for class + object-property predicates used in ABox. Architect-approved `p1_owl_same_and_different` Draft-fixture amendment audit-trailed in-fixture. | ✅ Complete (this session, pending push; CI green locally 13/13 active) | `canary_same_as_propagation` |
-| 5 | RBox property characteristics (`Functional`, `Transitive`, `Symmetric`, `InverseOf`) with cycle-guarded rewrites per ADR-011 + **Skolem-naming convention ADR (anticipated ADR-007)** committing to one convention propagated to all STRUCTURAL_ONLY fixtures. **Step 5 entry housekeeping landed this session per architect ruling 2026-05-02**: AUTHORING_DISCIPLINE checklist gains internal-contract-consistency rule; helpers extracted to `tests/lifter-phase1-helpers.ts`; fixture amendment audit-trailed. | ⏳ Pending implementation (entry housekeeping ✅ landed) | `p1_property_characteristics` |
+| 5 | RBox property characteristics (`Functional`, `Transitive`, `Symmetric`, `InverseOf`) — classical FOL emission per ADR-007 §1 (architectural commitment: lifter outputs classical FOL; cycle-guarded SLD ingestion is Phase 3 evaluator's concern). ADR-007 ratified Accepted at Step 5 close cycle per architect Ruling 1. STRUCTURAL_ONLY fixture filled in per Ruling 2; reserved-predicate canonical-form (full URI per API §3.10.3) resolved per Ruling 3 with coordinated Step 4 fixture re-amendment. | ✅ Complete (this session, pending push) | `p1_property_characteristics` |
 | 6 | RDFC-1.0 blank-node canonicalization via `rdf-canonize`; uses Skolem prefix from Step 5 ADR | ⏳ Pending | `p1_blank_node_anonymous_restriction` |
 | 7 | Cardinality restrictions (min / max / exact + qualified `onClass`); fills the second STRUCTURAL_ONLY placeholder using the Step 5 ADR convention | ⏳ Pending | `p1_restrictions_cardinality` |
 | 8 | Datatype canonicalization per spec §5.6.5 (XSD canonical lexical-form normalization beyond pass-through); structural annotation declaration consistency machinery skeleton | ⏳ Pending | (informational; supports later phases) |
@@ -191,7 +191,7 @@ The architect ratified the corpus + canaries as the contract; the developer's in
 ### Deliverables Checklist
 Per-deliverable status reflects which Steps have landed. `~` indicates partially complete; `✅` complete; `⏳` pending.
 
-- [~] `owlToFol()` per API spec §6.1 with structured OWL input handling per API spec §3 (Steps 1-4 complete; Steps 5-9 outstanding)
+- [~] `owlToFol()` per API spec §6.1 with structured OWL input handling per API spec §3 (Steps 1-5 complete; Steps 6-9 outstanding)
 - [~] Class expressions: `Class`, `SubClassOf`, `EquivalentClasses`, `DisjointWith`, `ClassDefinition`, `ObjectIntersectionOf`, `ObjectUnionOf`, `ObjectComplementOf` (✅ all complete in Step 2)
 - [~] Restrictions per API spec §3.4: `ObjectSomeValuesFrom`, `ObjectAllValuesFrom`, `ObjectHasValue` (✅ Step 2); all cardinality variants (⏳ Step 7 — currently throws `UnsupportedConstructError(construct: 'cardinality-restriction')` per SME B2 fix; honest-admission failure rather than wrong-arity emission)
 - [~] ABox per API spec §3.5 (✅ Step 1); RBox `ObjectPropertyDomain` + `ObjectPropertyRange` (✅ Step 3); other RBox kinds (⏳ Step 5)
@@ -212,7 +212,7 @@ All 13 fixtures below are registered in [`tests/corpus/manifest.json`](../tests/
 - [~] **partial** — Restriction variants: `ObjectSomeValuesFrom`, `ObjectAllValuesFrom`, `ObjectHasValue` active ([`p1_restrictions_object_value`](../tests/corpus/p1_restrictions_object_value.fixture.js); Step 2); cardinality deferred ([`p1_restrictions_cardinality`](../tests/corpus/p1_restrictions_cardinality.fixture.js); Step 7)
 - [x] **active** — ABox class assertions, object property assertions, datatype property assertions ([`p1_abox_assertions`](../tests/corpus/p1_abox_assertions.fixture.js); Step 1)
 - [x] **active** — `owl:sameAs` and `owl:differentFrom` between named individuals ([`p1_owl_same_and_different`](../tests/corpus/p1_owl_same_and_different.fixture.js); Step 1)
-- [ ] **deferred** — Property characteristics: `Functional`, `Transitive`, `Symmetric`, `InverseOf` ([`p1_property_characteristics`](../tests/corpus/p1_property_characteristics.fixture.js); Step 5)
+- [x] **active** — Property characteristics: `Functional`, `Transitive`, `Symmetric`, `InverseOf` ([`p1_property_characteristics`](../tests/corpus/p1_property_characteristics.fixture.js); Step 5; cycle guard handled by Phase 3 evaluator per ADR-007 §1)
 - [x] **active** — **PROV-O domain/range fixtures** (`prov:wasInfluencedBy` with domain + range both `prov:Entity`, plus property assertion) — verifies the conditional translation, asserts the existential wrong translation is absent ([`p1_prov_domain_range`](../tests/corpus/p1_prov_domain_range.fixture.js); Step 3)
 - [ ] **deferred** — Blank-node-bearing class expressions (anonymous restrictions) ([`p1_blank_node_anonymous_restriction`](../tests/corpus/p1_blank_node_anonymous_restriction.fixture.js); Step 6)
 
