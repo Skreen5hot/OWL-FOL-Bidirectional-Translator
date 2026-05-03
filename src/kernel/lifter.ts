@@ -734,6 +734,8 @@ function liftRBoxAxiom(
       }
       // Reverse: ∀x,y. Q(x,y) → P(y,x). Renamed via alpha-equivalence
       // from ∀x,y. Q(y,x) → P(x,y) so both implications bind 'x' and 'y'.
+      // Mathematically equivalent under alpha-renaming (per SME O2 carry-
+      // forward from Step 5 review); banked in ADR-007 §3 + §4.
       {
         const alloc = makeVarAllocator();
         const x = alloc.next();

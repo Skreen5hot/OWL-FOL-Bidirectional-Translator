@@ -2,7 +2,7 @@
 
 This is the task tracker for the OFBT (OWL ↔ FOL Bidirectional Translator) v0.1 build. It is the operational view of [`OFBT_implementation_plan_v1 (1).md`](OFBT_implementation_plan_v1%20(1).md), which is the authoritative sequencing document. The frozen build target is [`OFBT_spec_v0.1.7.md`](OFBT_spec_v0.1.7.md) + [`OFBT_API_v0.1.7.md`](OFBT_API_v0.1.7.md).
 
-**Current Phase:** Phase 1 — Built-In OWL Lifter (IN PROGRESS, Steps 1-5 of 9 complete; CI green locally; pending Step 5 close push). ADR-007 ratified Accepted at Step 5 close per architect Ruling 1; reserved-predicate canonical-form (full URI per API §3.10.3) resolved per architect Ruling 3. Phase 0 EXITED 2026-05-02.
+**Current Phase:** Phase 1 — Built-In OWL Lifter (IN PROGRESS, Steps 1-6 of 9 complete; CI green locally on Step 6 close pending push; CI green on `0a0caf3` Step 5 close run `25274605492`). ADR-007 ratified Accepted at Step 5 close per architect Ruling 1; §8 (RDFC-1.0 b-node Skolem prefix) resolved at Step 6 close. Phase 0 EXITED 2026-05-02.
 
 **Validation discipline:** every phase exits only when all three rings (Conversion Correctness, Round-Trip Parity + Audit Artifacts, Validator + Consistency Check) pass against the phase's corpus. See implementation plan §2.
 
@@ -183,7 +183,7 @@ The architect ratified the corpus + canaries as the contract; the developer's in
 | 3 | RBox `ObjectPropertyDomain` + `ObjectPropertyRange` conditional translation (HIGH-PRIORITY per §3.7.1) | ✅ Complete (commit `159e0e5`, run `25259730068`) | `canary_domain_range_existential`, `p1_prov_domain_range` |
 | 4 | `owl:sameAs` identity machinery per spec §5.5.1-§5.5.2: equivalence axioms for sameAs (refl/symm/trans), symmetry-only for differentFrom, per-predicate identity-rewrite rules for class + object-property predicates used in ABox. Architect-approved `p1_owl_same_and_different` Draft-fixture amendment audit-trailed in-fixture. | ✅ Complete (this session, pending push; CI green locally 13/13 active) | `canary_same_as_propagation` |
 | 5 | RBox property characteristics (`Functional`, `Transitive`, `Symmetric`, `InverseOf`) — classical FOL emission per ADR-007 §1 (architectural commitment: lifter outputs classical FOL; cycle-guarded SLD ingestion is Phase 3 evaluator's concern). ADR-007 ratified Accepted at Step 5 close cycle per architect Ruling 1. STRUCTURAL_ONLY fixture filled in per Ruling 2; reserved-predicate canonical-form (full URI per API §3.10.3) resolved per Ruling 3 with coordinated Step 4 fixture re-amendment. | ✅ Complete (this session, pending push) | `p1_property_characteristics` |
-| 6 | RDFC-1.0 blank-node canonicalization via `rdf-canonize`; uses Skolem prefix from Step 5 ADR | ⏳ Pending | `p1_blank_node_anonymous_restriction` |
+| 6 | RDFC-1.0 blank-node canonicalization: `_:label` IRI form recognized by `canonicalizeIRI`; ADR-007 §8 prefix (`https://ofbt.ontology-of-freedom.org/ns/0.1/bnode/`) wired; `parseOWL` adapter owns RDFC-1.0 canonicalization itself when it lands. STRUCTURAL_ONLY filled in (input has no b-node references; existential-witness determinism comes from ADR-007 §2 variable allocator); inline regression test pins the b-node IRI canonicalization path. SME O2 (alpha-renaming comment) closed. | ✅ Complete (this session, pending push) | `p1_blank_node_anonymous_restriction` |
 | 7 | Cardinality restrictions (min / max / exact + qualified `onClass`); fills the second STRUCTURAL_ONLY placeholder using the Step 5 ADR convention | ⏳ Pending | `p1_restrictions_cardinality` |
 | 8 | Datatype canonicalization per spec §5.6.5 (XSD canonical lexical-form normalization beyond pass-through); structural annotation declaration consistency machinery skeleton | ⏳ Pending | (informational; supports later phases) |
 | 9 | 100-run determinism harness per API §6.1.1; STRUCTURAL_ONLY placeholders' byte-exact `expectedFOL` literals filled in consistently with the Step 5 ADR; `verifiedStatus: 'Draft'` → `'Verified'` promotion across the 13 fixtures | ⏳ Pending | (drives Phase 1 Exit Review) |
@@ -191,7 +191,7 @@ The architect ratified the corpus + canaries as the contract; the developer's in
 ### Deliverables Checklist
 Per-deliverable status reflects which Steps have landed. `~` indicates partially complete; `✅` complete; `⏳` pending.
 
-- [~] `owlToFol()` per API spec §6.1 with structured OWL input handling per API spec §3 (Steps 1-5 complete; Steps 6-9 outstanding)
+- [~] `owlToFol()` per API spec §6.1 with structured OWL input handling per API spec §3 (Steps 1-6 complete; Steps 7-9 outstanding)
 - [~] Class expressions: `Class`, `SubClassOf`, `EquivalentClasses`, `DisjointWith`, `ClassDefinition`, `ObjectIntersectionOf`, `ObjectUnionOf`, `ObjectComplementOf` (✅ all complete in Step 2)
 - [~] Restrictions per API spec §3.4: `ObjectSomeValuesFrom`, `ObjectAllValuesFrom`, `ObjectHasValue` (✅ Step 2); all cardinality variants (⏳ Step 7 — currently throws `UnsupportedConstructError(construct: 'cardinality-restriction')` per SME B2 fix; honest-admission failure rather than wrong-arity emission)
 - [~] ABox per API spec §3.5 (✅ Step 1); RBox `ObjectPropertyDomain` + `ObjectPropertyRange` (✅ Step 3); other RBox kinds (⏳ Step 5)
@@ -199,7 +199,7 @@ Per-deliverable status reflects which Steps have landed. `~` indicates partially
 - [x] IRI canonicalization per API spec §3.10 (input forms accepted, internal canonical, FOL output in full URI form) — Step 1; canary verifies three input forms produce byte-identical FOL
 - [ ] Datatype canonicalization per spec §5.6.5 (XSD canonical lexical forms) — ⏳ Step 8 (Step 1 ships pass-through TypedLiteral handling)
 - [x] Identity rules per spec §5.5 (`owl:sameAs` propagation) — Step 1 ships sameAs facts; Step 4 wires identity-aware predicate variants per §5.5.1-§5.5.2 (equivalence axioms + per-predicate identity-rewrite rules); architect-approved `p1_owl_same_and_different` amendment audit-trailed
-- [ ] RDFC-1.0 blank node canonicalization per spec §5.7 via `rdf-canonize` — ⏳ Step 6
+- [~] RDFC-1.0 blank node canonicalization per spec §5.7 via `rdf-canonize` — ✅ Step 6 (lifter recognizes `_:label` form and mints Skolem under ADR-007 §8 prefix; rdf-canonize call lives at `parseOWL` adapter when it lands; Phase 1 corpus has no b-node-bearing input — exercised by inline regression test)
 - [x] JSON-LD-shaped FOL output per API spec §4 — Step 1
 - [x] ARC manifest stub: `arcCoverage: 'permissive'` always (callers cannot select strict in Phase 1; strict-mode operational behavior arrives in Phase 4); properties go through §6.4 fallback with `unknown_relation` Loss Signature
 - [x] Lifter rejects all spec §13.1 punted constructs with `UnsupportedConstructError`. The `construct` field names the specific construct (e.g., `'owl:hasKey'`, `'owl:NegativeObjectPropertyAssertion'`, `'punning'`, `'faceted-datatype-restriction'`, `'annotation-on-annotation'`). One test fixture per punted construct verifies the rejection. — Step 1; `canary_punned_construct_rejection` exercises all 5 cases
@@ -214,7 +214,7 @@ All 13 fixtures below are registered in [`tests/corpus/manifest.json`](../tests/
 - [x] **active** — `owl:sameAs` and `owl:differentFrom` between named individuals ([`p1_owl_same_and_different`](../tests/corpus/p1_owl_same_and_different.fixture.js); Step 1)
 - [x] **active** — Property characteristics: `Functional`, `Transitive`, `Symmetric`, `InverseOf` ([`p1_property_characteristics`](../tests/corpus/p1_property_characteristics.fixture.js); Step 5; cycle guard handled by Phase 3 evaluator per ADR-007 §1)
 - [x] **active** — **PROV-O domain/range fixtures** (`prov:wasInfluencedBy` with domain + range both `prov:Entity`, plus property assertion) — verifies the conditional translation, asserts the existential wrong translation is absent ([`p1_prov_domain_range`](../tests/corpus/p1_prov_domain_range.fixture.js); Step 3)
-- [ ] **deferred** — Blank-node-bearing class expressions (anonymous restrictions) ([`p1_blank_node_anonymous_restriction`](../tests/corpus/p1_blank_node_anonymous_restriction.fixture.js); Step 6)
+- [x] **active** — Blank-node-bearing class expressions (anonymous restrictions) ([`p1_blank_node_anonymous_restriction`](../tests/corpus/p1_blank_node_anonymous_restriction.fixture.js); Step 6; b-node IRI canonicalization path covered by inline regression test)
 
 #### Phase 1 Wrong-Translation Canary Set
 Each canary asserts the **wrong** shape is absent, not just that the right shape is present. Failure of a canary indicates the lifter has regressed into a known-bad translation pattern.

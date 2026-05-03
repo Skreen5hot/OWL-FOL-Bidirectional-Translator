@@ -189,9 +189,16 @@ Where the lifter iterates over a *set* of predicate IRIs (e.g., `emitIdentityMac
 
 [TO BE COMPLETED at Step 7 implementation, when the cardinality fixture's STRUCTURAL_ONLY placeholder is filled.] Cardinality restrictions require Skolem witnesses for `minCardinality` and `exactCardinality`; the prefix and naming convention land here.
 
-### 8. RDFC-1.0 b-node Skolem prefix (Step 6 — to be filled in)
+### 8. RDFC-1.0 b-node Skolem prefix [RESOLVED in Step 6 close commit]
 
-[TO BE COMPLETED at Step 6 implementation, when the blank-node fixture's STRUCTURAL_ONLY placeholder is filled and `rdf-canonize` is wired in.] The RDFC-1.0 canonical b-node label gets transformed to a Skolem constant IRI using a documented prefix; the prefix and the transformation rule land here.
+When the input carries a Turtle / RDF 1.1 blank-node identifier (`_:label`), `canonicalizeIRI` mints a deterministic Skolem constant by concatenating the OFBT-minted vocabulary prefix with the b-node label:
+
+- **Prefix:** `https://ofbt.ontology-of-freedom.org/ns/0.1/bnode/` (per spec §17.2 Q2 — the permanent OFBT-minted vocabulary base; the `bnode/` segment isolates Skolemized b-nodes from other minted IRIs).
+- **Transformation:** `_:label` → `https://ofbt.ontology-of-freedom.org/ns/0.1/bnode/label`.
+- **RDFC-1.0 canonicalization responsibility:** the caller (typically the `parseOWL` adapter when it materializes RDF input into structured-JS form) is responsible for canonicalizing the b-node labels via `rdf-canonize` BEFORE passing them to the lifter. Phase 1 corpus exercises only structured-JS inputs without b-node references; the b-node IRI form is structurally supported by the lifter (verified by the inline regression test in `tests/lifter-phase1.test.ts`), but full Phase 4+ corpus exercise (real BFO/CCO releases use b-nodes for class expressions) waits on the `parseOWL` adapter wiring.
+- **Recognized form:** `BNODE_RE = /^_:([A-Za-z0-9_][A-Za-z0-9_.\-]*)$/` per the Turtle PN_LOCAL grammar. Strict subset of the W3C Turtle b-node label grammar, sufficient for RDFC-1.0 canonical labels (which use `c14nN` form).
+
+`p1_blank_node_anonymous_restriction` does NOT exercise the b-node IRI path because its input uses inline-restriction syntax (anonymous nested ClassExpression objects in the structured-JS form) rather than RDF b-node references. The fixture's determinism is provided by ADR-007 §2 (variable-allocator letter sequence) at the existential-witness level; the b-node Skolem prefix is exercised by an inline regression test at Step 6 and will be exercised by Phase 4+ corpus when `parseOWL` materializes b-node-bearing RDF.
 
 ### 9. Reserved-predicate canonical form [RESOLVED in Step 5 close commit per architect Ruling 3]
 

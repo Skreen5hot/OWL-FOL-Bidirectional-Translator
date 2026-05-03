@@ -508,13 +508,79 @@ await report(
 );
 
 // ===========================================================================
-// DEFERRED — Steps 6-7
+// STEP 6 — Blank-node canonicalization (RDFC-1.0 b-node Skolem prefix per
+//          ADR-007 §8). p1_blank_node_anonymous_restriction's structured-JS
+//          input has no b-node references, so the existing variable-allocator
+//          recursion (ADR-007 §2) handles determinism at the existential-
+//          witness level. The b-node IRI form (`_:label`) is exercised by
+//          an inline regression test below.
 // ===========================================================================
 
-defer(
-  "p1_blank_node_anonymous_restriction",
-  "deferred to Step 6 (RDFC-1.0 blank-node canonicalization via rdf-canonize)"
+await report(
+  "p1_blank_node_anonymous_restriction: nested anonymous restrictions lift to deterministic existential witnesses (ADR-007 §2)",
+  async () => {
+    const { fixture } = await loadFixture("p1_blank_node_anonymous_restriction.fixture.js");
+    const lifted = await owlToFol(fixture.input);
+    deepStrictEqual(lifted, fixture.expectedFOL);
+  }
 );
+
+// SME B3 (Step 4 review carry-forward) acknowledged — recommended fixture
+// `p1_complement_of.fixture.js` for ObjectComplementOf coverage; deferred
+// to Step 9 (Phase 1 exit) along with the `verifiedStatus` Draft → Verified
+// promotion + 100-run determinism harness.
+
+// Step 6 b-node IRI canonicalization regression test — verifies the
+// `_:label` form is recognized by canonicalizeIRI and lifted to a
+// deterministic Skolem constant under ADR-007 §8's BNODE_SKOLEM_PREFIX.
+// Phase 1 corpus has no b-node-bearing input (parseOWL adapter doesn't
+// exist yet); this regression test pins the b-node code path so Phase 4+
+// when real RDF-parsed input lands, the canonicalization is already wired.
+await report(
+  "Step 6 b-node IRI regression: `_:label` form canonicalizes to deterministic Skolem constant under ADR-007 §8 prefix",
+  async () => {
+    const bnodeInput = {
+      ontologyIRI: "http://example.org/test/p1_step6_bnode_regression",
+      prefixes: {},
+      tbox: [],
+      abox: [
+        {
+          "@type": "ObjectPropertyAssertion" as const,
+          property: "http://example.org/test/hasParent",
+          source: "http://example.org/test/alice",
+          // Turtle-style b-node label per RDFC-1.0 canonical form
+          target: "_:c14n0",
+        },
+      ],
+      rbox: [],
+    };
+    const lifted1 = await owlToFol(bnodeInput);
+    const lifted2 = await owlToFol(bnodeInput);
+
+    // The b-node target should canonicalize to the Skolem constant
+    // https://ofbt.ontology-of-freedom.org/ns/0.1/bnode/c14n0
+    const expectedSkolem =
+      "https://ofbt.ontology-of-freedom.org/ns/0.1/bnode/c14n0";
+    deepStrictEqual(lifted1, [
+      {
+        "@type": "fol:Atom",
+        predicate: "http://example.org/test/hasParent",
+        arguments: [
+          { "@type": "fol:Constant", iri: "http://example.org/test/alice" },
+          { "@type": "fol:Constant", iri: expectedSkolem },
+        ],
+      },
+    ]);
+    // Determinism: byte-identical across two runs (mini 2-run determinism
+    // check; Step 9 100-run harness will broaden coverage).
+    deepStrictEqual(lifted1, lifted2);
+  }
+);
+
+// ===========================================================================
+// DEFERRED — Step 7
+// ===========================================================================
+
 
 defer(
   "p1_restrictions_cardinality",

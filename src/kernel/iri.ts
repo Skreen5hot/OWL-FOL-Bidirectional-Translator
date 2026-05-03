@@ -32,6 +32,28 @@ const SCHEME_RE = /^[A-Za-z][A-Za-z0-9+\-.]*:/;
 const CURIE_RE = /^([A-Za-z][A-Za-z0-9_-]*):([^\s<>]*)$/;
 // Bracketed full URI: angle-bracket-delimited full URI.
 const BRACKETED_RE = /^<(.+)>$/;
+// Blank-node IRI form per Turtle / RDF 1.1: `_:label` where label is a
+// PN_LOCAL-style identifier. Per Step 6 + ADR-007 §8 the lifter recognizes
+// this form and canonicalizes to a deterministic Skolem constant under
+// the OFBT-minted vocabulary base (spec §17.2 Q2 resolution).
+const BNODE_RE = /^_:([A-Za-z0-9_][A-Za-z0-9_.\-]*)$/;
+
+/**
+ * ADR-007 §8 — Blank-node Skolem prefix.
+ *
+ * When the input carries a Turtle-style b-node identifier (`_:label`), the
+ * lifter mints a Skolem constant at this prefix concatenated with the label.
+ * The b-node label MUST be canonical per RDFC-1.0 (the canonicalization
+ * step lives at the parseOWL adapter boundary; the lifter assumes input
+ * b-node labels are already canonical).
+ *
+ * Permanent base per spec §17.2 Q2 resolution
+ * ("https://ofbt.ontology-of-freedom.org/ns/0.1/" is the OFBT-minted
+ * vocabulary namespace). The `bnode/` segment isolates Skolemized b-nodes
+ * from other minted IRIs.
+ */
+export const BNODE_SKOLEM_PREFIX =
+  "https://ofbt.ontology-of-freedom.org/ns/0.1/bnode/";
 
 /**
  * Canonicalize a single IRI string against an optional prefix table.
@@ -52,6 +74,18 @@ export function canonicalizeIRI(
       iri: String(iri),
       form: "unrecognized",
     });
+  }
+
+  // (0) Blank-node form `_:label` per Turtle / RDF 1.1. Most specific shape;
+  // checked first because the leading `_:` would also match CURIE_RE
+  // (treating `_` as the prefix). Per ADR-007 §8 the lifter mints a Skolem
+  // constant under BNODE_SKOLEM_PREFIX. Caller is responsible for ensuring
+  // the b-node label is RDFC-1.0 canonical (parseOWL adapter does this;
+  // structured-JS callers passing raw labels accept the consequence that
+  // their labels become the Skolem constant identifier verbatim).
+  const bnodeMatch = BNODE_RE.exec(iri);
+  if (bnodeMatch) {
+    return BNODE_SKOLEM_PREFIX + bnodeMatch[1];
   }
 
   // (1) Bracketed full URI: strip brackets, then return the inner URI.
