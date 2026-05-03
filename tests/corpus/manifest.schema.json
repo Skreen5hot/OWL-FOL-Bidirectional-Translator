@@ -89,6 +89,53 @@
             { "type": "null" }
           ],
           "description": "The verdict v0.2 should produce after ELK lands. null when no change is expected. The regression-suite signal for ELK integration."
+        },
+        "clifGroundTruth": {
+          "type": "array",
+          "description": "OPTIONAL. Per architect Ruling 2 of the BFO/CLIF parity routing cycle (2026-05-03). Array of canonical CLIF/KIF axiom citations the fixture is parity-checked against. Opt-in for fixtures whose semantics derive from a canonical CL/KIF source (BFO, CCO modal relations); NOT required for pure-OWL fixtures (PROV-O, owl:sameAs, etc.). Citation accuracy is the SME's pre-Phase-N-exit responsibility per spec §3.3 [VERIFY] discipline; CI validates structural shape only.",
+          "items": { "$ref": "#/definitions/ClifGroundTruthEntry" }
+        }
+      }
+    },
+    "ClifGroundTruthEntry": {
+      "type": "object",
+      "required": ["clifSource", "clifAxiomRef", "clifText", "verificationStatus"],
+      "additionalProperties": false,
+      "properties": {
+        "clifSource": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Canonical CLIF/KIF source file path or URL. E.g., 'https://github.com/BFO-ontology/BFO-2020/blob/master/src/owl/bfo-2020.clif'."
+        },
+        "clifAxiomRef": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Reference into the canonical source — line number, named axiom identifier, or section reference."
+        },
+        "clifText": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Verbatim axiom text from the canonical source."
+        },
+        "verificationStatus": {
+          "type": "string",
+          "enum": ["Verified", "[VERIFY]", "Draft"],
+          "description": "Per spec §3.3 state machine. Verified = SME has confirmed citation against canonical source. [VERIFY] = SME-cited from knowledge, awaits canonical-source confirmation. Draft = provisional; not yet peer-reviewed."
+        },
+        "mappingNote": {
+          "type": "string",
+          "description": "OPTIONAL. Free-text explaining how the OWL form approximates the CLIF form. Required when the OWL/CLIF mapping is non-trivial (e.g., bidirectional implication pair encoding an iff, conjunction-implies-False encoding a not-and). Same equivalenceNote concept the BFO fixture surfaced; renamed to mappingNote per architect Ruling 2's specified field-name."
+        },
+        "expectedFOLIndex": {
+          "oneOf": [
+            { "type": "integer", "minimum": 0 },
+            { "type": "array", "items": { "type": "integer", "minimum": 0 } }
+          ],
+          "description": "OPTIONAL. Index (or indices) into the fixture file's expectedFOL array identifying which lifted axiom this CLIF citation corresponds to. Array form for axioms whose CLIF counterpart maps to multiple lifted axioms (e.g., InverseObjectProperties → bidirectional implication pair under ADR-007 §4). Fixture-runtime convenience field; not required by CI."
+        },
+        "owlAxiomLabel": {
+          "type": "string",
+          "description": "OPTIONAL. Human-readable label for the OWL axiom this CLIF citation pairs with. Used by demos and fixture-runtime tooling for display; not required by CI."
         }
       }
     }

@@ -27,7 +27,18 @@ const corpusDir = join(root, "tests", "corpus");
 const manifestPath = join(corpusDir, "manifest.json");
 
 const VALID_REGIMES = new Set(["equivalent", "reversible", "true_loss"]);
+const VALID_CLIF_VERIFICATION_STATUSES = new Set(["Verified", "[VERIFY]", "Draft"]);
 const FIXTURE_ID_RE = /^[a-z0-9_]+$/;
+
+interface ClifGroundTruthEntry {
+  clifSource: string;
+  clifAxiomRef: string;
+  clifText: string;
+  verificationStatus: string;
+  mappingNote?: string;
+  expectedFOLIndex?: number | number[];
+  owlAxiomLabel?: string;
+}
 
 interface ManifestEntry {
   fixtureId: string;
@@ -41,6 +52,9 @@ interface ManifestEntry {
   intendedToCatch: string;
   "expected_v0.1_verdict": unknown;
   "expected_v0.2_elk_verdict"?: unknown;
+  // OPTIONAL per architect Ruling 2 (BFO/CLIF parity routing cycle 2026-05-03).
+  // Opt-in for canonical-CLIF/KIF-derived fixtures; pure-OWL fixtures don't carry it.
+  clifGroundTruth?: ClifGroundTruthEntry[];
 }
 
 interface Manifest {
@@ -127,6 +141,62 @@ async function main(): Promise<void> {
         `${fx.fixtureId}: expected_v0.2_elk_verdict is required (use null to mean "no expected change after ELK"). ` +
           `Absent ≠ null — the absence collapses the ELK regression-suite signal per ROADMAP cross-cutting Test Corpus Manifest Discipline.`
       );
+    }
+    // OPTIONAL clifGroundTruth per architect Ruling 2 (BFO/CLIF parity
+    // routing cycle 2026-05-03). Validate optional presence + structural
+    // shape; do NOT validate citation accuracy (that's the SME's pre-Phase-N-
+    // exit responsibility per spec §3.3 [VERIFY] discipline).
+    if (Object.prototype.hasOwnProperty.call(fx, "clifGroundTruth")) {
+      if (!Array.isArray(fx.clifGroundTruth)) {
+        err(`${fx.fixtureId}: clifGroundTruth must be an array if present`);
+      } else {
+        for (let i = 0; i < fx.clifGroundTruth.length; i++) {
+          const cgt = fx.clifGroundTruth[i] as ClifGroundTruthEntry;
+          const ctx = `${fx.fixtureId}: clifGroundTruth[${i}]`;
+          if (!cgt || typeof cgt !== "object") {
+            err(`${ctx}: must be an object`);
+            continue;
+          }
+          if (typeof cgt.clifSource !== "string" || cgt.clifSource.trim() === "") {
+            err(`${ctx}: clifSource must be a non-empty string (canonical source path/URL)`);
+          }
+          if (typeof cgt.clifAxiomRef !== "string" || cgt.clifAxiomRef.trim() === "") {
+            err(`${ctx}: clifAxiomRef must be a non-empty string (line/section reference into the canonical source)`);
+          }
+          if (typeof cgt.clifText !== "string" || cgt.clifText.trim() === "") {
+            err(`${ctx}: clifText must be a non-empty string (verbatim axiom text from the canonical source)`);
+          }
+          if (
+            typeof cgt.verificationStatus !== "string" ||
+            !VALID_CLIF_VERIFICATION_STATUSES.has(cgt.verificationStatus)
+          ) {
+            err(
+              `${ctx}: verificationStatus must be one of Verified | [VERIFY] | Draft per spec §3.3, got "${cgt.verificationStatus}"`
+            );
+          }
+          if (
+            Object.prototype.hasOwnProperty.call(cgt, "mappingNote") &&
+            typeof cgt.mappingNote !== "string"
+          ) {
+            err(`${ctx}: mappingNote must be a string if present`);
+          }
+          if (Object.prototype.hasOwnProperty.call(cgt, "expectedFOLIndex")) {
+            const idx = cgt.expectedFOLIndex;
+            const validIndex = (n: unknown) =>
+              typeof n === "number" && Number.isInteger(n) && n >= 0;
+            const ok = validIndex(idx) || (Array.isArray(idx) && idx.every(validIndex));
+            if (!ok) {
+              err(`${ctx}: expectedFOLIndex must be a non-negative integer or array of non-negative integers if present`);
+            }
+          }
+          if (
+            Object.prototype.hasOwnProperty.call(cgt, "owlAxiomLabel") &&
+            typeof cgt.owlAxiomLabel !== "string"
+          ) {
+            err(`${ctx}: owlAxiomLabel must be a string if present`);
+          }
+        }
+      }
     }
   }
 
