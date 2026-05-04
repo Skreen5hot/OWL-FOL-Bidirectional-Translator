@@ -1,5 +1,5 @@
 /**
- * OWL → FOL Lifter (Phase 1, through Step 5)
+ * OWL → FOL Lifter (Phase 1, through Step 7)
  *
  * Per API spec §6.1. Async because subsequent steps wire `rdf-canonize` for
  * blank-node canonicalization (Step 6 per phase-1-entry.md sequencing); the
@@ -51,10 +51,28 @@
  *     this layer-translation alongside the variable-allocator and
  *     pairwise-emission determinism conventions.
  *
- * NOT YET IMPLEMENTED (deferred to Steps 6-9):
- *   - RDFC-1.0 blank-node canonicalization (Step 6)
- *   - Cardinality restrictions (Step 7) — currently throws
- *     UnsupportedConstructError per SME B2 fix
+ * IMPLEMENTED (Step 6):
+ *   - canonicalizeIRI recognizes the Turtle / RDF 1.1 `_:label` blank-node
+ *     form and mints a deterministic Skolem constant under ADR-007 §8's
+ *     BNODE_SKOLEM_PREFIX (https://ofbt.ontology-of-freedom.org/ns/0.1/bnode/).
+ *     RDFC-1.0 canonicalization itself lives at the parseOWL adapter
+ *     when it lands; the lifter assumes input b-node labels are already
+ *     RDFC-1.0 canonical.
+ *
+ * IMPLEMENTED (Step 7):
+ *   - Cardinality restrictions per spec §3.4 / API §3.4 — minCardinality
+ *     emits ∃ pairwise-distinct witnesses; maxCardinality emits ∀
+ *     witnesses(n+1) → pairwise-equal disjunction; exactCardinality emits
+ *     min ∧ max conjunction. Qualified Cardinality Restrictions (onClass
+ *     present) recurse via liftClassExpression for the class-expression
+ *     filter — supports complex onClass shapes structurally even though
+ *     Phase 1 corpus exercises only NamedClass. The B2 protection
+ *     (no wrong-arity unary-atom emission) graduates from inline regression
+ *     to fixture-level deepStrictEqual against p1_restrictions_cardinality.
+ *
+ * NOT YET IMPLEMENTED (deferred to Steps 8-9):
+ *   - Datatype canonicalization per spec §5.6.5 (XSD canonical lexical
+ *     forms) — Step 8
  *   - 100-run determinism harness (Step 9)
  *
  * Unimplemented axiom kinds noop (skip without error) EXCEPT for §13.1
@@ -999,6 +1017,147 @@ function varRef(name: string): FOLVariable {
 }
 
 // ---------------------------------------------------------------------------
+// Cardinality lifters (Step 7 — ADR-007 §7)
+// ---------------------------------------------------------------------------
+
+/**
+ * minCardinality(P, n)[onClass C]:
+ *   ∃ y₁..yₙ. (⋀ᵢ<ⱼ ¬(yᵢ=yⱼ)) ∧ (⋀ᵢ P(term, yᵢ) [∧ C(yᵢ)])
+ *
+ * For n=0 this is logically ⊤ (always true). API §4 has no fol:True
+ * primitive; n=0 returns an empty conjunction (which evaluates to ⊤
+ * under classical FOL conventions). Phase 1 corpus does not exercise n=0.
+ *
+ * The witness variables are allocated from the caller's allocator per
+ * ADR-007 §2 (single allocator per top-level lift; inner calls share).
+ * For QCR (onClass present), the class expression is recursively lifted
+ * against each witness via liftClassExpression — supports complex onClass
+ * shapes structurally even though Phase 1 corpus uses NamedClass only.
+ */
+function liftMinCardinality(
+  term: FOLTerm,
+  propIRI: string,
+  n: number,
+  onClass: ClassExpression | undefined,
+  prefixes: Record<string, string> | undefined,
+  alloc: VarAllocator
+): FOLAxiom {
+  if (n <= 0) {
+    return { "@type": "fol:Conjunction", conjuncts: [] };
+  }
+  const vars: FOLVariable[] = [];
+  for (let i = 0; i < n; i++) vars.push(alloc.next());
+
+  // Pairwise distinctness: ⋀ᵢ<ⱼ ¬(yᵢ = yⱼ). Only when n ≥ 2.
+  const distinctConjuncts: FOLAxiom[] = [];
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      distinctConjuncts.push({
+        "@type": "fol:Negation",
+        inner: { "@type": "fol:Equality", left: vars[i], right: vars[j] },
+      });
+    }
+  }
+
+  // Per-witness conjuncts: P(term, yᵢ) and (when QCR) the onClass filter.
+  const witnessConjuncts: FOLAxiom[] = [];
+  for (const v of vars) {
+    witnessConjuncts.push({
+      "@type": "fol:Atom",
+      predicate: propIRI,
+      arguments: [term, v],
+    });
+    if (onClass) {
+      witnessConjuncts.push(liftClassExpression(onClass, v, prefixes, alloc));
+    }
+  }
+
+  const allConjuncts = [...distinctConjuncts, ...witnessConjuncts];
+  const body: FOLAxiom =
+    allConjuncts.length === 1
+      ? allConjuncts[0]
+      : { "@type": "fol:Conjunction", conjuncts: allConjuncts };
+
+  // Wrap n existentials around the body, innermost first.
+  let result: FOLAxiom = body;
+  for (let i = vars.length - 1; i >= 0; i--) {
+    result = { "@type": "fol:Existential", variable: vars[i].name, body: result };
+  }
+  return result;
+}
+
+/**
+ * maxCardinality(P, n)[onClass C]:
+ *   ∀ y₁..y_{n+1}. (⋀ᵢ P(term, yᵢ) [∧ C(yᵢ)]) → (⋁ᵢ<ⱼ yᵢ=yⱼ)
+ *
+ * "At most n distinct witnesses" expressed as: any n+1 witnesses must
+ * include at least one equal pair.
+ *
+ * For n=0: ∀ y. (P(term, y) [∧ C(y)]) → ⊥ (no witnesses allowed). API §4
+ * has no fol:False... actually we have FOLFalse from Step 2's
+ * EquivalentClasses/DisjointWith handling. Use it for n=0.
+ *
+ * Phase 1 corpus uses n=3 (and n=2 inside exactCardinality); n=0/n=1 paths
+ * are exercised by future fixtures.
+ */
+function liftMaxCardinality(
+  term: FOLTerm,
+  propIRI: string,
+  n: number,
+  onClass: ClassExpression | undefined,
+  prefixes: Record<string, string> | undefined,
+  alloc: VarAllocator
+): FOLAxiom {
+  const witnessCount = n + 1;
+  const vars: FOLVariable[] = [];
+  for (let i = 0; i < witnessCount; i++) vars.push(alloc.next());
+
+  // Antecedent: ⋀ᵢ P(term, yᵢ) [∧ C(yᵢ)]
+  const antConjuncts: FOLAxiom[] = [];
+  for (const v of vars) {
+    antConjuncts.push({
+      "@type": "fol:Atom",
+      predicate: propIRI,
+      arguments: [term, v],
+    });
+    if (onClass) {
+      antConjuncts.push(liftClassExpression(onClass, v, prefixes, alloc));
+    }
+  }
+  const antecedent: FOLAxiom =
+    antConjuncts.length === 1
+      ? antConjuncts[0]
+      : { "@type": "fol:Conjunction", conjuncts: antConjuncts };
+
+  // Consequent: ⋁ᵢ<ⱼ yᵢ = yⱼ. For n=0 (witnessCount=1), no pairs exist
+  // and the consequent is ⊥ — "at most 0 means a single witness already
+  // contradicts."
+  const equalityDisjuncts: FOLAxiom[] = [];
+  for (let i = 0; i < witnessCount; i++) {
+    for (let j = i + 1; j < witnessCount; j++) {
+      equalityDisjuncts.push({
+        "@type": "fol:Equality",
+        left: vars[i],
+        right: vars[j],
+      });
+    }
+  }
+  const consequent: FOLAxiom =
+    equalityDisjuncts.length === 0
+      ? { "@type": "fol:False" }
+      : equalityDisjuncts.length === 1
+        ? equalityDisjuncts[0]
+        : { "@type": "fol:Disjunction", disjuncts: equalityDisjuncts };
+
+  // Wrap (n+1) universals around the implication, innermost first.
+  let result: FOLAxiom = implication(antecedent, consequent);
+  for (let i = vars.length - 1; i >= 0; i--) {
+    result = { "@type": "fol:Universal", variable: vars[i].name, body: result };
+  }
+  return result;
+}
+
+// ---------------------------------------------------------------------------
 // Reserved-predicate canonical IRIs (per ADR-007 §9 + architect Ruling 3 of
 // Step 5 cycle: canonical form is full URI per API §3.10.3, NOT CURIE form)
 // ---------------------------------------------------------------------------
@@ -1121,20 +1280,41 @@ function liftClassExpression(
         };
         return propAtom;
       }
-      // Cardinality variants — Phase 1 Step 7 deliverable. Per SME B2 fix,
-      // throw rather than emit a wrong-arity placeholder atom. Emitting a
-      // unary atom of an object-property predicate silently corrupts the
-      // FOL state for any consumer that also reads the binary form of the
-      // same property. The runner correctly defers p1_restrictions_cardinality
-      // to Step 7, so this throw is unreached by the active corpus; any
-      // out-of-corpus consumer feeding cardinality input gets honest-admission
-      // failure rather than degraded FOL.
+      // Cardinality variants — Step 7 implementation per ADR-007 §7.
+      // Lifter emits classical FOL: minCardinality(P, n) → ∃ y₁..yₙ
+      // pairwise-distinct ∧ P(x, yᵢ); maxCardinality(P, n) → ∀ y₁..y_{n+1}
+      // ⋀P → ⋁ pairwise-equal; exactCardinality(P, n) → min ∧ max
+      // conjoined. Qualified cardinality (onClass present) adds the
+      // class-expression filter to each witness via recursive
+      // liftClassExpression, so complex onClass expressions work
+      // structurally even though Phase 1 corpus exercises only NamedClass.
+      //
+      // The B2 protection (no wrong-arity unary-atom emission) graduates
+      // from the inline regression test to fixture-level deepStrictEqual
+      // against p1_restrictions_cardinality.expectedFOL — wrong-arity
+      // emission would now break the fixture's byte-exact match.
+      const propIRI = canonicalizeIRI(expr.onProperty, prefixes);
+      const onClass: ClassExpression | undefined =
+        "onClass" in expr ? expr.onClass : undefined;
+      if ("minCardinality" in expr) {
+        return liftMinCardinality(term, propIRI, expr.minCardinality, onClass, prefixes, alloc);
+      }
+      if ("maxCardinality" in expr) {
+        return liftMaxCardinality(term, propIRI, expr.maxCardinality, onClass, prefixes, alloc);
+      }
+      if ("cardinality" in expr) {
+        return conjunction([
+          liftMinCardinality(term, propIRI, expr.cardinality, onClass, prefixes, alloc),
+          liftMaxCardinality(term, propIRI, expr.cardinality, onClass, prefixes, alloc),
+        ]);
+      }
+      // Restriction has no recognized secondary field — defensive throw.
       throw new UnsupportedConstructError(
-        "Cardinality restriction lifting is a Phase 1 Step 7 deliverable per ROADMAP; not yet implemented in the lifter. Activated when Step 7 lands.",
+        "Restriction lacks a recognized secondary field (someValuesFrom / allValuesFrom / hasValue / minCardinality / maxCardinality / cardinality)",
         {
-          construct: "cardinality-restriction",
+          construct: "malformed-restriction",
           suggestion:
-            "Phase 1 Step 7 deliverable; this is implementation-in-progress, not a permanent v0.1 limitation. The fixture p1_restrictions_cardinality is registered against this construct and activates at Step 7 exit.",
+            "Per API §3.4 a Restriction MUST carry exactly one of the secondary fields. Verify input shape.",
         }
       );
     }

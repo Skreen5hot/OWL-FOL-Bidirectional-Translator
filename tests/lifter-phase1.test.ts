@@ -204,55 +204,13 @@ await report(
   }
 );
 
-// SME B2 regression: cardinality restrictions throw rather than fall
-// through to a wrong-arity placeholder atom. p1_restrictions_cardinality
-// is correctly deferred in the runner, but any ontology with a cardinality
-// restriction that the deferred runner doesn't exercise must still get
-// honest-admission failure rather than silent FOL corruption.
-await report(
-  "B2 regression: cardinality restriction throws UnsupportedConstructError (no wrong-arity fall-through)",
-  async () => {
-    const cardinalityInput = {
-      ontologyIRI: "http://example.org/test/cardinality_throw",
-      prefixes: {},
-      tbox: [
-        {
-          "@type": "SubClassOf" as const,
-          subClass: { "@type": "Class" as const, iri: "http://example.org/test/HasTwoOrMore" },
-          superClass: {
-            "@type": "Restriction" as const,
-            onProperty: "http://example.org/test/hasChild",
-            minCardinality: 2,
-          },
-        },
-      ],
-      abox: [],
-      rbox: [],
-    };
-    let thrown: unknown = null;
-    try {
-      await owlToFol(cardinalityInput);
-    } catch (e) {
-      thrown = e;
-    }
-    ok(
-      thrown instanceof UnsupportedConstructError,
-      `expected UnsupportedConstructError, got ${
-        thrown === null ? "no throw" : (thrown as Error).constructor.name
-      }`
-    );
-    strictEqual(
-      (thrown as UnsupportedConstructError).construct,
-      "cardinality-restriction"
-    );
-    // Suggestion field carries the Step 7 deferral context for consumers
-    // catching the error programmatically.
-    ok(
-      (thrown as UnsupportedConstructError).suggestion?.includes("Step 7"),
-      "suggestion field should reference Step 7 deferral"
-    );
-  }
-);
+// SME B2 regression: REMOVED at Step 7 close. Cardinality restrictions no
+// longer throw — they lift cleanly per ADR-007 §7. The B2 protection
+// (no wrong-arity unary-atom emission) graduates from this inline regression
+// to fixture-level deepStrictEqual against p1_restrictions_cardinality:
+// any wrong-arity emission would now break the byte-exact match. Banked
+// per architect-banked discipline ("tests must catch the wrong shape's
+// absence, not pass coincidentally") at the natural graduation point.
 
 await report(
   "canary_iri_canonicalization: three input forms produce byte-identical lifted FOL",
@@ -578,13 +536,20 @@ await report(
 );
 
 // ===========================================================================
-// DEFERRED — Step 7
+// STEP 7 — Cardinality restrictions (ADR-007 §7 cardinality-witness
+//          convention: ∃-bindings + pairwise distinctness for min;
+//          ∀(n+1) → pairwise-equality disjunction for max; min ∧ max
+//          conjunction for exact). QCR (onClass) recurses via
+//          liftClassExpression for the class-expression filter.
 // ===========================================================================
 
-
-defer(
-  "p1_restrictions_cardinality",
-  "deferred to Step 7 (cardinality restriction lifting + Skolem ADR fill-in)"
+await report(
+  "p1_restrictions_cardinality: min/max/exact cardinality restrictions lift to classical-FOL counting axioms (ADR-007 §7)",
+  async () => {
+    const { fixture } = await loadFixture("p1_restrictions_cardinality.fixture.js");
+    const lifted = await owlToFol(fixture.input);
+    deepStrictEqual(lifted, fixture.expectedFOL);
+  }
 );
 
 // ===========================================================================

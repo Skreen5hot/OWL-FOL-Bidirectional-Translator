@@ -185,9 +185,26 @@ Within each stage, source-array order is preserved.
 
 Where the lifter iterates over a *set* of predicate IRIs (e.g., `emitIdentityMachinery`'s per-predicate identity-rewrite rule emission), the iteration is a lexicographic sort of the canonical (expanded full-URI) form. Same input set in different traversal order produces the same axiom sequence.
 
-### 7. Cardinality-witness Skolem prefix (Step 7 — to be filled in)
+### 7. Cardinality witness convention [RESOLVED in Step 7 close commit]
 
-[TO BE COMPLETED at Step 7 implementation, when the cardinality fixture's STRUCTURAL_ONLY placeholder is filled.] Cardinality restrictions require Skolem witnesses for `minCardinality` and `exactCardinality`; the prefix and naming convention land here.
+When ADR-007 was first drafted at Step 5, this section was framed as a "Skolem-witness prefix" placeholder, on the assumption that `minCardinality` / `exactCardinality` would Skolemize witnesses to fresh constants under a documented prefix. **Step 7 implementation revealed the framing was wrong:** classical-FOL cardinality lifting uses **existential bindings**, not Skolem constants, so no prefix is needed.
+
+**Decision:** cardinality lifting uses ∃-bindings allocated from the standard variable allocator per ADR-007 §2 (the same `x, y, z, w, v, u, t, s, r, q, v_n` letter sequence used by `someValuesFrom` and `allValuesFrom`). No new prefix declared; no Skolem constants minted.
+
+**Concrete shapes:**
+- `minCardinality(P, n)[onClass C]` → `∃ y₁..yₙ. (⋀ᵢ<ⱼ ¬(yᵢ=yⱼ)) ∧ (⋀ᵢ P(x, yᵢ) [∧ C(yᵢ)])`
+- `maxCardinality(P, n)[onClass C]` → `∀ y₁..y_{n+1}. (⋀ᵢ P(x, yᵢ) [∧ C(yᵢ)]) → (⋁ᵢ<ⱼ yᵢ=yⱼ)`
+- `exactCardinality(P, n)[onClass C]` → `min(P, n)[C] ∧ max(P, n)[C]` (conjunction at the consequent level of the wrapping `SubClassOf` universal)
+
+**QCR (qualified cardinality restriction)** with `onClass` recursively lifts the class expression against each witness via `liftClassExpression(onClass, witness, prefixes, alloc)` — supports complex `onClass` shapes structurally even though the Phase 1 corpus exercises only `NamedClass`.
+
+**Edge cases:**
+- `n = 0` for `minCardinality`: emits empty `fol:Conjunction` (logically ⊤). API §4 has no `fol:True` primitive; the empty conjunction is the canonical encoding.
+- `n = 0` for `maxCardinality`: emits `fol:False` consequent ("a single witness already contradicts at-most-zero"). Uses the same `fol:False` primitive Step 2's `DisjointWith` handler introduced.
+
+**Variable-allocation under exactCardinality:** since `exactCardinality` decomposes to `min ∧ max` sharing the outer `SubClassOf` allocator (per ADR-007 §2's "inner calls share the allocator"), the min part allocates `y, z, …` and the max part continues with `w, v, u, …` from the same sequence. Witnesses do not collide because the allocator is monotonic.
+
+**B2 protection graduation:** the SME B2 inline regression test ("cardinality throws `UnsupportedConstructError`") is removed at Step 7 close — cardinality no longer throws. The protection graduates to fixture-level `deepStrictEqual` against `p1_restrictions_cardinality.expectedFOL`: any wrong-arity emission (e.g., a unary atom of an object-property predicate, the failure mode B2 was authored to catch) now breaks the fixture's byte-exact match. This is the architect-banked "tests must catch the wrong shape's absence, not pass coincidentally" discipline applied at the natural graduation point.
 
 ### 8. RDFC-1.0 b-node Skolem prefix [RESOLVED in Step 6 close commit]
 
