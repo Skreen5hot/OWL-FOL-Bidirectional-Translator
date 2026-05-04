@@ -229,11 +229,46 @@ Resolution B (distinct OFBT-internal namespace for reserved predicates) was reje
 
 **Banked principle:** "When the spec already pins a canonical form, 'we'll figure it out later' is not a deferral, it's a contradiction with the spec that compounds with each step. Resolve at the moment the contradiction surfaces." (Architect Ruling 3 of Step 5 close cycle, 2026-05-02.)
 
-**Context:** Step 5 implementation surfaces three concrete needs for these conventions: (1) Functional/Transitive/Symmetric/InverseObjectProperties emission requires the variable-allocator and per-direction allocator-freshness conventions; (2) the `p1_property_characteristics` STRUCTURAL_ONLY placeholder fill-in commits the lifter to a byte-exact term-tree shape that becomes the determinism contract per API §6.1.1; (3) the cycle-guard layer-translation question (lifter vs evaluator responsibility) cannot be deferred — it is a load-bearing decision for what the FOL term tree is allowed to contain.
+### 10. OFBT meta-vocabulary encoding choice — implicit-typing of class / object-property IRIs [RESOLVED at Phase 1 exit Step 9.4 doc pass]
+
+Architect-ratified at the BFO/CLIF parity routing cycle 2026-05-03 ("yes the elision is sound") and formalized here at Phase 1 exit Step 9.4 doc pass.
+
+**Decision:** OFBT's lifter elides meta-typing predicates (`(Class X)`, `(OWLObjectProperty R)`) that appear in the canonical OWL CLIF axiomatization. The lifted FOL is the canonical form's BODY universal-implication; meta-typing antecedents are omitted per OFBT's encoding choice — **every IRI used in a class position is implicitly a Class; every IRI used in an object-property position is implicitly an OWLObjectProperty.** No separate Class reification or OWLObjectProperty reification is performed.
+
+**Concrete examples** (canonical CLIF vs. OFBT lifted form):
+
+| Construct | Canonical CLIF (`owl-axiomatization.clif`) | OFBT lifted FOL |
+|---|---|---|
+| `SubClassOf(C, D)` | `(forall (X Y) (iff (SubClassOf X Y) (and (Class X) (Class Y) (forall (z) (if (X z) (Y z))))))` | `∀x. C(x) → D(x)` (the canonical form's body universal-implication; `(Class X)` and `(Class Y)` antecedents elided) |
+| `Transitive(P)` | `(forall (R) (iff (TransitiveObjectProperty R) (and (OWLObjectProperty R) (forall (x y z) (if (and (R x y) (R y z)) (R x z))))))` | `∀x,y,z. P(x,y) ∧ P(y,z) → P(x,z)` (`(OWLObjectProperty R)` antecedent elided) |
+| `InverseObjectProperties(P, Q)` | `(forall (R1 R2) (iff (InverseObjectProperties R1 R2) (and (OWLObjectProperty R1) (OWLObjectProperty R2) (forall (x y) (iff (R1 x y) (R2 y x))))))` | Bidirectional implication pair per ADR-007 §4: `∀x,y. P(x,y) → Q(y,x)` AND `∀x,y. Q(x,y) → P(y,x)` (both `(OWLObjectProperty)` antecedents elided) |
+
+**Rationale.** Three points support the elision:
+
+1. **Soundness w.r.t. OWL semantics.** Per OWL 2 Direct Semantics (§5.3), an IRI's role in an axiom (class position vs object-property position) is determined syntactically by where it appears. OFBT's encoding makes this implicit rather than explicit: the IRI's role is recoverable from its position in the lifted FOL. A consumer reasoning about the lifted FOL state can re-derive the typing from the term shape; no information is lost.
+
+2. **Encoding cost vs. benefit.** Carrying meta-typing antecedents through every lifted axiom would roughly double the size of the FOL state for v0.1 corpus content and add a redundant universal-implication antecedent to every TBox axiom. The size cost is real (bundle budget per API §13.4); the benefit (explicit meta-typing) is recoverable from the term shape on demand.
+
+3. **Layer separation per ADR-007 §1.** The lifter emits classical FOL semantics. Meta-vocabulary reification (if needed) is a Phase 4+ ARC-content concern, not a lifter concern. If a Phase 4+ consumer needs to query "is X a Class?", the consumer-side machinery walks the FOL state's term-shape, not a meta-typing axiom.
+
+**Edge cases and forward-compat:**
+
+- **Phase 4+ cross-ontology integrity checks.** If a consumer needs to verify "this IRI is used as a class in ontology A and as an object property in ontology B" (punning detection at consumer-side), the punning detector walks the FOL state's atom-shape. OFBT's lifter already rejects punning at lift time via `rejectPuntedConstructs` per spec §13.1; the §10 elision doesn't introduce a new punning vulnerability. Phase 1 punning detection is verified by `canary_punned_construct_rejection.fixture.js`.
+
+- **v0.2 evolution.** If a future spec revision (post-v0.1) introduces a meta-vocabulary reification requirement (e.g., for a Phase 5+ ontology that relies on `(Class X)` as a load-bearing predicate), this ADR is revisited. v0.1 commits to the elision; v0.2 may add an opt-in reification mode via a new `LifterConfig.reifyMetaVocabulary?: boolean` field.
+
+**Banked principle:** "Soundness w.r.t. OWL semantics is preserved as long as the syntactic role of an IRI is recoverable from its position in the lifted FOL. Explicit meta-typing antecedents are an encoding choice, not a soundness requirement — choose the encoding that minimizes state size." (Architect ruling at the BFO/CLIF parity routing cycle 2026-05-03.)
+
+**Implementation status:** Implemented since Step 1 (the lifter has emitted classical-form bodies without meta-typing antecedents from the start). The §10 formalization documents the discipline rather than introducing new behavior. The `mappingNote` field on every `clifGroundTruth` entry that carries Layer A citations (`p1_bfo_clif_classical.fixture.js`'s 8 entries) explicitly documents the elision per-entry.
+
+**Related discipline:** Section "Defense-in-Depth at Multiple Boundary Points" in `arc/AUTHORING_DISCIPLINE.md` covers the related pattern for ensuring the elision doesn't introduce silent corruption — `rejectPuntedConstructs` enforces at lift entry; downstream emit sites defensively guard.
+
+---
+
+**Context for ADR-007 as a whole:** Step 5 implementation surfaced three concrete needs for these conventions: (1) Functional/Transitive/Symmetric/InverseObjectProperties emission requires the variable-allocator and per-direction allocator-freshness conventions; (2) the `p1_property_characteristics` STRUCTURAL_ONLY placeholder fill-in commits the lifter to a byte-exact term-tree shape that becomes the determinism contract per API §6.1.1; (3) the cycle-guard layer-translation question (lifter vs evaluator responsibility) cannot be deferred — it is a load-bearing decision for what the FOL term tree is allowed to contain. Subsequent steps (Steps 6, 7, 8) added §§7-9 resolutions and Step 9.4 doc-pass formalizes §10.
 
 **Consequences:**
 - Future contributors implementing Phase 1 Steps 6-9 (or any post-Phase-1 lifter extension) inherit these conventions; deviations require a follow-up ADR with implementation evidence.
 - The Phase 3 evaluator's Prolog-rule-emission algorithm has a documented contract: ingest classical-FOL term trees and apply the visited-ancestor cycle-guard at ingestion time.
-- The ADR-007 placeholder text for §7 (cardinality Skolem) and §8 (RDFC-1.0 b-node Skolem) must be filled in at Steps 7 and 6 respectively before Phase 1 exit; they are not omitted but explicitly deferred.
-- Per architect ruling 2026-05-02: ADR-007 promotes Draft → Accepted on architect ratification; until then, fixture amendments referencing it (notably `p1_property_characteristics` Step 5 fill-in) are also Draft.
+- All ADR-007 sections §§1-10 are Resolved at Phase 1 exit. Phase 2+ extensions to ADR-007 (e.g., projector-side conventions) land as new sections in the same document; pre-existing sections do not get re-litigated without architect-banked implementation evidence per spec §0.2.
 

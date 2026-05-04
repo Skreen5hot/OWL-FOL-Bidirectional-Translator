@@ -47,10 +47,42 @@ The shared `demo.css` and the deploy workflow ARE maintained across phases; only
 
 When a phase exits and is ready for stakeholder demo:
 
-1. Create `demo/demo_pN.html` per the existing demo's structure (header, sections, status badge, run button, output panel, provenance).
+1. Create `demo/demo_pN.html` per the **two-case demo template** (see below; banked at Phase 1 exit doc pass per the architect's standing demo-workstream ruling).
 2. Update `demo/index.html` — flip the upcoming-phase list item to `class="shipped"` and add the link.
-3. Update `.github/workflows/pages.yml` — extend the staging step to copy any new fixture files the Phase N demo imports.
+3. Update `.github/workflows/pages.yml` — extend the staging step to copy any new fixture files the Phase N demo imports + any newly-vendored canonical sources under `arc/upstream-canonical/`.
 4. Push. CI deploys.
+
+### Two-case demo template
+
+[Banked at Phase 1 exit doc pass; first instance is `demo_p1.html`'s PROV-O canary + BFO/CLIF Layer A parity structure.]
+
+Every per-phase demo argues **two correctness cases** — one defense-in-depth and one external-ground-truth — with a clear delineation between them. Stakeholders see both arguments and recognize that OFBT's correctness is measured by complementary disciplines, not by a single internal claim.
+
+**Case A — Defense-in-depth canary discipline.** The phase's lifter / projector / validator implementation correctly produces the right shape for some specific construct AND the test suite asserts the wrong shape's absence. The "wrong shape's absence" assertion is what catches the silent-failure-with-degraded-output failure mode.
+
+**Case B — External CLIF/canonical ground truth.** The phase's lifted/projected/validated FOL is parity-checked against a canonical published source (Layer A for OWL-construct semantics; Layer B for ontology content). External ground truth catches divergence that internal canary discipline alone could miss (the "tests retrofitted to implementation" failure mode).
+
+Per-phase concrete shapes:
+
+| Phase | Case A (canary) | Case B (CLIF parity) |
+|---|---|---|
+| Phase 1 (shipped) | PROV-O domain/range conditional translation; the wrong existential-synthesis form's absence | BFO 2020 OWL subset → Layer A (W3C OWL CLIF axiomatization); cumulative parity flag |
+| Phase 2 | Round-trip parity canary (NAF residues against open predicates; lossy fixtures with documented Loss Signatures) | Layer A round-trip parity (lift → project → re-lift produces FOL semantically equivalent to the canonical CLIF, modulo OFBT's encoding choices) |
+| Phase 3 | No-Collapse Guarantee canary (deliberate-inconsistency fixtures fire `consistent: false`; deliberate-Horn-incompleteness fixtures fire `coherence_indeterminate` not silently `consistent: true`) | Layer A consistency-check parity (the validator's verdicts match what classical FOL semantics would conclude on the canonical CLIF axiomatization) |
+| Phase 4 | BFO Disjointness Map canary (Continuant ⊓ Occurrent fires `consistent: false` with witnesses) | Layer A + **Layer B introduction** — `bfo-2020.clif` vendored, BFO-specific content (ternary parthood, bridge axioms) parity-checked against it |
+| Phase 5 | IAO information-bridge canary | Layer B for IAO (`iao.clif` vendored if available; otherwise scope-document) |
+| Phase 6 | CCO realizable-holding + mereotopology canaries | Layer B for CCO 2.0 (CCO's authoritative source is OWL not CLIF; this is a scope-document case) |
+| Phase 7 | OFI deontic canary (RDM v1.2.1 chain decomposition; `discharges`/`violates` disjointness firing `consistent: false`) | Layer B for OFI (constitution.ttl Article I §2 pipeline; spec §14 Q5) |
+
+Each demo's HTML structure mirrors `demo_p1.html`:
+
+- Header + intro + "two correctness arguments" framing callout.
+- Section "Case A — &lt;canary discipline&gt;" with input panel + run button + output panel + right-shape-present + wrong-shape-absent.
+- Section "Case B — &lt;CLIF parity discipline&gt;" with input panel + run button + output panel + Layer A/B parity panel (renders the fixture's `clifGroundTruth` array, grouping consecutive entries that cite the same canonical block).
+- Section "What Phase N does NOT yet do" — honest scope statement; names the next phase that closes each scope gap.
+- Section "Provenance" — links to fixtures, vendored sources, implementation files, ADR references.
+
+The shared `demo.css` provides classes (`.section`, `.callout`, `.panel`, `.assertion-row`, `.badge`, `.lead`, `.lead.spaced`, `.back-link`, `.section h3`, etc.); `.callout ul/ol` for callout lists. Inline styles are forbidden — IDE-lint enforces this.
 
 ## Local preview
 
