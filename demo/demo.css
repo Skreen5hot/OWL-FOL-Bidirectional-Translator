@@ -1,0 +1,249 @@
+/*
+ * OFBT Demo — shared stylesheet
+ *
+ * Plain CSS, no framework. Edge-canonical: runs unmodified in any modern
+ * browser; no build step. Style is functional, minimal, presentable for
+ * stakeholder screenshare.
+ */
+
+:root {
+  --fg: #1a1a1a;
+  --fg-muted: #555;
+  --bg: #fafafa;
+  --bg-panel: #ffffff;
+  --border: #d8d8d8;
+  --border-strong: #a8a8a8;
+  --accent: #0b5fff;
+  --accent-bg: #eaf1ff;
+  --good: #0a7c2f;
+  --good-bg: #e6f4ea;
+  --bad: #b3261e;
+  --bad-bg: #fce8e6;
+  --warn: #b06000;
+  --code-bg: #f4f4f6;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--fg);
+  background: var(--bg);
+  margin: 0;
+  padding: 0;
+}
+
+header {
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+  padding: 1.25rem 2rem;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+header .subtitle {
+  margin-top: 0.25rem;
+  color: var(--fg-muted);
+  font-size: 0.95rem;
+}
+
+main {
+  max-width: 1200px;
+  margin: 2rem auto;
+  padding: 0 2rem;
+}
+
+.section {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.section h2 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.section h3 {
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.section .lead {
+  margin: 0 0 1rem;
+  color: var(--fg-muted);
+}
+
+.section .lead.spaced {
+  margin-top: 1rem;
+}
+
+.back-link {
+  margin-top: 0.5rem;
+}
+
+.callout ul,
+.callout ol {
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 900px) {
+  .split { grid-template-columns: 1fr; }
+}
+
+.panel {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--code-bg);
+  overflow: hidden;
+}
+
+.panel .panel-title {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--fg-muted);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+
+.panel pre {
+  margin: 0;
+  padding: 0.75rem;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  line-height: 1.45;
+  overflow-x: auto;
+  max-height: 480px;
+  overflow-y: auto;
+}
+
+button {
+  font-family: var(--sans);
+  font-size: 1rem;
+  padding: 0.6rem 1.25rem;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+button:hover { filter: brightness(1.1); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.controls {
+  margin: 1rem 0;
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.badge.good { background: var(--good-bg); color: var(--good); }
+.badge.bad { background: var(--bad-bg); color: var(--bad); }
+.badge.pending { background: var(--code-bg); color: var(--fg-muted); }
+
+.assertion-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.assertion-row:last-child { border-bottom: none; }
+
+.assertion-row .desc { flex: 1; color: var(--fg); font-size: 0.95rem; }
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+footer {
+  border-top: 1px solid var(--border);
+  padding: 1.5rem 2rem;
+  text-align: center;
+  color: var(--fg-muted);
+  font-size: 0.85rem;
+  margin-top: 2rem;
+}
+
+.provenance dt {
+  font-weight: 600;
+  margin-top: 0.5rem;
+}
+
+.provenance dd {
+  margin: 0.25rem 0 0.5rem 1.5rem;
+  color: var(--fg-muted);
+  font-size: 0.9rem;
+}
+
+code {
+  font-family: var(--mono);
+  font-size: 0.9em;
+  background: var(--code-bg);
+  padding: 0.1em 0.35em;
+  border-radius: 3px;
+}
+
+.callout {
+  border-left: 3px solid var(--accent);
+  background: var(--accent-bg);
+  padding: 0.75rem 1rem;
+  margin: 1rem 0;
+  border-radius: 0 4px 4px 0;
+  font-size: 0.95rem;
+}
+
+.callout.warn {
+  border-color: var(--warn);
+  background: #fff8eb;
+}
+
+.phase-list {
+  list-style: none;
+  padding: 0;
+}
+
+.phase-list li {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.phase-list li.shipped { background: var(--good-bg); }
+.phase-list li.upcoming { background: var(--code-bg); color: var(--fg-muted); }

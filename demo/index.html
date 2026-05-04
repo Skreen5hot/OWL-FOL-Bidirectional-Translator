@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OFBT — OWL ↔ FOL Bidirectional Translator</title>
+  <link rel="stylesheet" href="demo.css" />
+</head>
+<body>
+  <header>
+    <h1>OFBT — OWL ↔ FOL Bidirectional Translator</h1>
+    <p class="subtitle">Demos by phase. Each phase ships a focused, disposable demo that argues one specific case the implementation supports.</p>
+  </header>
+
+  <main>
+    <section class="section">
+      <h2>What OFBT does</h2>
+      <p>OWL 2 DL is the standard for ontologies. It's powerful but limited &mdash; and the standard practice when those limits hit is to silently drop axioms or quietly synthesize wrong ones. OFBT refuses both. The translator maintains a synchronized representation in OWL and First-Order Logic, projects between them according to declared fidelity contracts, and emits machine-readable audit artifacts (Loss Signature, Recovery Payload, Projection Manifest) for every axiom that cannot survive a round trip cleanly.</p>
+      <div class="callout">
+        <strong>Position in the stack.</strong> OFBT is a JavaScript library that runs unmodified in browser or Node. No infrastructure dependencies, deterministic byte-stable output, offline-first. Built against the frozen v0.1.7 specification.
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Per-phase demos</h2>
+      <p class="lead">Each phase ships its own demo file. These are intentionally disposable &mdash; they capture what the implementation supports at the time of that phase's exit, not the final shape of the API. Earlier demos remain accessible as historical artifacts of the build sequence.</p>
+      <ul class="phase-list">
+        <li class="shipped">
+          <strong>Phase 1.</strong> Built-in OWL lifter. <a href="demo_p1.html">View demo &rarr;</a>
+        </li>
+        <li class="upcoming">
+          <strong>Phase 2.</strong> Built-in OWL projector + round-trip parity. (Demo lands at Phase 2 exit.)
+        </li>
+        <li class="upcoming">
+          <strong>Phase 3.</strong> Validator + evaluation + consistency check. (Demo lands at Phase 3 exit.)
+        </li>
+        <li class="upcoming">
+          <strong>Phase 4.</strong> BFO 2020 core ARC module. (Demo lands at Phase 4 exit.)
+        </li>
+        <li class="upcoming">
+          <strong>Phase 5.</strong> IAO information-bridge ARC module. (Demo lands at Phase 5 exit.)
+        </li>
+        <li class="upcoming">
+          <strong>Phase 6.</strong> CCO realizable-holding + mereotopology ARC modules. (Demo lands at Phase 6 exit.)
+        </li>
+        <li class="upcoming">
+          <strong>Phase 7.</strong> OFI deontic ARC module + compatibility shim. (Demo lands at Phase 7 exit.)
+        </li>
+      </ul>
+    </section>
+
+    <section class="section">
+      <h2>About these demos</h2>
+      <p>The demos are corpus-driven: every demo input is an actual fixture from the project's test corpus. The demo runs the same lifter the test suite runs, against the same input, and shows the same output. There is no demo-only logic and no parallel demo code path. If a demo run produces output that contradicts the corresponding fixture's <code>expectedFOL</code>, the test suite would catch it on the next CI run.</p>
+      <p>The demos do <strong>not</strong> demonstrate capabilities the corresponding phase has not yet shipped. The Phase 1 demo shows lifting only. Round-trip parity, consistency checking, and ARC-content-driven inference appear in their respective phases' demos.</p>
+    </section>
+  </main>
+
+  <footer>
+    OFBT v0.1 build &mdash; Phase 1 demo. Source: <a href="https://github.com/" target="_blank" rel="noopener">project repository</a>. Spec: OFBT_spec_v0.1.7 + OFBT_API_v0.1.7 (frozen).
+  </footer>
+</body>
+</html>

@@ -1,0 +1,104 @@
+name: Deploy Demo to GitHub Pages
+
+# Light CI/CD pipeline for the per-phase demo site. Triggers on changes to
+# demo files, lifter source, corpus fixtures, or build config. The same
+# corpus-driven discipline that governs the demo (see demo/README.md)
+# applies to the deploy: any divergence between demo output and test-suite
+# assertions surfaces on the next CI run.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'demo/**'
+      - 'src/**'
+      - 'tests/corpus/**'
+      - 'arc/upstream-canonical/**'
+      - 'esbuild.config.js'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Single-flight: cancel queued runs in favor of the latest push but never
+# cancel an in-progress deploy (Pages reuses the deploy URL across runs).
+concurrency:
+  group: 'pages'
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: Build browser bundle (esbuild)
+        run: node esbuild.config.js
+
+      - name: Stage GitHub Pages deploy artifact
+        run: |
+          set -e
+          mkdir -p gh-pages-deploy/bundles gh-pages-deploy/fixtures gh-pages-deploy/upstream-canonical
+          # Demo files (HTML + shared CSS).
+          cp demo/*.html demo/*.css gh-pages-deploy/
+          # Browser bundle of the kernel — the demo imports owlToFol from here.
+          cp dist/bundles/ofbt-core.browser.min.js gh-pages-deploy/bundles/
+          # Per-phase fixture files the demo imports.
+          # Phase 1 demo imports:
+          #   - PROV-O fixture + its wrong-shape canary (Case A: defense-in-depth)
+          #   - BFO Layer A fixture (Case B: external CLIF ground truth)
+          # Future phases extend this list as their demos ship.
+          cp tests/corpus/p1_prov_domain_range.fixture.js \
+             tests/corpus/canary_domain_range_existential.fixture.js \
+             tests/corpus/p1_bfo_clif_classical.fixture.js \
+             gh-pages-deploy/fixtures/
+          # Vendored upstream canonical sources.
+          # Phase 1 vendoring includes the W3C OWL CLIF axiomatization
+          # (Layer A per arc/upstream-canonical/README.md). The Phase 1 demo's
+          # Layer A parity panel renders citations against this file; the
+          # fixture's clifGroundTruth carries the relevant CLIF text inline,
+          # so the demo doesn't fetch the file at runtime — but staging it for
+          # download lets stakeholders inspect the canonical source directly.
+          cp arc/upstream-canonical/owl-axiomatization.clif \
+             arc/upstream-canonical/owl-axiomatization.clif.SOURCE \
+             arc/upstream-canonical/README.md \
+             gh-pages-deploy/upstream-canonical/
+          # Sanity-check the staged tree before upload.
+          ls -la gh-pages-deploy
+          ls -la gh-pages-deploy/bundles
+          ls -la gh-pages-deploy/fixtures
+          ls -la gh-pages-deploy/upstream-canonical
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: gh-pages-deploy
+
+  deploy:
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

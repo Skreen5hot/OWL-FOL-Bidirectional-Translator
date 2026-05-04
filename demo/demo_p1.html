@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OFBT Phase 1 demo &mdash; two correctness arguments</title>
+  <link rel="stylesheet" href="demo.css" />
+</head>
+<body>
+  <header>
+    <h1>OFBT Phase 1 Demo</h1>
+    <p class="subtitle">Two correctness arguments: (A) defense-in-depth canary discipline, (B) external CLIF ground truth.</p>
+    <p class="back-link"><a href="index.html">&larr; All phase demos</a></p>
+  </header>
+
+  <main>
+    <section class="section">
+      <h2>The case</h2>
+      <p class="lead">OFBT's correctness is measured two ways. The Phase 1 demo argues both.</p>
+      <ol>
+        <li><strong>Internal canary discipline.</strong> The test suite asserts <em>wrong shapes are absent</em>, not just that right shapes are present. This catches an entire class of silent-failure bug where degraded output passes casual tests.</li>
+        <li><strong>External CLIF ground truth.</strong> Lifted FOL is parity-checked against canonical published FOL specifications. OFBT's lifter doesn't define what OWL constructs mean &mdash; the W3C does, in the canonical CLIF axiomatization. The Phase 1 lifter is verified against that source.</li>
+      </ol>
+      <div class="callout">
+        <strong>Why both matter.</strong> A correctness check that only verifies positive shape (assertion 1) misses regressions where the right shape and a wrong shape both appear. A correctness check that only verifies against external sources (assertion 2) misses regressions where the lifter introduces a subtle divergence consistent with one upstream's choices but inconsistent with another's. Both disciplines together close failure modes neither catches alone.
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- CASE A — PROV-O defense-in-depth canary                      -->
+    <!-- ============================================================ -->
+
+    <section class="section">
+      <h2>Case A &mdash; PROV-O domain/range conditional translation</h2>
+      <p class="lead">An <code>rdfs:domain</code> declaration says "this property's subject must be of this class." A common implementation mistake is to translate that as "every member of this class participates in this property with some target" &mdash; synthesizing an existential successor that the source ontology never asserted. OFBT translates it correctly: as a conditional implication. The test suite asserts both the right shape is present <em>and</em> the wrong shape is absent.</p>
+      <div class="callout">
+        <strong>Why this matters for stakeholders.</strong> The wrong translation passes casual tests &mdash; a query that simply asks "is X an Entity?" returns the right answer either way. The wrong translation only surfaces later, when downstream reasoning relies on the false existential entailment and produces wrong inferences for individuals that have no participating partners. OFBT catches the wrong shape with a dedicated canary fixture, eliminating an entire class of silent-failure bug.
+      </div>
+
+      <h3>A.1. Input ontology</h3>
+      <p class="lead">A PROV-O fragment: <code>wasInfluencedBy</code> with both domain and range declared as <code>prov:Entity</code>, plus one property assertion. From <code>tests/corpus/p1_prov_domain_range.fixture.js</code>.</p>
+      <div class="panel">
+        <div class="panel-title">OWL ontology (structured JS input per API §3.1)</div>
+        <pre id="prov-input-display">Loading fixture&hellip;</pre>
+      </div>
+
+      <h3>A.2. Run the lifter</h3>
+      <div class="controls">
+        <button id="prov-run-button" disabled>Run owlToFol on PROV-O</button>
+        <span id="prov-status" class="badge pending">Loading bundle&hellip;</span>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Lifted FOL output (JSON-LD-shaped term tree per API §4)</div>
+        <pre id="prov-output-display">Press <code>Run owlToFol on PROV-O</code> to lift the input.</pre>
+      </div>
+
+      <h3>A.3. Right shape present</h3>
+      <p class="lead">The lifted FOL must contain three axioms in this exact shape: a domain universal, a range universal, and the asserted property fact. The conditional translation reads <code>&forall;x,y. P(x,y) &rarr; D(x)</code> &mdash; "if P relates x and y, then x is in D" &mdash; the correct semantics of <code>rdfs:domain</code>.</p>
+      <div id="prov-right-shape-results"></div>
+
+      <h3>A.4. Wrong shape absent</h3>
+      <p class="lead">The lifted FOL must <em>not</em> contain any of these forbidden patterns. The canary fixture <code>tests/corpus/canary_domain_range_existential.fixture.js</code> ships the forbidden-pattern contract; OFBT's test suite asserts their absence on every run via the <code>assertForbiddenPatterns</code> helper.</p>
+      <div id="prov-wrong-shape-results"></div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- CASE B — BFO/CLIF Layer A parity                             -->
+    <!-- ============================================================ -->
+
+    <section class="section">
+      <h2>Case B &mdash; BFO/CLIF Layer A parity</h2>
+      <p class="lead">OFBT's lifter doesn't define what OWL constructs mean &mdash; the W3C does, in <code>owl-axiomatization.clif</code> (Fabian Neuhaus, 2009; vendored at <code>arc/upstream-canonical/owl-axiomatization.clif</code>). The Phase 1 lifter is parity-checked against that canonical CLIF for every OWL construct it processes. This case lifts a BFO 2020 OWL fragment and shows the parity directly.</p>
+
+      <div class="callout">
+        <strong>Layer A vs Layer B &mdash; the end-goal framing.</strong> CLIF parity citations split into two layers per <code>arc/upstream-canonical/README.md</code>:
+        <ul>
+          <li><strong>Layer A</strong> &mdash; OWL semantics in CLIF (what <code>SubClassOf</code>, <code>Transitive</code>, <code>InverseObjectProperties</code> etc. mean). Phase 1's lifter implements this.</li>
+          <li><strong>Layer B</strong> &mdash; specific ontology content in CLIF (what BFO's <code>Continuant</code>, <code>Occurrent</code>, ternary parthood etc. mean). Phase 4+ ARC content covers this.</li>
+        </ul>
+        Phase 1 cites Layer A only. Each subsequent phase's demo extends CLIF coverage as ARC content lands. Cumulative coverage across phases is the discipline.
+      </div>
+
+      <h3>B.1. Input ontology</h3>
+      <p class="lead">BFO 2020 standard-OWL subset: 5 <code>SubClassOf</code> + 1 <code>DisjointWith</code> + 1 <code>Transitive</code> + 1 <code>InverseOf</code> = 8 axioms. Uses ONLY constructs whose canonical Layer A semantics are defined in <code>owl-axiomatization.clif</code>; no ARC content required. From <code>tests/corpus/p1_bfo_clif_classical.fixture.js</code>.</p>
+      <div class="panel">
+        <div class="panel-title">BFO 2020 OWL subset (structured JS input)</div>
+        <pre id="bfo-input-display">Loading fixture&hellip;</pre>
+      </div>
+
+      <h3>B.2. Run the lifter</h3>
+      <div class="controls">
+        <button id="bfo-run-button" disabled>Run owlToFol on BFO subset</button>
+        <span id="bfo-status" class="badge pending">Loading bundle&hellip;</span>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Lifted FOL output (9 axioms &mdash; the InverseOf decomposes per ADR-007 §4)</div>
+        <pre id="bfo-output-display">Press <code>Run owlToFol on BFO subset</code> to lift the input.</pre>
+      </div>
+
+      <h3>B.3. Layer A parity panel</h3>
+      <p class="lead">For each fixture-input axiom: the canonical CLIF axiom block from <code>owl-axiomatization.clif</code> paired with OFBT's lifted FOL. Multiple inputs that exercise the same OWL construct cite the SAME canonical block &mdash; that's the right shape for "lifter correctness against canonical OWL semantics." Verification badges show <code>[VERIFY]</code> for citations awaiting Aaron's pre-Phase-1-exit verification pass.</p>
+      <div id="bfo-clif-parity-results"></div>
+
+      <p class="lead spaced">Per the architect-ratified <strong>meta-typing-predicate elision</strong>: canonical CLIF includes <code>(Class X)</code> and <code>(OWLObjectProperty R)</code> typing predicates. OFBT's lifted FOL omits these per the encoding choice "every IRI used in a class position is implicitly a Class; every IRI used in an object-property position is implicitly an OWLObjectProperty." The lifted FOL is the canonical-form BODY with meta-typing antecedents elided. Sound w.r.t. OWL semantics for v0.1; banked for ADR-007 §10 at Phase 1 exit doc pass.</p>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- WHAT'S DEFERRED                                              -->
+    <!-- ============================================================ -->
+
+    <section class="section">
+      <h2>What Phase 1 does NOT yet do</h2>
+      <p class="lead">Phase 1 ships only the lifter. The Phase 1 demo verifies <em>structural</em> correctness; entailment, round-trip parity, and consistency checking land in later phases.</p>
+      <ul>
+        <li><strong>Case A entailment-query verification</strong> &mdash; "does <code>prov:Entity(project_alpha)</code> evaluate to <code>true</code>?" requires the validator (Phase 3) plus PROV-O ARC content (Phase 4). The same fixture re-activates with entailment expectations at Phase 4 via the documented cross-phase activation pattern.</li>
+        <li><strong>Case B Layer B citations</strong> against <code>bfo-2020.clif</code> (BFO's specific class-hierarchy and disjointness CLIF declarations) require Phase 4 ARC content + Layer B vendoring. The Phase 4 demo extends the parity panel with Layer B rows.</li>
+        <li><strong>Round-trip parity</strong> (lift &rarr; project &rarr; re-lift &rarr; compare) requires the projector (Phase 2). That demo lands at Phase 2 exit.</li>
+        <li><strong>Consistency check</strong> (No-Collapse Guarantee per spec §8.5) requires the validator (Phase 3). That demo lands at Phase 3 exit.</li>
+      </ul>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- PROVENANCE                                                   -->
+    <!-- ============================================================ -->
+
+    <section class="section">
+      <h2>Provenance</h2>
+      <dl class="provenance">
+        <dt>Spec sections</dt>
+        <dd>Behavioral spec §5.2 (axiom injection patterns), §5.3 (TBox lifting), §5.8 (lifting rule for domain/range axioms); API spec §3.7.1 (high-priority correctness contract); API spec §3.7.1.1 (worked example tree); API spec §3.7.1.2 (forbidden translations); ADR-007 §1 architectural commitment (lifter emits classical FOL).</dd>
+        <dt>Case A right-shape fixture</dt>
+        <dd><code>tests/corpus/p1_prov_domain_range.fixture.js</code> &mdash; the input ontology and expected lifted FOL.</dd>
+        <dt>Case A wrong-shape canary</dt>
+        <dd><code>tests/corpus/canary_domain_range_existential.fixture.js</code> &mdash; the forbidden patterns asserted absent via <code>assertForbiddenPatterns</code>.</dd>
+        <dt>Case B Layer A fixture</dt>
+        <dd><code>tests/corpus/p1_bfo_clif_classical.fixture.js</code> &mdash; BFO 2020 standard-OWL subset with <code>clifGroundTruth</code> citations against the vendored Layer A source.</dd>
+        <dt>Vendored Layer A canonical source</dt>
+        <dd><code>arc/upstream-canonical/owl-axiomatization.clif</code> &mdash; the W3C OWL CLIF axiomatization (Fabian Neuhaus, 2009; BFO repository, BSD-3-Clause); 1660 lines, SHA-256 <code>480193e9&hellip;78035912</code>. Provenance sidecar at <code>owl-axiomatization.clif.SOURCE</code>.</dd>
+        <dt>Implementation</dt>
+        <dd><code>src/kernel/lifter.ts</code> &mdash; <code>liftRBoxAxiom</code> (Step 3 for domain/range); <code>liftClassExpression</code> (Step 2 for TBox subClassOf/disjointness); <code>liftRBoxAxiom</code> ObjectPropertyCharacteristic + InverseObjectProperties cases (Step 5).</dd>
+        <dt>Test runner</dt>
+        <dd><code>tests/lifter-phase1.test.ts</code> &mdash; uses <code>assertForbiddenPatterns</code> for Case A canary; <code>deepStrictEqual</code> for both fixtures' expected FOL.</dd>
+        <dt>Vendoring discipline</dt>
+        <dd><code>arc/upstream-canonical/README.md</code> &mdash; Layer A vs Layer B framing; vendoring policy; refresh cadence; per-phase cumulative CLIF coverage rationale.</dd>
+        <dt>ADR references</dt>
+        <dd>ADR-007 §1 (cycle-guard layer translation: lifter emits classical FOL), §4 (fresh-allocator-per-direction in <code>liftBidirectionalSubsumption</code> &mdash; load-bearing for the InverseObjectProperties two-axiom decomposition), §7 (cardinality-witness convention &mdash; not exercised here), §8 (RDFC-1.0 b-node Skolem prefix &mdash; not exercised here), §9 (reserved-predicate full-URI canonical form), §10 (banked: meta-vocabulary encoding choice; Phase 1 exit doc pass).</dd>
+      </dl>
+    </section>
+  </main>
+
+  <footer>
+    OFBT v0.1 build &mdash; Phase 1 demo. Disposable per the architect's per-phase demo-file convention. Replaced by <code>demo_p2.html</code> at Phase 2 exit. Two-case structure (defense-in-depth canary + Layer A CLIF parity) banked as the template for subsequent phase demos.
+  </footer>
+
+  <script type="module">
+    // Demo runner. Pure ES module; no framework. Imports the lifter from the
+    // browser bundle and three fixtures (PROV-O right-shape, PROV-O canary,
+    // BFO Layer A) from the corpus deploy directory. SME-role discipline:
+    // corpus-driven. Demo outputs match what the test suite asserts; no
+    // parallel demo logic.
+
+    const provInputDisplay = document.getElementById('prov-input-display');
+    const provRunButton = document.getElementById('prov-run-button');
+    const provStatusEl = document.getElementById('prov-status');
+    const provOutputDisplay = document.getElementById('prov-output-display');
+    const provRightShapeResults = document.getElementById('prov-right-shape-results');
+    const provWrongShapeResults = document.getElementById('prov-wrong-shape-results');
+
+    const bfoInputDisplay = document.getElementById('bfo-input-display');
+    const bfoRunButton = document.getElementById('bfo-run-button');
+    const bfoStatusEl = document.getElementById('bfo-status');
+    const bfoOutputDisplay = document.getElementById('bfo-output-display');
+    const bfoClifParityResults = document.getElementById('bfo-clif-parity-results');
+
+    function setStatus(el, text, kind) {
+      el.textContent = text;
+      el.className = 'badge ' + (kind || 'pending');
+    }
+
+    function pretty(obj) {
+      return JSON.stringify(obj, null, 2);
+    }
+
+    /**
+     * Tiny structural pattern matcher. Mirrors the
+     * `assertForbiddenPatterns` / `assertRequiredPattern` helper logic
+     * from `tests/lifter-phase1.test.ts`. Demo-side replication is
+     * deliberate: the demo is disposable per the architect's per-phase
+     * convention; the test helpers are extracted and shared at Step 6
+     * entry per the SME O3 housekeeping item. Both implementations
+     * target the same semantics — any divergence between them surfaces
+     * as a demo result that contradicts the test suite, which the corpus
+     * discipline catches on the next CI run.
+     */
+    function matchesShape(node, pattern) {
+      if (pattern === undefined) return true;
+      if (pattern === null) return node === null;
+      if (typeof pattern !== 'object') return node === pattern;
+      if (Array.isArray(pattern)) {
+        if (!Array.isArray(node)) return false;
+        if (node.length < pattern.length) return false;
+        return pattern.every((p, i) => matchesShape(node[i], p));
+      }
+      if (node === null || typeof node !== 'object') return false;
+      return Object.keys(pattern).every((k) =>
+        matchesShape(node[k], pattern[k])
+      );
+    }
+
+    function subtreeMatchesAnywhere(node, pattern) {
+      if (matchesShape(node, pattern)) return true;
+      if (Array.isArray(node)) {
+        return node.some((child) => subtreeMatchesAnywhere(child, pattern));
+      }
+      if (node !== null && typeof node === 'object') {
+        return Object.values(node).some((child) =>
+          subtreeMatchesAnywhere(child, pattern)
+        );
+      }
+      return false;
+    }
+
+    function renderAssertion(container, description, ok) {
+      const row = document.createElement('div');
+      row.className = 'assertion-row';
+      const badge = document.createElement('span');
+      badge.className = 'badge ' + (ok ? 'good' : 'bad');
+      badge.textContent = ok ? '✓ pass' : '✗ FAIL';
+      const desc = document.createElement('span');
+      desc.className = 'desc';
+      desc.textContent = description;
+      row.appendChild(badge);
+      row.appendChild(desc);
+      container.appendChild(row);
+    }
+
+    function describeAxiom(ax, i) {
+      if (!ax || typeof ax !== 'object') return 'Axiom #' + (i + 1);
+      const t = ax['@type'];
+      if (t === 'fol:Universal') {
+        const inner = innermostPredicates(ax);
+        return 'Conditional universal #' + (i + 1) + ' over: ' + inner.join(', ');
+      }
+      if (t === 'fol:Atom') {
+        return 'Asserted fact: ' + (ax.predicate || '?');
+      }
+      return t + ' #' + (i + 1);
+    }
+
+    function innermostPredicates(node) {
+      const out = new Set();
+      function walk(n) {
+        if (!n || typeof n !== 'object') return;
+        if (n['@type'] === 'fol:Atom' && n.predicate) {
+          out.add(n.predicate);
+          return;
+        }
+        for (const v of Object.values(n)) walk(v);
+      }
+      walk(node);
+      return [...out];
+    }
+
+    /**
+     * Render the BFO/CLIF Layer A parity panel. Groups consecutive
+     * clifGroundTruth entries that cite the same canonical block (e.g.,
+     * the five SubClassOf inputs all citing lines 1006-1015) so the
+     * canonical CLIF text renders once per distinct citation rather
+     * than five times. Each group lists its fixture-input axioms beneath
+     * the canonical block.
+     */
+    function renderLayerAParity(container, lifted, clifGroundTruth) {
+      // Group consecutive entries by clifAxiomRef.
+      const groups = [];
+      let currentGroup = null;
+      for (const cgt of clifGroundTruth) {
+        // Strip trailing "— same canonical block as..." suffix for grouping
+        const refKey = cgt.clifAxiomRef.split(' — ')[0];
+        if (currentGroup && currentGroup.refKey === refKey) {
+          currentGroup.entries.push(cgt);
+        } else {
+          currentGroup = { refKey, clifText: cgt.clifText, entries: [cgt] };
+          groups.push(currentGroup);
+        }
+      }
+
+      for (const group of groups) {
+        const groupDiv = document.createElement('div');
+        groupDiv.className = 'panel';
+        groupDiv.style.marginBottom = '1rem';
+
+        const title = document.createElement('div');
+        title.className = 'panel-title';
+        title.textContent =
+          'Canonical CLIF — ' + group.refKey +
+          (group.entries.length > 1 ? '  (' + group.entries.length + ' fixture inputs cite this block)' : '');
+        groupDiv.appendChild(title);
+
+        const clifPre = document.createElement('pre');
+        clifPre.style.padding = '0.75rem';
+        clifPre.style.margin = '0';
+        clifPre.style.background = 'var(--code-bg)';
+        clifPre.style.fontSize = '0.85rem';
+        clifPre.textContent = group.clifText;
+        groupDiv.appendChild(clifPre);
+
+        const inputsList = document.createElement('div');
+        inputsList.style.padding = '0.75rem';
+        inputsList.style.borderTop = '1px solid var(--border)';
+        inputsList.style.background = 'var(--bg-panel)';
+        inputsList.innerHTML = '<strong style="font-size: 0.85rem; color: var(--fg-muted);">Fixture-input axioms exercising this canonical block:</strong>';
+        for (const entry of group.entries) {
+          const row = document.createElement('div');
+          row.className = 'assertion-row';
+          row.style.fontSize = '0.9rem';
+
+          const badge = document.createElement('span');
+          const isVerify = entry.verificationStatus === '[VERIFY]';
+          badge.className = 'badge ' + (isVerify ? 'pending' : 'good');
+          badge.textContent = isVerify ? '[VERIFY]' : '✓ Verified';
+
+          const desc = document.createElement('span');
+          desc.className = 'desc';
+          desc.innerHTML =
+            '<code>' + (entry.owlAxiomLabel || 'unnamed') + '</code>' +
+            ' &rarr; lifted to FOL axiom #' +
+            (Array.isArray(entry.expectedFOLIndex)
+              ? entry.expectedFOLIndex.map(i => i + 1).join(', #')
+              : (entry.expectedFOLIndex + 1));
+
+          row.appendChild(badge);
+          row.appendChild(desc);
+          inputsList.appendChild(row);
+        }
+        groupDiv.appendChild(inputsList);
+
+        if (group.entries[0].mappingNote) {
+          const note = document.createElement('div');
+          note.className = 'callout';
+          note.style.margin = '0';
+          note.style.borderRadius = '0';
+          note.style.borderLeft = '0';
+          note.style.borderTop = '1px solid var(--border)';
+          note.style.fontSize = '0.85rem';
+          note.innerHTML = '<strong>Mapping note.</strong> ' + group.entries[0].mappingNote;
+          groupDiv.appendChild(note);
+        }
+
+        container.appendChild(groupDiv);
+      }
+    }
+
+    let owlToFol;
+    let provDomainRangeFixture;
+    let canaryFixture;
+    let bfoFixture;
+
+    try {
+      const bundle = await import('./bundles/ofbt-core.browser.min.js');
+      owlToFol = bundle.owlToFol;
+      if (typeof owlToFol !== 'function') {
+        throw new Error('owlToFol is not exported from the bundle');
+      }
+      const provModule = await import('./fixtures/p1_prov_domain_range.fixture.js');
+      provDomainRangeFixture = provModule.fixture;
+      const canaryModule = await import('./fixtures/canary_domain_range_existential.fixture.js');
+      canaryFixture = canaryModule.fixture;
+      const bfoModule = await import('./fixtures/p1_bfo_clif_classical.fixture.js');
+      bfoFixture = bfoModule.fixture;
+
+      provInputDisplay.textContent = pretty(provDomainRangeFixture.input);
+      bfoInputDisplay.textContent = pretty(bfoFixture.input);
+
+      setStatus(provStatusEl, 'Ready', 'good');
+      setStatus(bfoStatusEl, 'Ready', 'good');
+      provRunButton.disabled = false;
+      bfoRunButton.disabled = false;
+    } catch (err) {
+      const msg = 'Failed to load: ' + err.message;
+      setStatus(provStatusEl, msg, 'bad');
+      setStatus(bfoStatusEl, msg, 'bad');
+      provInputDisplay.textContent = 'Could not load demo assets. Check the browser console for details.';
+      bfoInputDisplay.textContent = 'Could not load demo assets. Check the browser console for details.';
+      console.error('OFBT demo load error:', err);
+    }
+
+    // ===== Case A run handler =====
+    provRunButton.addEventListener('click', async () => {
+      setStatus(provStatusEl, 'Lifting...', 'pending');
+      provRunButton.disabled = true;
+      provRightShapeResults.innerHTML = '';
+      provWrongShapeResults.innerHTML = '';
+
+      try {
+        const lifted = await owlToFol(provDomainRangeFixture.input);
+        provOutputDisplay.textContent = pretty(lifted);
+
+        const expected = provDomainRangeFixture.expectedFOL;
+        for (let i = 0; i < expected.length; i++) {
+          const ax = expected[i];
+          const description = describeAxiom(ax, i);
+          const ok = subtreeMatchesAnywhere(lifted, ax);
+          renderAssertion(provRightShapeResults, description, ok);
+        }
+
+        const forbidden = canaryFixture.forbiddenFOLPatterns || [];
+        if (forbidden.length === 0) {
+          renderAssertion(
+            provWrongShapeResults,
+            'No forbidden patterns declared in the canary fixture.',
+            true
+          );
+        } else {
+          for (const fp of forbidden) {
+            const present = subtreeMatchesAnywhere(lifted, fp.pattern);
+            renderAssertion(
+              provWrongShapeResults,
+              fp.description + ' — ' + (present ? 'PRESENT (regression!)' : 'absent'),
+              !present
+            );
+          }
+        }
+
+        setStatus(provStatusEl, 'Lift complete', 'good');
+      } catch (err) {
+        provOutputDisplay.textContent = 'Lifter threw: ' + (err.message || String(err));
+        setStatus(provStatusEl, 'Lifter error', 'bad');
+        console.error('OFBT lifter error (PROV-O):', err);
+      } finally {
+        provRunButton.disabled = false;
+      }
+    });
+
+    // ===== Case B run handler =====
+    bfoRunButton.addEventListener('click', async () => {
+      setStatus(bfoStatusEl, 'Lifting...', 'pending');
+      bfoRunButton.disabled = true;
+      bfoClifParityResults.innerHTML = '';
+
+      try {
+        const lifted = await owlToFol(bfoFixture.input);
+        bfoOutputDisplay.textContent = pretty(lifted);
+
+        const cgt = bfoFixture.clifGroundTruth || [];
+        if (cgt.length === 0) {
+          const empty = document.createElement('p');
+          empty.textContent = 'No clifGroundTruth entries declared in the BFO fixture.';
+          bfoClifParityResults.appendChild(empty);
+        } else {
+          renderLayerAParity(bfoClifParityResults, lifted, cgt);
+        }
+
+        setStatus(bfoStatusEl, 'Lift complete', 'good');
+      } catch (err) {
+        bfoOutputDisplay.textContent = 'Lifter threw: ' + (err.message || String(err));
+        setStatus(bfoStatusEl, 'Lifter error', 'bad');
+        console.error('OFBT lifter error (BFO):', err);
+      } finally {
+        bfoRunButton.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
