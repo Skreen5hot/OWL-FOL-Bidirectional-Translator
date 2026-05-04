@@ -437,6 +437,33 @@
           "owlAxiomLabel": "InverseObjectProperties(part_of, has_part)"
         }
       ]
+    },
+    {
+      "fixtureId": "p1_complement_of",
+      "phase": 1,
+      "specSections": [
+        "§5.3",
+        "API §3.3",
+        "ADR-007 §1"
+      ],
+      "acceptanceCriteria": [
+        "§12 lifter correctness",
+        "SME B3 closure (Step 4 review observation)"
+      ],
+      "arcEntries": [],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "ObjectComplementOf(C) class expression lifts to fol:Negation around the inner class's lifted form. SubClassOf(NotPerson, ObjectComplementOf(Person)) → ∀x. NotPerson(x) → ¬Person(x). Classical-FOL negation (not NAF); classical-vs-NAF discrimination is Phase 2 projector / Phase 3 evaluator concern per ADR-007 §1 layer separation."
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "lifter drops ObjectComplementOf silently; lifts it as a positive atom on a synthesized predicate (semantic leak — fabricates a predicate the source did not declare); or routes complement to NAF rather than classical negation (a spec §1.1 third-axis violation that would surface only at Phase 3 evaluation, not at lift time).",
+      "expected_v0.1_verdict": {
+        "ringStatus": "ring1-passes",
+        "phaseAuthored": 1,
+        "phaseActivated": 1,
+        "smeOriginRef": "B3 from Step 4 SME review (signed off as code-complete; coverage-gap closure deferred to Phase 1 exit Step 9.1)"
+      },
+      "expected_v0.2_elk_verdict": null
     }
   ]
 }

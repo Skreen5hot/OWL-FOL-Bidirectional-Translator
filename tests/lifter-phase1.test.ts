@@ -803,6 +803,22 @@ await report(
 );
 
 // ===========================================================================
+// STEP 9.1 — SME B3 closure: ObjectComplementOf coverage (Phase 1 exit
+//            corpus completeness; lifter behavior already implemented in
+//            Step 2 via liftClassExpression's ComplementOf branch — fixture
+//            closes the coverage gap surfaced in the Step 4 SME review).
+// ===========================================================================
+
+await report(
+  "p1_complement_of: ObjectComplementOf class expression lifts to fol:Negation around the inner class (Step 2 lifter behavior; SME B3 closure)",
+  async () => {
+    const { fixture } = await loadFixture("p1_complement_of.fixture.js");
+    const lifted = await owlToFol(fixture.input);
+    deepStrictEqual(lifted, fixture.expectedFOL);
+  }
+);
+
+// ===========================================================================
 // Summary
 // ===========================================================================
 
