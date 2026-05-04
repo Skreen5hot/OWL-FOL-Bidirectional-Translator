@@ -1,0 +1,71 @@
+# Provenance sidecar for: owl-axiomatization.clif
+#
+# Per arc/upstream-canonical/README.md vendoring discipline. Provenance fill-in
+# provided by Aaron 2026-05-03 closing the [VERIFY] markers from the initial
+# sidecar draft. Mechanical resolution; does not change the substance of the
+# BFO/CLIF parity routing packet.
+
+upstream-url: https://github.com/BFO-ontology/BFO/blob/master/src/ontology/fol-group/owl-axiomatization.clif
+upstream-version: master at commit 783a3f7 (or latest as of retrieval)
+retrieved-at: 2024-05-23
+sha256: 480193e976720fef74b68acda7883b095f3bf4666a1b091c5204b58d78035912
+file-line-count: 1660
+file-author: Fabian Neuhaus (per file header line 5)
+file-version: 0.1 (per file header line 6)
+
+# Provenance note: this file is a "native" artifact of the BFO repository
+# rather than vendored from an external project. It is the bridge between the
+# First-Order Logic (FOL) axiomatization and the OWL implementation of BFO 2.0.
+# Versioning follows the BFO release cycle (currently BFO 2.0 / 2020).
+
+# Attribution per upstream license. The file itself does not declare a license
+# header inline; the repo-level LICENSE governs.
+license: BSD-3-Clause
+attribution: |
+  Basic Formal Ontology (BFO) Project.
+  Primary contributors to the FOL axiomatization include Fabian Neuhaus,
+  Barry Smith, and Chris Mungall (per BFO repository commit history).
+license-compatibility: |
+  Yes — BSD-3-Clause is highly permissive and compatible with OFBT's MIT
+  distribution model. No carve-out required; vendoring proceeds under
+  arc/upstream-canonical/README.md's standard discipline.
+
+# Notes captured at vendoring time
+notes: |
+  This is the OWL CLIF axiomatization (Layer A per arc/upstream-canonical/README.md) —
+  it defines the canonical FOL semantics of OWL primitives themselves
+  (SubClassOf, Transitive, InverseObjectProperties, DisjointClasses,
+  ObjectPropertyDomain, ObjectPropertyRange, ClassAssertion,
+  ObjectPropertyAssertion, SameIndividual, DifferentIndividuals, etc.).
+
+  This is NOT BFO 2020's CLIF release (which would be the Layer B source for
+  BFO-specific class hierarchy and disjointness commitments). The two are
+  complementary; bfo-2020.clif is a future Phase 4 vendoring deliverable.
+
+  Phase 1 fixture p1_bfo_clif_classical.fixture.js cites this file as ground
+  truth for the canonical CLIF semantics of the OWL constructs the fixture
+  exercises (SubClassOf, DisjointClasses, TransitiveObjectProperty,
+  InverseObjectProperties). The clifGroundTruth entries reference specific
+  line ranges in this file.
+
+  Architect ratification on 2026-05-03 confirmed: the meta-typing-predicate
+  elision (OFBT lifts the canonical-form BODY only, omitting (Class X) /
+  (OWLObjectProperty R) antecedents) is sound w.r.t. OWL semantics for v0.1.
+  Banked for ADR-007 §10 at Phase 1 exit doc pass — to formalize the
+  encoding-choice convention as an implementation-choice-tier addition.
+
+# Specific axiom blocks the Phase 1 fixture cites (line references for
+# fixture clifGroundTruth.clifAxiomRef field):
+cited-blocks:
+  SubClassOf:
+    location: lines 1006-1015
+    summary: "(forall (X Y) (iff (SubClassOf X Y) (and (Class X) (Class Y) (forall (z) (if (X z) (Y z))))))"
+  DisjointClasses:
+    location: lines 1038-1046 + auxiliary Disjoint definition lines 1548-1557
+    summary: "DisjointClasses(X, Y) iff Class X, Class Y, and Disjoint(X, Y); Disjoint(X, Y) iff ∀x. ¬(X(x) ∧ Y(x))"
+  TransitiveObjectProperty:
+    location: lines 1310-1324
+    summary: "(forall (R) (iff (TransitiveObjectProperty R) (and (OWLObjectProperty R) (forall (x y z) (if (and (R x y) (R y z)) (R x z))))))"
+  InverseObjectProperties:
+    location: lines 1214-1226
+    summary: "(forall (R1 R2) (iff (InverseObjectProperties R1 R2) (and (OWLObjectProperty R1) (OWLObjectProperty R2) (forall (x y) (iff (R1 x y) (R2 y x))))))"
