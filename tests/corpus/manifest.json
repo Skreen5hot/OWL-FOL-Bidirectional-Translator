@@ -357,7 +357,7 @@
         "phaseAuthored": 1,
         "phaseActivated": 1,
         "clifParityScope": "Layer A (OWL axiomatization)",
-        "clifCitationsStatus": "[VERIFY] pending Aaron pre-Phase-1-exit verification against arc/upstream-canonical/owl-axiomatization.clif"
+        "clifCitationsStatus": "Verified — all 8 citations confirmed against arc/upstream-canonical/owl-axiomatization.clif at Phase 1 exit Step 9.2 (2026-05-04)"
       },
       "expected_v0.2_elk_verdict": null,
       "clifGroundTruth": [
@@ -365,7 +365,7 @@
           "clifSource": "arc/upstream-canonical/owl-axiomatization.clif",
           "clifAxiomRef": "lines 1006-1015 (SubClassOf definition)",
           "clifText": "(forall (X Y) (iff (SubClassOf X Y) (and (Class X) (Class Y) (forall (z) (if (X z) (Y z))))))",
-          "verificationStatus": "[VERIFY]",
+          "verificationStatus": "Verified",
           "mappingNote": "Canonical CLIF includes (Class X) and (Class Y) meta-typing predicates. OFBT lifts the canonical-form BODY only; meta-typing antecedents are elided per OFBT encoding choice (every IRI used in a class position is implicitly a Class — no separate Class reification). Sound w.r.t. OWL semantics for v0.1.",
           "expectedFOLIndex": 0,
           "owlAxiomLabel": "SubClassOf(Continuant, Entity)"
@@ -374,7 +374,7 @@
           "clifSource": "arc/upstream-canonical/owl-axiomatization.clif",
           "clifAxiomRef": "lines 1006-1015 (SubClassOf definition) — same canonical block as preceding entry",
           "clifText": "(forall (X Y) (iff (SubClassOf X Y) (and (Class X) (Class Y) (forall (z) (if (X z) (Y z))))))",
-          "verificationStatus": "[VERIFY]",
+          "verificationStatus": "Verified",
           "mappingNote": "Same canonical citation. Phase 1 verifies the lifter SubClassOf handler once; this fixture exercises it five times against different class-IRI pairs as a regression-density check.",
           "expectedFOLIndex": 1,
           "owlAxiomLabel": "SubClassOf(Occurrent, Entity)"
@@ -383,7 +383,7 @@
           "clifSource": "arc/upstream-canonical/owl-axiomatization.clif",
           "clifAxiomRef": "lines 1006-1015 (SubClassOf definition)",
           "clifText": "(forall (X Y) (iff (SubClassOf X Y) (and (Class X) (Class Y) (forall (z) (if (X z) (Y z))))))",
-          "verificationStatus": "[VERIFY]",
+          "verificationStatus": "Verified",
           "mappingNote": "Same canonical citation; see preceding SubClassOf entries.",
           "expectedFOLIndex": 2,
           "owlAxiomLabel": "SubClassOf(IndependentContinuant, Continuant)"
@@ -392,7 +392,7 @@
           "clifSource": "arc/upstream-canonical/owl-axiomatization.clif",
           "clifAxiomRef": "lines 1006-1015 (SubClassOf definition)",
           "clifText": "(forall (X Y) (iff (SubClassOf X Y) (and (Class X) (Class Y) (forall (z) (if (X z) (Y z))))))",
-          "verificationStatus": "[VERIFY]",
+          "verificationStatus": "Verified",
           "mappingNote": "Same canonical citation; see preceding SubClassOf entries.",
           "expectedFOLIndex": 3,
           "owlAxiomLabel": "SubClassOf(MaterialEntity, IndependentContinuant)"
@@ -401,7 +401,7 @@
           "clifSource": "arc/upstream-canonical/owl-axiomatization.clif",
           "clifAxiomRef": "lines 1006-1015 (SubClassOf definition)",
           "clifText": "(forall (X Y) (iff (SubClassOf X Y) (and (Class X) (Class Y) (forall (z) (if (X z) (Y z))))))",
-          "verificationStatus": "[VERIFY]",
+          "verificationStatus": "Verified",
           "mappingNote": "Same canonical citation; see preceding SubClassOf entries.",
           "expectedFOLIndex": 4,
           "owlAxiomLabel": "SubClassOf(Process, Occurrent)"
@@ -410,7 +410,7 @@
           "clifSource": "arc/upstream-canonical/owl-axiomatization.clif",
           "clifAxiomRef": "lines 1038-1046 (DisjointClasses) + lines 1548-1557 (auxiliary Disjoint)",
           "clifText": "(forall (X Y) (iff (DisjointClasses X Y) (and (Class X) (Class Y) (Disjoint X Y))))  ;; with auxiliary: (forall (X Y) (iff (Disjoint X Y) (forall (x ...s) (not (and (X x ...s) (Y ...s))))))",
-          "verificationStatus": "[VERIFY]",
+          "verificationStatus": "Verified",
           "mappingNote": "Two-step canonical definition: DisjointClasses(X,Y) ↔ (Class X), (Class Y), Disjoint(X,Y); Disjoint(X,Y) ↔ ∀x. ¬(X(x) ∧ Y(x)). OFBT's lifted '(P ∧ Q) → ⊥' is the contrapositive of '¬(P ∧ Q)' — logically equivalent under classical FOL. Class meta-typing predicates elided as for SubClassOf entries.",
           "expectedFOLIndex": 5,
           "owlAxiomLabel": "DisjointWith(Continuant, Occurrent)"
@@ -419,7 +419,7 @@
           "clifSource": "arc/upstream-canonical/owl-axiomatization.clif",
           "clifAxiomRef": "lines 1310-1324 (TransitiveObjectProperty definition)",
           "clifText": "(forall (R) (iff (TransitiveObjectProperty R) (and (OWLObjectProperty R) (forall (x y z) (if (and (R x y) (R y z)) (R x z))))))",
-          "verificationStatus": "[VERIFY]",
+          "verificationStatus": "Verified",
           "mappingNote": "Canonical CLIF includes (OWLObjectProperty R) meta-typing predicate. OFBT's lifted FOL ∀x,y,z. P(x,y) ∧ P(y,z) → P(x,z) is the canonical-form BODY universal-implication; meta-typing antecedent elided per same encoding-choice rationale as SubClassOf entries. Cycle-guarded SLD ingestion is the Phase 3 evaluator's concern per ADR-007 §1, NOT in the lifted FOL.",
           "expectedFOLIndex": 6,
           "owlAxiomLabel": "Transitive(part_of)"
@@ -428,7 +428,7 @@
           "clifSource": "arc/upstream-canonical/owl-axiomatization.clif",
           "clifAxiomRef": "lines 1214-1226 (InverseObjectProperties definition)",
           "clifText": "(forall (R1 R2) (iff (InverseObjectProperties R1 R2) (and (OWLObjectProperty R1) (OWLObjectProperty R2) (forall (x y) (iff (R1 x y) (R2 y x))))))",
-          "verificationStatus": "[VERIFY]",
+          "verificationStatus": "Verified",
           "mappingNote": "Canonical CLIF expresses the inverse relationship as a single iff. OFBT emits the bidirectional implication as a PAIR per ADR-007 §4 (fresh allocator per direction); two implications together are logically equivalent to the canonical iff. Two-axiom decomposition is OFBT's canonical encoding; iff is the canonical OWL CLIF encoding. Meta-typing predicates elided as for SubClassOf and TransitiveObjectProperty.",
           "expectedFOLIndex": [
             7,

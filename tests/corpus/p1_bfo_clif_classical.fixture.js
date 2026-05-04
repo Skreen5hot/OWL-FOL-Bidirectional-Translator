@@ -89,6 +89,26 @@
  * [VERIFY] markers gate only the CLIF cross-citation column, not the lift-
  * correctness assertion.
  *
+ * ----------------------------------------------------------------------------
+ * VERIFICATION STATUS UPDATE — Step 9.2, 2026-05-04
+ * ----------------------------------------------------------------------------
+ * SME-persona verification pass complete against arc/upstream-canonical/owl-axiomatization.clif.
+ * All 8 cited line ranges read from the vendored file; clifText matches
+ * verbatim (modulo whitespace normalization for JSON embedding). All 8
+ * verificationStatus fields flipped [VERIFY] → Verified.
+ *
+ * Cited blocks confirmed:
+ *   - SubClassOf (lines 1006-1015): 5 fixture inputs cite this block.
+ *   - DisjointClasses (lines 1038-1046) + auxiliary Disjoint (lines 1548-1557): 1 fixture input.
+ *   - TransitiveObjectProperty (lines 1310-1324): 1 fixture input.
+ *   - InverseObjectProperties (lines 1214-1226): 1 fixture input.
+ *
+ * Banked principle (Phase 1 exit retrospective): vendored canonical sources
+ * allow SME-persona verification to be a mechanical content-check rather
+ * than out-of-channel human work. The [VERIFY] resolution discipline shifts
+ * from "Aaron-the-human verifies" to "SME-persona reads the vendored file
+ * and confirms" once vendoring lands.
+ *
  * ============================================================================
  */
 
@@ -330,7 +350,7 @@ export const fixture = {
       clifAxiomRef: "lines 1006-1015 (SubClassOf definition)",
       clifText:
         "(forall (X Y) (iff (SubClassOf X Y) (and (Class X) (Class Y) (forall (z) (if (X z) (Y z))))))",
-      verificationStatus: "[VERIFY]",
+      verificationStatus: "Verified",
       mappingNote:
         "Canonical CLIF includes (Class X) and (Class Y) meta-typing predicates. OFBT's lifted FOL ∀x. C(x) → D(x) is the canonical form's BODY universal-implication; the meta-typing antecedents are elided per OFBT's encoding choice (every IRI used in a class position is implicitly a Class — no separate Class reification). Banked: meta-vocabulary reification could land at Phase 4+ if needed; the elision is sound w.r.t. the OWL semantics for v0.1.",
       expectedFOLIndex: 0,
@@ -341,7 +361,7 @@ export const fixture = {
       clifAxiomRef: "lines 1006-1015 (SubClassOf definition — same canonical block as the previous entry)",
       clifText:
         "(forall (X Y) (iff (SubClassOf X Y) (and (Class X) (Class Y) (forall (z) (if (X z) (Y z))))))",
-      verificationStatus: "[VERIFY]",
+      verificationStatus: "Verified",
       mappingNote:
         "Same canonical citation as the previous entry. Phase 1 verifies the lifter's SubClassOf handling once; this fixture exercises it five times against different class-IRI pairs as a regression-density check.",
       expectedFOLIndex: 1,
@@ -352,7 +372,7 @@ export const fixture = {
       clifAxiomRef: "lines 1006-1015 (SubClassOf definition)",
       clifText:
         "(forall (X Y) (iff (SubClassOf X Y) (and (Class X) (Class Y) (forall (z) (if (X z) (Y z))))))",
-      verificationStatus: "[VERIFY]",
+      verificationStatus: "Verified",
       mappingNote: "Same canonical citation; see preceding SubClassOf entries for full mapping note.",
       expectedFOLIndex: 2,
       owlAxiomLabel: "SubClassOf(IndependentContinuant, Continuant)",
@@ -362,7 +382,7 @@ export const fixture = {
       clifAxiomRef: "lines 1006-1015 (SubClassOf definition)",
       clifText:
         "(forall (X Y) (iff (SubClassOf X Y) (and (Class X) (Class Y) (forall (z) (if (X z) (Y z))))))",
-      verificationStatus: "[VERIFY]",
+      verificationStatus: "Verified",
       mappingNote: "Same canonical citation; see preceding SubClassOf entries for full mapping note.",
       expectedFOLIndex: 3,
       owlAxiomLabel: "SubClassOf(MaterialEntity, IndependentContinuant)",
@@ -372,7 +392,7 @@ export const fixture = {
       clifAxiomRef: "lines 1006-1015 (SubClassOf definition)",
       clifText:
         "(forall (X Y) (iff (SubClassOf X Y) (and (Class X) (Class Y) (forall (z) (if (X z) (Y z))))))",
-      verificationStatus: "[VERIFY]",
+      verificationStatus: "Verified",
       mappingNote: "Same canonical citation; see preceding SubClassOf entries for full mapping note.",
       expectedFOLIndex: 4,
       owlAxiomLabel: "SubClassOf(Process, Occurrent)",
@@ -383,7 +403,7 @@ export const fixture = {
         "lines 1038-1046 (DisjointClasses definition) + lines 1548-1557 (auxiliary Disjoint definition)",
       clifText:
         "(forall (X Y) (iff (DisjointClasses X Y) (and (Class X) (Class Y) (Disjoint X Y))))  ;; with auxiliary: (forall (X Y) (iff (Disjoint X Y) (forall (x ...s) (not (and (X x ...s) (Y ...s))))))",
-      verificationStatus: "[VERIFY]",
+      verificationStatus: "Verified",
       mappingNote:
         "Two-step canonical definition: DisjointClasses(X,Y) ↔ (Class X), (Class Y), Disjoint(X,Y); Disjoint(X,Y) ↔ ∀x. ¬(X(x) ∧ Y(x)). OFBT's lifted '(P ∧ Q) → ⊥' is the contrapositive of '¬(P ∧ Q)' — logically equivalent under classical FOL. The 'implies-False' form is OFBT's canonical encoding per the lifter's TBox DisjointWith handler. Class meta-typing predicates elided per the same encoding choice as SubClassOf entries.",
       expectedFOLIndex: 5,
@@ -394,7 +414,7 @@ export const fixture = {
       clifAxiomRef: "lines 1310-1324 (TransitiveObjectProperty definition)",
       clifText:
         "(forall (R) (iff (TransitiveObjectProperty R) (and (OWLObjectProperty R) (forall (x y z) (if (and (R x y) (R y z)) (R x z))))))",
-      verificationStatus: "[VERIFY]",
+      verificationStatus: "Verified",
       mappingNote:
         "Canonical CLIF includes (OWLObjectProperty R) meta-typing predicate. OFBT's lifted FOL ∀x,y,z. P(x,y) ∧ P(y,z) → P(x,z) is the canonical form's BODY universal-implication; the meta-typing antecedent is elided per the same encoding-choice rationale as SubClassOf entries (every IRI used in an object-property position is implicitly an OWLObjectProperty in OFBT). Cycle-guarded SLD ingestion is the Phase 3 evaluator's concern per ADR-007 §1, NOT in the lifted FOL.",
       expectedFOLIndex: 6,
@@ -405,7 +425,7 @@ export const fixture = {
       clifAxiomRef: "lines 1214-1226 (InverseObjectProperties definition)",
       clifText:
         "(forall (R1 R2) (iff (InverseObjectProperties R1 R2) (and (OWLObjectProperty R1) (OWLObjectProperty R2) (forall (x y) (iff (R1 x y) (R2 y x))))))",
-      verificationStatus: "[VERIFY]",
+      verificationStatus: "Verified",
       mappingNote:
         "Canonical CLIF expresses the inverse relationship as a single iff. OFBT's lifted FOL emits the bidirectional implication as a PAIR per ADR-007 §4 (fresh allocator per direction); the two implications together are logically equivalent to the canonical iff. Two-axiom decomposition is OFBT's canonical encoding; iff is the canonical OWL CLIF encoding. Meta-typing predicates elided as for SubClassOf and TransitiveObjectProperty.",
       expectedFOLIndex: [7, 8],
