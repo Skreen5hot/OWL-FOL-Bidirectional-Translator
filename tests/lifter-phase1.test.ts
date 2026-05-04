@@ -37,7 +37,7 @@ import { fileURLToPath } from "node:url";
 
 import { owlToFol } from "../src/kernel/lifter.js";
 import { stableStringify } from "../src/kernel/canonicalize.js";
-import { UnsupportedConstructError, OFBTError } from "../src/kernel/errors.js";
+import { UnsupportedConstructError, OFBTError, ParseError } from "../src/kernel/errors.js";
 import {
   assertForbiddenPatterns,
   assertRequiredPattern,
@@ -549,6 +549,256 @@ await report(
     const { fixture } = await loadFixture("p1_restrictions_cardinality.fixture.js");
     const lifted = await owlToFol(fixture.input);
     deepStrictEqual(lifted, fixture.expectedFOL);
+  }
+);
+
+// ===========================================================================
+// STEP 8 — Datatype canonicalization per spec §5.6.5 + structural-annotation
+//          declaration consistency machinery skeleton per spec §5.9.1
+// ===========================================================================
+
+// Step 8 datatype canonicalization regressions: XSD canonical lexical forms
+// per §5.6.5. Wired via makeTypedLiteral at the single boundary point.
+// No corpus fixture exercises non-canonical input today; these inline tests
+// pin the canonicalization contract for Phase 4+ when real BFO/CCO content
+// surfaces literals like "+42" or "1"^^xsd:boolean from RDF-parsed input.
+await report(
+  "Step 8 datatype canon: integer +42 → 42 (sign normalized)",
+  async () => {
+    const input = {
+      ontologyIRI: "http://example.org/test/step8_int_signed",
+      prefixes: {},
+      tbox: [],
+      abox: [
+        {
+          "@type": "DataPropertyAssertion" as const,
+          property: "http://example.org/test/age",
+          source: "http://example.org/test/alice",
+          value: { "@value": "+42", "@type": "http://www.w3.org/2001/XMLSchema#integer" },
+        },
+      ],
+      rbox: [],
+    };
+    const lifted = await owlToFol(input);
+    deepStrictEqual(lifted, [
+      {
+        "@type": "fol:Atom",
+        predicate: "http://example.org/test/age",
+        arguments: [
+          { "@type": "fol:Constant", iri: "http://example.org/test/alice" },
+          {
+            "@type": "fol:TypedLiteral",
+            value: "42",
+            datatype: "http://www.w3.org/2001/XMLSchema#integer",
+          },
+        ],
+      },
+    ]);
+  }
+);
+
+await report(
+  "Step 8 datatype canon: integer 010 → 10 (leading zeros stripped)",
+  async () => {
+    const input = {
+      ontologyIRI: "http://example.org/test/step8_int_zeros",
+      prefixes: {},
+      tbox: [],
+      abox: [
+        {
+          "@type": "DataPropertyAssertion" as const,
+          property: "http://example.org/test/count",
+          source: "http://example.org/test/x",
+          value: { "@value": "010", "@type": "http://www.w3.org/2001/XMLSchema#integer" },
+        },
+      ],
+      rbox: [],
+    };
+    const lifted = await owlToFol(input);
+    strictEqual(
+      (lifted[0] as { arguments: Array<{ value?: string }> }).arguments[1].value,
+      "10"
+    );
+  }
+);
+
+await report(
+  'Step 8 datatype canon: boolean "1" → "true" (canonical form)',
+  async () => {
+    const input = {
+      ontologyIRI: "http://example.org/test/step8_bool_one",
+      prefixes: {},
+      tbox: [],
+      abox: [
+        {
+          "@type": "DataPropertyAssertion" as const,
+          property: "http://example.org/test/active",
+          source: "http://example.org/test/x",
+          value: { "@value": "1", "@type": "http://www.w3.org/2001/XMLSchema#boolean" },
+        },
+      ],
+      rbox: [],
+    };
+    const lifted = await owlToFol(input);
+    strictEqual(
+      (lifted[0] as { arguments: Array<{ value?: string }> }).arguments[1].value,
+      "true"
+    );
+  }
+);
+
+await report(
+  "Step 8 datatype canon: date 2026-5-1 → 2026-05-01 (zero-padded)",
+  async () => {
+    const input = {
+      ontologyIRI: "http://example.org/test/step8_date",
+      prefixes: {},
+      tbox: [],
+      abox: [
+        {
+          "@type": "DataPropertyAssertion" as const,
+          property: "http://example.org/test/birthday",
+          source: "http://example.org/test/x",
+          value: { "@value": "2026-5-1", "@type": "http://www.w3.org/2001/XMLSchema#date" },
+        },
+      ],
+      rbox: [],
+    };
+    const lifted = await owlToFol(input);
+    strictEqual(
+      (lifted[0] as { arguments: Array<{ value?: string }> }).arguments[1].value,
+      "2026-05-01"
+    );
+  }
+);
+
+await report(
+  'Step 8 datatype canon: language tag "EN" → "en" (BCP 47 lowercase)',
+  async () => {
+    const input = {
+      ontologyIRI: "http://example.org/test/step8_lang",
+      prefixes: {},
+      tbox: [],
+      abox: [
+        {
+          "@type": "DataPropertyAssertion" as const,
+          property: "http://example.org/test/label",
+          source: "http://example.org/test/x",
+          value: {
+            "@value": "Hello",
+            "@type": "http://www.w3.org/2001/XMLSchema#string",
+            "@language": "EN",
+          },
+        },
+      ],
+      rbox: [],
+    };
+    const lifted = await owlToFol(input);
+    strictEqual(
+      (lifted[0] as { arguments: Array<{ language?: string }> }).arguments[1].language,
+      "en"
+    );
+  }
+);
+
+await report(
+  'Step 8 datatype canon: invalid xsd:integer "42.0" throws ParseError',
+  async () => {
+    const input = {
+      ontologyIRI: "http://example.org/test/step8_invalid_int",
+      prefixes: {},
+      tbox: [],
+      abox: [
+        {
+          "@type": "DataPropertyAssertion" as const,
+          property: "http://example.org/test/count",
+          source: "http://example.org/test/x",
+          value: { "@value": "42.0", "@type": "http://www.w3.org/2001/XMLSchema#integer" },
+        },
+      ],
+      rbox: [],
+    };
+    let thrown: unknown = null;
+    try {
+      await owlToFol(input);
+    } catch (e) {
+      thrown = e;
+    }
+    ok(thrown instanceof ParseError, `expected ParseError, got ${thrown === null ? "no throw" : (thrown as Error).constructor.name}`);
+    ok(thrown instanceof OFBTError);
+    strictEqual(
+      (thrown as ParseError).construct,
+      "invalid-literal-lexical-form"
+    );
+  }
+);
+
+// Step 8 structural-annotation skeleton per spec §5.9.1
+await report(
+  "Step 8 structural annotation: declared property IRI lifts to fol:Atom; undeclared property IRI is skipped",
+  async () => {
+    const input = {
+      ontologyIRI: "http://example.org/test/step8_struct_ann",
+      prefixes: {},
+      tbox: [],
+      abox: [],
+      rbox: [],
+      annotations: [
+        {
+          "@type": "Annotation" as const,
+          property: "http://example.org/fandaws/bfoSubcategory",
+          subject: "http://example.org/test/myEntity",
+          value: "http://example.org/bfo/MaterialEntity",
+        },
+        {
+          "@type": "Annotation" as const,
+          property: "http://www.w3.org/2000/01/rdf-schema#comment",
+          subject: "http://example.org/test/myEntity",
+          value: "this is a comment that should NOT be lifted",
+        },
+      ],
+    };
+    const config = {
+      structuralAnnotations: new Set([
+        "http://example.org/fandaws/bfoSubcategory",
+      ]),
+    };
+    const lifted = await owlToFol(input, config);
+    // Expect exactly ONE atom (the declared annotation); rdfs:comment is
+    // skipped per OWL standard (not in the declared set).
+    deepStrictEqual(lifted, [
+      {
+        "@type": "fol:Atom",
+        predicate: "http://example.org/fandaws/bfoSubcategory",
+        arguments: [
+          { "@type": "fol:Constant", iri: "http://example.org/test/myEntity" },
+          { "@type": "fol:Constant", iri: "http://example.org/bfo/MaterialEntity" },
+        ],
+      },
+    ]);
+  }
+);
+
+await report(
+  "Step 8 structural annotation: empty / unspecified config does NOT lift any annotation (OWL standard default)",
+  async () => {
+    const input = {
+      ontologyIRI: "http://example.org/test/step8_no_struct_ann",
+      prefixes: {},
+      tbox: [],
+      abox: [],
+      rbox: [],
+      annotations: [
+        {
+          "@type": "Annotation" as const,
+          property: "http://example.org/fandaws/bfoSubcategory",
+          subject: "http://example.org/test/myEntity",
+          value: "http://example.org/bfo/MaterialEntity",
+        },
+      ],
+    };
+    const lifted = await owlToFol(input); // no config → no structural annotations declared
+    deepStrictEqual(lifted, []);
   }
 );
 

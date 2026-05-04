@@ -1,5 +1,5 @@
 /**
- * OWL → FOL Lifter (Phase 1, through Step 7)
+ * OWL → FOL Lifter (Phase 1, through Step 8)
  *
  * Per API spec §6.1. Async because subsequent steps wire `rdf-canonize` for
  * blank-node canonicalization (Step 6 per phase-1-entry.md sequencing); the
@@ -70,10 +70,37 @@
  *     (no wrong-arity unary-atom emission) graduates from inline regression
  *     to fixture-level deepStrictEqual against p1_restrictions_cardinality.
  *
- * NOT YET IMPLEMENTED (deferred to Steps 8-9):
- *   - Datatype canonicalization per spec §5.6.5 (XSD canonical lexical
- *     forms) — Step 8
- *   - 100-run determinism harness (Step 9)
+ * IMPLEMENTED (Step 8):
+ *   - Datatype canonicalization per spec §5.6.5 — XSD canonical lexical
+ *     forms for xsd:integer (and derived types), xsd:decimal,
+ *     xsd:boolean, xsd:date, xsd:dateTime, xsd:string. Language tags
+ *     lowercased per BCP 47. Invalid lexical forms (e.g.,
+ *     "42.0"^^xsd:integer) throw ParseError(construct:
+ *     "invalid-literal-lexical-form"). Wired at the single boundary
+ *     point makeTypedLiteral() — all DataPropertyAssertion lifts and
+ *     Step 8 structural-annotation lifts flow through it. Value-space
+ *     equality is NOT performed in v0.1 per spec §5.6.5.
+ *   - Optional LifterConfiguration parameter on owlToFol per API §6.1
+ *     (signature: `owlToFol(ontology, config?)`). Step 8 consumes
+ *     `config.structuralAnnotations` (Set<IRI>); other fields accepted
+ *     by shape but reserved for Phase 2 (Loss Signature emission) and
+ *     Phase 4 (ARC).
+ *   - Structural annotation declaration consistency machinery skeleton
+ *     per spec §5.9.1 — annotations whose property IRI is in the
+ *     caller-declared set lift as fol:Atom binary facts (subject as
+ *     fol:Constant, value as either fol:Constant for IRI values or
+ *     fol:TypedLiteral for typed-literal values via makeTypedLiteral
+ *     which canonicalizes). Annotations not in the declared set are
+ *     skipped per OWL standard. Annotation-on-annotation patterns are
+ *     §13.1 punted, rejected upstream by rejectPuntedConstructs.
+ *     Recovery Payload emission (per §5.9.2) is Phase 2 projector
+ *     concern; not part of the Phase 1 lifter.
+ *
+ * NOT YET IMPLEMENTED (deferred to Step 9):
+ *   - 100-run determinism harness per API §6.1.1 (Step 9 driver for
+ *     Phase 1 exit retrospective)
+ *   - verifiedStatus: 'Draft' → 'Verified' promotion across all 14
+ *     fixtures (Step 9 Phase 1 exit deliverable)
  *
  * Unimplemented axiom kinds noop (skip without error) EXCEPT for §13.1
  * punted constructs and cardinality (per SME B2) which throw. CI stays
@@ -86,11 +113,13 @@
 
 import { UnsupportedConstructError } from "./errors.js";
 import { canonicalizeIRI } from "./iri.js";
+import { canonicalizeLiteral } from "./datatype-canon.js";
 import type {
   OWLOntology,
   TBoxAxiom,
   ABoxAxiom,
   RBoxAxiom,
+  AnnotationAxiom,
   ClassExpression,
   TypedLiteral,
 } from "./owl-types.js";
@@ -111,13 +140,41 @@ import type {
 } from "./fol-types.js";
 
 /**
+ * Phase 1 Step 8: optional LifterConfiguration parameter per API §6.1.
+ *
+ * For Phase 1 only `structuralAnnotations` is consumed (Set<IRI> of
+ * annotation property IRIs the caller wants lifted as facts per spec
+ * §5.9). Other LifterConfiguration fields (arcCoverage, arcModules,
+ * arcManifestVersion, emitLossSignaturesToConsole) are accepted by
+ * shape but not yet acted on by the lifter — they activate at Phase 4
+ * (ARC) and Phase 2 (Loss Signature emission). Type defined here
+ * inline to avoid a kernel→composition import (LifterConfiguration
+ * lives in src/composition/session.ts; the lifter accepts a
+ * structurally-equivalent shape per API §6.1's "config?:
+ * LifterConfiguration" signature, satisfied via duck-typing).
+ */
+export interface LifterConfig {
+  structuralAnnotations?: Set<string> | ReadonlySet<string>;
+  arcCoverage?: "strict" | "permissive";
+  arcManifestVersion?: string;
+  arcModules?: string[];
+  emitLossSignaturesToConsole?: boolean;
+}
+
+/**
  * Lift an OWLOntology to its FOL representation.
  *
- * Step 1 returns: ABox-derived facts only, plus throws on §13.1 punted
- * constructs anywhere in the input. Empty array on inputs whose only
- * content is TBox/RBox (the unimplemented kinds for Step 1).
+ * Per API §6.1: signature is `owlToFol(ontology, config?)` returning
+ * `Promise<FOLAxiom[]>`. Step 8 wires the optional config arg; prior
+ * Steps' callers pass no config and the lifter behaves identically.
+ *
+ * Throws on §13.1 punted constructs anywhere in the input (pre-scan).
+ * Throws ParseError on invalid literal lexical forms per spec §5.6.5.
  */
-export async function owlToFol(ontology: OWLOntology): Promise<FOLAxiom[]> {
+export async function owlToFol(
+  ontology: OWLOntology,
+  config?: LifterConfig
+): Promise<FOLAxiom[]> {
   // (1) Pre-scan for §13.1 punted constructs. Any detection throws BEFORE
   // any FOL is emitted. This honors the canary contract:
   // canary_punned_construct_rejection expects typed UnsupportedConstructError
@@ -156,6 +213,16 @@ export async function owlToFol(ontology: OWLOntology): Promise<FOLAxiom[]> {
   // rules apply to them. Skipped when the input does not declare any
   // SameIndividual / DifferentIndividuals (no identity to propagate).
   axioms.push(...emitIdentityMachinery(ontology));
+
+  // (6) Structural-annotation lifting (Step 8) per spec §5.9.1. For every
+  // annotation in ontology.annotations whose property IRI is in
+  // config.structuralAnnotations (canonicalized to expanded URI per
+  // §3.10.3), emit a binary FOL atom using the same form as ABox object
+  // property assertions (IRI value) or data property assertions (literal
+  // value). Annotations with no caller-declared property IRI are skipped
+  // per the OWL standard (preserved for round-trip in Phase 2 projector,
+  // not lifted to FOL).
+  axioms.push(...emitStructuralAnnotations(ontology, config));
 
   return axioms;
 }
@@ -466,12 +533,19 @@ function makeConstant(iri: string): FOLConstant {
 }
 
 function makeTypedLiteral(value: TypedLiteral): FOLTypedLiteral {
+  // Per spec §5.6.5, the canonical lexical form is what gets stored in the
+  // FOL term. Step 8 wires the canonicalization at this single boundary
+  // point so all DataPropertyAssertion lifts (and Phase 1 Step 8 structural-
+  // annotation lifts) flow through it. Throws ParseError on invalid
+  // lexical forms (e.g., "42.0"^^xsd:integer) per §5.6.5's "rejected
+  // with diagnostic" contract.
+  const canonical = canonicalizeLiteral(value);
   const out: FOLTypedLiteral = {
     "@type": "fol:TypedLiteral",
-    value: value["@value"],
-    datatype: value["@type"],
+    value: canonical["@value"],
+    datatype: canonical["@type"],
   };
-  if (value["@language"]) out.language = value["@language"];
+  if (canonical["@language"]) out.language = canonical["@language"];
   return out;
 }
 
@@ -1014,6 +1088,86 @@ function binaryIdentityRewriteSecondArg(predicate: string): FOLUniversal {
 
 function varRef(name: string): FOLVariable {
   return { "@type": "fol:Variable", name };
+}
+
+// ---------------------------------------------------------------------------
+// Structural annotation lifting (Step 8 — spec §5.9.1)
+// ---------------------------------------------------------------------------
+
+/**
+ * Lift caller-declared structural annotations to FOL atoms per spec §5.9.1.
+ *
+ * For an annotation `(s, p, o)` where `p` is in `config.structuralAnnotations`
+ * (canonicalized to expanded full-URI form per §3.10.3 before set-membership
+ * check):
+ *   - Object as IRI (string-typed `value`): lift as `p(s, o)` with both
+ *     arguments as fol:Constant. Same form as ObjectPropertyAssertion per
+ *     spec §5.9.1.
+ *   - Object as TypedLiteral: lift as `p(s, literal)` with the literal
+ *     canonicalized per §5.6.5. Same form as DataPropertyAssertion per
+ *     §5.9.1.
+ *
+ * Annotations with no caller-declared property IRI are skipped per the
+ * OWL standard ("opaque metadata"). Annotations with a `subject` field
+ * absent are skipped silently in Phase 1 — the lifter requires a subject
+ * to bind the binary atom; subject-less annotations (annotations on the
+ * ontology itself or axiom annotations) are a Phase 2+ concern.
+ *
+ * Recovery Payload emission (per spec §5.9.2: `structural_annotation_caller_declared`)
+ * is a Phase 2 projector concern; the Phase 1 lifter does not emit
+ * audit artifacts (Phase 2 deliverable).
+ */
+function emitStructuralAnnotations(
+  ontology: OWLOntology,
+  config?: LifterConfig
+): FOLAxiom[] {
+  if (!config?.structuralAnnotations || !ontology.annotations) {
+    return [];
+  }
+  // Normalize the caller's declared set to expanded-URI form so set-membership
+  // checks match the canonical form the lifter uses internally.
+  const declaredCanonical = new Set<string>();
+  for (const iri of config.structuralAnnotations) {
+    declaredCanonical.add(canonicalizeIRI(iri, ontology.prefixes));
+  }
+  if (declaredCanonical.size === 0) return [];
+
+  const out: FOLAxiom[] = [];
+  for (const ann of ontology.annotations) {
+    // Annotation-on-annotation patterns are §13.1 punted; rejected upstream
+    // by rejectPuntedConstructs. Defensive guard: skip if seen here.
+    if (Array.isArray(ann.annotations) && ann.annotations.length > 0) continue;
+    // Subject-less annotations skipped in Phase 1 (Phase 2+ concern).
+    if (typeof ann.subject !== "string" || ann.subject.length === 0) continue;
+    const propCanonical = canonicalizeIRI(ann.property, ontology.prefixes);
+    if (!declaredCanonical.has(propCanonical)) continue;
+
+    const subjectArg: FOLConstant = {
+      "@type": "fol:Constant",
+      iri: canonicalizeIRI(ann.subject, ontology.prefixes),
+    };
+    let objectArg;
+    if (typeof ann.value === "string") {
+      // String-typed value: per spec §5.9.1 "Object as IRI" — treat as IRI
+      // and canonicalize. Plain (untyped) string-literal values flow through
+      // the value branch below as TypedLiteral; the string-as-IRI branch
+      // here is for annotations whose value is an IRI reference.
+      objectArg = {
+        "@type": "fol:Constant" as const,
+        iri: canonicalizeIRI(ann.value, ontology.prefixes),
+      };
+    } else {
+      // TypedLiteral value: canonicalize per §5.6.5 and emit as
+      // FOLTypedLiteral term.
+      objectArg = makeTypedLiteral(ann.value);
+    }
+    out.push({
+      "@type": "fol:Atom",
+      predicate: propCanonical,
+      arguments: [subjectArg, objectArg],
+    });
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------
