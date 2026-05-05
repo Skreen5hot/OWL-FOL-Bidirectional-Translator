@@ -62,5 +62,5 @@ export const meta = {
   fixtureId: "canary_same_as_propagation",
   intent:
     "catches a lifter that lifts owl:sameAs to facts but fails to inject identity-aware predicate variants. Without the propagation rules per spec §5.5.2, queries on substituted-individual names return 'undetermined' silently. The right behavior is 'true' with a witness chain showing the same_as fact + the original assertion.",
-  verifiedStatus: "Draft",
+  verifiedStatus: "Verified",
 };

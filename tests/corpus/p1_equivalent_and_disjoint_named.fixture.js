@@ -96,5 +96,5 @@ export const meta = {
   fixtureId: "p1_equivalent_and_disjoint_named",
   intent:
     "EquivalentClasses lifts to two universals (NOT one biconditional that decomposes incorrectly); DisjointWith lifts to a conjunction implying ⊥, NOT to a single negated atom",
-  verifiedStatus: "Draft",
+  verifiedStatus: "Verified",
 };

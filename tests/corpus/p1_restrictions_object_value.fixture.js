@@ -139,5 +139,5 @@ export const meta = {
   fixtureId: "p1_restrictions_object_value",
   intent:
     "someValuesFrom must lift with an existential (Skolem-witnessed if existentialised at the point of use); allValuesFrom must lift to a universal-implication, NOT to an existential; hasValue must lift to a fact assertion against the named individual, NOT to an existential",
-  verifiedStatus: "Draft",
+  verifiedStatus: "Verified",
 };

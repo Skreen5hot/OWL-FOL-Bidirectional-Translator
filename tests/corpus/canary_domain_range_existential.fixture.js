@@ -89,5 +89,5 @@ export const meta = {
   fixtureId: "canary_domain_range_existential",
   intent:
     "catches the wrong existentialisation of domain/range axioms — would entail a fabricated Skolem successor for any class member, producing false existential entailments the source did not assert",
-  verifiedStatus: "Draft",
+  verifiedStatus: "Verified",
 };

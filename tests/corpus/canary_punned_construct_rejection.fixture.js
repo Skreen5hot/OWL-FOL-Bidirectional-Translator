@@ -152,5 +152,5 @@ export const meta = {
   fixtureId: "canary_punned_construct_rejection",
   intent:
     "catches a lifter that silently accepts spec §13.1 punted constructs and emits degraded FOL — or throws a generic Error rather than the typed UnsupportedConstructError with the documented `construct` field. Each case asserts the typed error is raised with the specific construct identifier; consumers catch by class+construct, not by message.",
-  verifiedStatus: "Draft",
+  verifiedStatus: "Verified",
 };

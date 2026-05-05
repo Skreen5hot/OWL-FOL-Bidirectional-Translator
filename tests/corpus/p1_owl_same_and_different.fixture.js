@@ -274,5 +274,5 @@ export const meta = {
   fixtureId: "p1_owl_same_and_different",
   intent:
     "owl:sameAs and owl:differentFrom must lift to facts with reserved predicate names (NOT discarded as 'metadata'); identity-equivalence axiomatization (reflexivity/symmetry/transitivity for sameAs; symmetry-only for differentFrom which is irreflexive and non-transitive) must be injected by the lifter per spec §5.5.1",
-  verifiedStatus: "Draft",
+  verifiedStatus: "Verified",
 };

@@ -479,5 +479,5 @@ export const meta = {
   fixtureId: "p1_bfo_clif_classical",
   intent:
     "BFO 2020 OWL standard-construct subset (class hierarchy + DisjointWith + Transitive + InverseOf) lifts to FOL semantically equivalent to the canonical OWL CLIF axiomatization (Layer A per arc/upstream-canonical/README.md) for the OWL constructs exercised. Each fixture input cites a specific axiom block in arc/upstream-canonical/owl-axiomatization.clif as ground truth. Plants the OWL-axiomatization CLIF parity flag at Phase 1; Phase 4+ adds Layer B citations against bfo-2020.clif when ARC content lands. Catches a lifter that produces FOL diverging from canonical OWL CLIF semantics for the standard-OWL-construct subset (the divergence would be invisible to internal canary discipline alone — external ground truth in the vendored canonical source is the discriminator).",
-  verifiedStatus: "Draft",
+  verifiedStatus: "Verified",
 };

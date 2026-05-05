@@ -205,5 +205,5 @@ export const meta = {
   fixtureId: "p1_property_characteristics",
   intent:
     "Functional/Transitive/Symmetric/InverseOf must lift to the canonical FOL axiom each maps to (per spec §5.2). Recursive characteristics MUST be rewritten with visited-ancestor guards per ADR-011 — naive symmetric/transitive rules loop indefinitely under SLD resolution. The lifter emits classical-FOL semantic axioms; the Phase 3 evaluator translates them into cycle-guarded Prolog rules at ingestion time per ADR-011's visited-ancestor pattern (anticipated ADR-007 documents this layer-translation). Inverse must lift to a biconditional pair, NOT a single-direction subPropertyOf.",
-  verifiedStatus: "Draft",
+  verifiedStatus: "Verified",
 };

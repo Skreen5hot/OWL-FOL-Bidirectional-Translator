@@ -89,5 +89,5 @@ export const meta = {
   fixtureId: "canary_iri_canonicalization",
   intent:
     "catches a lifter that fails to expand CURIEs against the prefix table or stores prefix-shorthand-form internally. The three input forms must produce byte-identical lifted FOL after IRI normalization to expanded full-URI form. Surface form must NOT leak into the canonical FOL state.",
-  verifiedStatus: "Draft",
+  verifiedStatus: "Verified",
 };

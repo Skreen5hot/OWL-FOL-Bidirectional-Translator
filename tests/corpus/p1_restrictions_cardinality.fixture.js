@@ -284,5 +284,5 @@ export const meta = {
   fixtureId: "p1_restrictions_cardinality",
   intent:
     "cardinality restrictions must lift to classical FOL counting axioms preserving the count, the property, and (for QCR) the onClass filter. Phase 1 must NOT silently drop QCR onClass; the lifter emits the FOL form per ADR-007 §7 (∃-bindings + pairwise distinctness for min; ∀(n+1) → pairwise-equality disjunction for max; min ∧ max conjunction for exact). The projector (Phase 2) decides whether the resulting FOL routes to Direct Mapping (when an OWL counterpart exists) or Annotated Approximation (when not).",
-  verifiedStatus: "Draft",
+  verifiedStatus: "Verified",
 };

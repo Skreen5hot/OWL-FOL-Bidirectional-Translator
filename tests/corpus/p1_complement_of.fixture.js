@@ -96,5 +96,5 @@ export const meta = {
   fixtureId: "p1_complement_of",
   intent:
     "ObjectComplementOf class expressions must lift via liftClassExpression's ComplementOf branch to fol:Negation around the inner class's lifted form. The lifted FOL is classical negation (not NAF residue); classical-vs-NAF discrimination is the Phase 2 projector / Phase 3 evaluator's concern per ADR-007 §1's layer separation. Catches a lifter that drops ObjectComplementOf silently, lifts it as a positive atom on a synthesized 'NotPerson'-style predicate (semantic leak — fabricates a predicate the source did not declare), or routes complement to NAF rather than classical negation (would be a §1.1 third-axis violation surfacing only at Phase 3 evaluation).",
-  verifiedStatus: "Draft",
+  verifiedStatus: "Verified",
 };

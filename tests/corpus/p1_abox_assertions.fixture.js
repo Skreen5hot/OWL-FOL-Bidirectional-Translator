@@ -67,5 +67,5 @@ export const meta = {
   fixtureId: "p1_abox_assertions",
   intent:
     "ABox assertions must lift directly: class assertion → unary fact; object property assertion → binary fact; data property assertion → binary fact preserving the typed literal (datatype IRI must NOT be erased to bare string)",
-  verifiedStatus: "Draft",
+  verifiedStatus: "Verified",
 };

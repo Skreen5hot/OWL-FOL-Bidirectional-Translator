@@ -149,5 +149,5 @@ export const meta = {
   fixtureId: "p1_blank_node_anonymous_restriction",
   intent:
     "Blank-node-bearing class expressions must lift with deterministic existential-witness identifiers. Run-to-run determinism is the Phase 1 exit criterion this fixture targets — non-deterministic existential-witness naming would produce different output each run, breaking byte-stable output. The lifter's variable allocator (ADR-007 §2) provides determinism at the existential-witness level; the b-node Skolem prefix (ADR-007 §8) governs the separate code path for `_:label`-form b-node IRI inputs (exercised by an inline regression test, not by this fixture's structured-JS input).",
-  verifiedStatus: "Draft",
+  verifiedStatus: "Verified",
 };

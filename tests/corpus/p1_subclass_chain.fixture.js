@@ -72,5 +72,5 @@ export const meta = {
   fixtureId: "p1_subclass_chain",
   intent:
     "lifter must convert SubClassOf to Horn implications without dropping the chain or synthesizing extra axioms (e.g., reverse-direction implications)",
-  verifiedStatus: "Draft",
+  verifiedStatus: "Verified",
 };

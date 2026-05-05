@@ -111,5 +111,5 @@ export const meta = {
   fixtureId: "p1_prov_domain_range",
   intent:
     "PROV-O domain and range axioms must lift to conditional universals (∀x,y. P(x,y) → Domain(x); symmetric for range). Verifies the RIGHT shape (companion canary verifies the WRONG shape's absence). Phase 1 ships structural verification only; entailment-query verification re-activates at Phase 4 once PROV-O ARC content is loaded.",
-  verifiedStatus: "Draft",
+  verifiedStatus: "Verified",
 };
