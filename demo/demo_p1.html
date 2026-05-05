@@ -46,7 +46,7 @@
 
       <h3>A.2. Run the lifter</h3>
       <div class="controls">
-        <button id="prov-run-button" disabled>Run owlToFol on PROV-O</button>
+        <button type="button" id="prov-run-button" disabled>Run owlToFol on PROV-O</button>
         <span id="prov-status" class="badge pending">Loading bundle&hellip;</span>
       </div>
       <div class="panel">
@@ -89,7 +89,7 @@
 
       <h3>B.2. Run the lifter</h3>
       <div class="controls">
-        <button id="bfo-run-button" disabled>Run owlToFol on BFO subset</button>
+        <button type="button" id="bfo-run-button" disabled>Run owlToFol on BFO subset</button>
         <span id="bfo-status" class="badge pending">Loading bundle&hellip;</span>
       </div>
       <div class="panel">
@@ -98,8 +98,10 @@
       </div>
 
       <h3>B.3. Layer A parity panel</h3>
-      <p class="lead">For each fixture-input axiom: the canonical CLIF axiom block from <code>owl-axiomatization.clif</code> paired with OFBT's lifted FOL. Multiple inputs that exercise the same OWL construct cite the SAME canonical block &mdash; that's the right shape for "lifter correctness against canonical OWL semantics." Verification badges show <code>[VERIFY]</code> for citations awaiting Aaron's pre-Phase-1-exit verification pass.</p>
+      <p class="lead">For each fixture-input axiom: the canonical CLIF axiom block from <code>owl-axiomatization.clif</code> paired with OFBT's lifted FOL. Multiple inputs that exercise the same OWL construct cite the SAME canonical block &mdash; that's the right shape for "lifter correctness against canonical OWL semantics." Each badge reflects the verification state recorded in the fixture's <code>clifGroundTruth</code> array: <code>✓ Verified</code> means an SME-persona content-check confirmed the cited line range against the vendored canonical source; <code>[VERIFY]</code> means the citation is awaiting that verification pass.</p>
       <div id="bfo-clif-parity-results"></div>
+
+      <p class="lead spaced"><strong>How to verify these badges reflect reality.</strong> The badges are not hardcoded to the demo HTML &mdash; they're rendered at runtime from the fixture file's <code>clifGroundTruth[i].verificationStatus</code> field. The fixture file lives in the repository at <code>tests/corpus/p1_bfo_clif_classical.fixture.js</code>. The flip from <code>[VERIFY]</code> to <code>Verified</code> happened at Step 9.2 close (commit <code>209a531</code>, CI run <code>25330758341</code>); the commit body documents the SME-persona content-check against <code>arc/upstream-canonical/owl-axiomatization.clif</code> at the cited line ranges. The vendored CLIF file's SHA-256 is pinned in <code>arc/upstream-canonical/owl-axiomatization.clif.SOURCE</code> for tamper-evidence. See <code>arc/AUTHORING_DISCIPLINE.md</code> Section "SME-Persona Verification of Vendored Canonical Sources" for the protocol; <code>project/GOVERNANCE.md</code> for the broader review discipline.</p>
 
       <p class="lead spaced">Per the architect-ratified <strong>meta-typing-predicate elision</strong>: canonical CLIF includes <code>(Class X)</code> and <code>(OWLObjectProperty R)</code> typing predicates. OFBT's lifted FOL omits these per the encoding choice "every IRI used in a class position is implicitly a Class; every IRI used in an object-property position is implicitly an OWLObjectProperty." The lifted FOL is the canonical-form BODY with meta-typing antecedents elided. Sound w.r.t. OWL semantics for v0.1; banked for ADR-007 §10 at Phase 1 exit doc pass.</p>
     </section>

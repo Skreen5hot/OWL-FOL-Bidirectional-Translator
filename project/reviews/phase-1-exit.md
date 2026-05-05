@@ -316,6 +316,24 @@ Disposition: **forward-tracked to Phase 3 entry corpus authoring.** Phase 3 entr
 | SLG tabling for SLD termination (per spec §13 / ADR-011 v0.2 upgrade noted) | Spec §13; ADR-011 |
 | Meta-vocabulary reification opt-in (per ADR-007 §10 forward-compat clause) | ADR-007 §10 |
 
+### v0.2 architectural candidates (banked for Phase 8 entry consideration)
+
+**Multi-consumer verification gate participation.** Phase 1 stakeholder demo feedback (Director of Data Platform / Integration Partner POV, 2026-05-05) surfaced a request for second-consumer (non-Fandaws) participation in the Phase 8 verification gate. Currently spec §15 / plan §3.9 frames the gate as Fandaws-collaborative only.
+
+Banking as a v0.2 candidate: post-v0.1 publish, additional consumer participation in the verification gate would strengthen coverage with real-world workloads from independent integration partners. Specifically:
+
+- A second-consumer's domain ontology, lifted through OFBT, exercises code paths and edge cases the Fandaws-only verification gate may not reach.
+- A second consumer's parallel-run baseline (per spec §15.3.1's expected-divergence accommodation) provides cross-consumer validation that OFBT's correctness claims hold beyond a single consumer's specific assumptions.
+- Stakeholder requests to participate as observers (not full integration partners) is a lighter-touch path to second-consumer signal without requiring Fandaws-grade integration commitment.
+
+**Architectural decision (single-consumer gate per v0.1 vs multi-consumer gate per v0.2)** is a Phase 8 entry consideration, not Phase 1. It touches spec §15's framing and would route through standard architect ratification at the Phase 8 entry cycle. Banking here so the Phase 8 entry packet author has the question pre-surfaced.
+
+Stakeholder-source: Phase 1 demo Q&A "Is there a way for me — as a consumer — to register interest in being on the verification-gate participant list for Phase 8?"
+
+| Forward-track | Source |
+|---|---|
+| Multi-consumer verification gate participation (architect-routable at Phase 8 entry) | Phase 1 stakeholder demo response 2026-05-05 |
+
 ---
 
 ## 10. Phase 1 Close Certification
