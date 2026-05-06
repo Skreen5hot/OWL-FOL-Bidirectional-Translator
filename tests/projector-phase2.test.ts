@@ -13,10 +13,13 @@
 import { strictEqual, deepStrictEqual, ok } from "node:assert";
 
 import { folToOwl } from "../src/kernel/projector.js";
+import { owlToFol } from "../src/kernel/lifter.js";
 import {
   LOSS_SIGNATURE_SEVERITY_ORDER,
 } from "../src/kernel/projector-types.js";
 import { stableStringify } from "../src/kernel/canonicalize.js";
+import type { FOLAxiom } from "../src/kernel/fol-types.js";
+import type { OWLOntology } from "../src/kernel/owl-types.js";
 
 let passed = 0;
 let failed = 0;
@@ -128,6 +131,378 @@ await report(
     strictEqual(stableStringify(axioms), beforeAxioms);
     strictEqual(stableStringify(recoveryPayloads), beforeRecovery);
     strictEqual(stableStringify(config), beforeConfig);
+  },
+);
+
+// ===========================================================================
+// STEP 2 — Direct Mapping pattern-match per spec §6.1.1
+// ===========================================================================
+
+await report(
+  "Step 2 / ABox: arity-1 atom on a fol:Constant → ClassAssertion",
+  async () => {
+    const axioms: FOLAxiom[] = [
+      {
+        "@type": "fol:Atom",
+        predicate: "http://example.org/test/Person",
+        arguments: [{ "@type": "fol:Constant", iri: "http://example.org/test/alice" }],
+      },
+    ];
+    const result = await folToOwl(axioms);
+    deepStrictEqual(result.ontology.abox, [
+      {
+        "@type": "ClassAssertion",
+        individual: "http://example.org/test/alice",
+        class: { "@type": "Class", iri: "http://example.org/test/Person" },
+      },
+    ]);
+    deepStrictEqual(result.ontology.tbox, []);
+    deepStrictEqual(result.ontology.rbox, []);
+  },
+);
+
+await report(
+  "Step 2 / ABox: arity-2 atom with both fol:Constant args → ObjectPropertyAssertion",
+  async () => {
+    const axioms: FOLAxiom[] = [
+      {
+        "@type": "fol:Atom",
+        predicate: "http://example.org/test/knows",
+        arguments: [
+          { "@type": "fol:Constant", iri: "http://example.org/test/alice" },
+          { "@type": "fol:Constant", iri: "http://example.org/test/bob" },
+        ],
+      },
+    ];
+    const result = await folToOwl(axioms);
+    deepStrictEqual(result.ontology.abox, [
+      {
+        "@type": "ObjectPropertyAssertion",
+        property: "http://example.org/test/knows",
+        source: "http://example.org/test/alice",
+        target: "http://example.org/test/bob",
+      },
+    ]);
+  },
+);
+
+await report(
+  "Step 2 / ABox: arity-2 atom with second arg fol:TypedLiteral → DataPropertyAssertion (datatype preserved)",
+  async () => {
+    const axioms: FOLAxiom[] = [
+      {
+        "@type": "fol:Atom",
+        predicate: "http://example.org/test/age",
+        arguments: [
+          { "@type": "fol:Constant", iri: "http://example.org/test/alice" },
+          {
+            "@type": "fol:TypedLiteral",
+            value: "30",
+            datatype: "http://www.w3.org/2001/XMLSchema#integer",
+          },
+        ],
+      },
+    ];
+    const result = await folToOwl(axioms);
+    deepStrictEqual(result.ontology.abox, [
+      {
+        "@type": "DataPropertyAssertion",
+        property: "http://example.org/test/age",
+        source: "http://example.org/test/alice",
+        value: {
+          "@value": "30",
+          "@type": "http://www.w3.org/2001/XMLSchema#integer",
+        },
+      },
+    ]);
+  },
+);
+
+await report(
+  "Step 2 / TBox: ∀x. C1(x) → C2(x) → SubClassOf(C1, C2) with named classes",
+  async () => {
+    const axioms: FOLAxiom[] = [
+      {
+        "@type": "fol:Universal",
+        variable: "x",
+        body: {
+          "@type": "fol:Implication",
+          antecedent: {
+            "@type": "fol:Atom",
+            predicate: "http://example.org/test/Dog",
+            arguments: [{ "@type": "fol:Variable", name: "x" }],
+          },
+          consequent: {
+            "@type": "fol:Atom",
+            predicate: "http://example.org/test/Animal",
+            arguments: [{ "@type": "fol:Variable", name: "x" }],
+          },
+        },
+      },
+    ];
+    const result = await folToOwl(axioms);
+    deepStrictEqual(result.ontology.tbox, [
+      {
+        "@type": "SubClassOf",
+        subClass: { "@type": "Class", iri: "http://example.org/test/Dog" },
+        superClass: { "@type": "Class", iri: "http://example.org/test/Animal" },
+      },
+    ]);
+  },
+);
+
+await report(
+  "Step 2 / RBox: ∀x,y. P(x,y) → P(y,x) → ObjectPropertyCharacteristic(Symmetric)",
+  async () => {
+    const axioms: FOLAxiom[] = [
+      {
+        "@type": "fol:Universal",
+        variable: "x",
+        body: {
+          "@type": "fol:Universal",
+          variable: "y",
+          body: {
+            "@type": "fol:Implication",
+            antecedent: {
+              "@type": "fol:Atom",
+              predicate: "http://example.org/test/spouseOf",
+              arguments: [
+                { "@type": "fol:Variable", name: "x" },
+                { "@type": "fol:Variable", name: "y" },
+              ],
+            },
+            consequent: {
+              "@type": "fol:Atom",
+              predicate: "http://example.org/test/spouseOf",
+              arguments: [
+                { "@type": "fol:Variable", name: "y" },
+                { "@type": "fol:Variable", name: "x" },
+              ],
+            },
+          },
+        },
+      },
+    ];
+    const result = await folToOwl(axioms);
+    deepStrictEqual(result.ontology.rbox, [
+      {
+        "@type": "ObjectPropertyCharacteristic",
+        property: "http://example.org/test/spouseOf",
+        characteristic: "Symmetric",
+      },
+    ]);
+  },
+);
+
+await report(
+  "Step 2 / RBox: ∀x,y,z. P(x,y) ∧ P(y,z) → P(x,z) → ObjectPropertyCharacteristic(Transitive)",
+  async () => {
+    const axioms: FOLAxiom[] = [
+      {
+        "@type": "fol:Universal",
+        variable: "x",
+        body: {
+          "@type": "fol:Universal",
+          variable: "y",
+          body: {
+            "@type": "fol:Universal",
+            variable: "z",
+            body: {
+              "@type": "fol:Implication",
+              antecedent: {
+                "@type": "fol:Conjunction",
+                conjuncts: [
+                  {
+                    "@type": "fol:Atom",
+                    predicate: "http://example.org/test/ancestorOf",
+                    arguments: [
+                      { "@type": "fol:Variable", name: "x" },
+                      { "@type": "fol:Variable", name: "y" },
+                    ],
+                  },
+                  {
+                    "@type": "fol:Atom",
+                    predicate: "http://example.org/test/ancestorOf",
+                    arguments: [
+                      { "@type": "fol:Variable", name: "y" },
+                      { "@type": "fol:Variable", name: "z" },
+                    ],
+                  },
+                ],
+              },
+              consequent: {
+                "@type": "fol:Atom",
+                predicate: "http://example.org/test/ancestorOf",
+                arguments: [
+                  { "@type": "fol:Variable", name: "x" },
+                  { "@type": "fol:Variable", name: "z" },
+                ],
+              },
+            },
+          },
+        },
+      },
+    ];
+    const result = await folToOwl(axioms);
+    deepStrictEqual(result.ontology.rbox, [
+      {
+        "@type": "ObjectPropertyCharacteristic",
+        property: "http://example.org/test/ancestorOf",
+        characteristic: "Transitive",
+      },
+    ]);
+  },
+);
+
+await report(
+  "Step 2 / out-of-scope: cardinality-style FOL (existential conjunction with distinctness) — silently dropped pending Step 4 Annotated Approximation",
+  async () => {
+    // ∃y,z. P(x,y) ∧ P(x,z) ∧ y ≠ z (a min-cardinality 2 witness shape) — does
+    // not match any Step 2 Direct Mapping pattern. Step 4 routes this to
+    // Annotated Approximation with a Loss Signature; Step 2 drops silently.
+    const axioms: FOLAxiom[] = [
+      {
+        "@type": "fol:Existential",
+        variable: "y",
+        body: {
+          "@type": "fol:Atom",
+          predicate: "http://example.org/test/hasChild",
+          arguments: [
+            { "@type": "fol:Constant", iri: "http://example.org/test/alice" },
+            { "@type": "fol:Variable", name: "y" },
+          ],
+        },
+      },
+    ];
+    const result = await folToOwl(axioms);
+    deepStrictEqual(result.ontology.tbox, []);
+    deepStrictEqual(result.ontology.abox, []);
+    deepStrictEqual(result.ontology.rbox, []);
+  },
+);
+
+// ---- Round-trip: lifter → projector for Phase 1 ABox shapes ----
+
+await report(
+  "Step 2 / Round-trip: owlToFol(p1_abox-shaped input) → folToOwl reconstructs ABox 1:1",
+  async () => {
+    const input: OWLOntology = {
+      ontologyIRI: "http://example.org/test/p2_step2_roundtrip_abox",
+      tbox: [],
+      abox: [
+        {
+          "@type": "ClassAssertion",
+          individual: "http://example.org/test/alice",
+          class: { "@type": "Class", iri: "http://example.org/test/Person" },
+        },
+        {
+          "@type": "ObjectPropertyAssertion",
+          property: "http://example.org/test/knows",
+          source: "http://example.org/test/alice",
+          target: "http://example.org/test/bob",
+        },
+        {
+          "@type": "DataPropertyAssertion",
+          property: "http://example.org/test/age",
+          source: "http://example.org/test/alice",
+          value: {
+            "@value": "30",
+            "@type": "http://www.w3.org/2001/XMLSchema#integer",
+          },
+        },
+      ],
+      rbox: [],
+    };
+    const lifted = await owlToFol(input);
+    const projected = await folToOwl(lifted);
+    deepStrictEqual(projected.ontology.abox, input.abox);
+  },
+);
+
+await report(
+  "Step 2 / Round-trip: SubClassOf chain → folToOwl reconstructs TBox 1:1",
+  async () => {
+    const input: OWLOntology = {
+      ontologyIRI: "http://example.org/test/p2_step2_roundtrip_subclass",
+      tbox: [
+        {
+          "@type": "SubClassOf",
+          subClass: { "@type": "Class", iri: "http://example.org/test/Dog" },
+          superClass: { "@type": "Class", iri: "http://example.org/test/Animal" },
+        },
+        {
+          "@type": "SubClassOf",
+          subClass: { "@type": "Class", iri: "http://example.org/test/Animal" },
+          superClass: { "@type": "Class", iri: "http://example.org/test/LivingThing" },
+        },
+      ],
+      abox: [],
+      rbox: [],
+    };
+    const lifted = await owlToFol(input);
+    const projected = await folToOwl(lifted);
+    deepStrictEqual(projected.ontology.tbox, input.tbox);
+  },
+);
+
+await report(
+  "Step 2 / Round-trip: Symmetric + Transitive RBox characteristics survive lift→project",
+  async () => {
+    const input: OWLOntology = {
+      ontologyIRI: "http://example.org/test/p2_step2_roundtrip_rbox",
+      tbox: [],
+      abox: [],
+      rbox: [
+        {
+          "@type": "ObjectPropertyCharacteristic",
+          property: "http://example.org/test/spouseOf",
+          characteristic: "Symmetric",
+        },
+        {
+          "@type": "ObjectPropertyCharacteristic",
+          property: "http://example.org/test/ancestorOf",
+          characteristic: "Transitive",
+        },
+      ],
+    };
+    const lifted = await owlToFol(input);
+    const projected = await folToOwl(lifted);
+    deepStrictEqual(projected.ontology.rbox, input.rbox);
+  },
+);
+
+await report(
+  "Step 2 / Round-trip determinism: 100 lift→project cycles are byte-stable",
+  async () => {
+    const input: OWLOntology = {
+      ontologyIRI: "http://example.org/test/p2_step2_determinism",
+      tbox: [
+        {
+          "@type": "SubClassOf",
+          subClass: { "@type": "Class", iri: "http://example.org/test/Dog" },
+          superClass: { "@type": "Class", iri: "http://example.org/test/Animal" },
+        },
+      ],
+      abox: [
+        {
+          "@type": "ClassAssertion",
+          individual: "http://example.org/test/rex",
+          class: { "@type": "Class", iri: "http://example.org/test/Dog" },
+        },
+      ],
+      rbox: [
+        {
+          "@type": "ObjectPropertyCharacteristic",
+          property: "http://example.org/test/ancestorOf",
+          characteristic: "Transitive",
+        },
+      ],
+    };
+    const first = stableStringify(await folToOwl(await owlToFol(input)));
+    for (let i = 0; i < 99; i++) {
+      const next = stableStringify(await folToOwl(await owlToFol(input)));
+      strictEqual(next, first, `run ${i + 2}/100 diverged`);
+    }
   },
 );
 
