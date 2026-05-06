@@ -274,7 +274,7 @@ Step 4 promotion (Aaron-led):
 
 **Goal:** Implement `folToOwl` for the same constructs Phase 1 covers, plus audit artifact emission. Closes the bidirectional pipeline for built-in OWL.
 
-**Status:** 🟡 In progress (Steps 1-2 ✅ Complete; entry ratified [`project/reviews/phase-2-entry.md`](reviews/phase-2-entry.md))
+**Status:** 🟡 In progress (Steps 1-2 ✅ + Step 3a ✅ Complete; entry ratified [`project/reviews/phase-2-entry.md`](reviews/phase-2-entry.md))
 
 **Plan reference:** §3.3
 
@@ -285,7 +285,9 @@ Proposed step granularity per [`project/reviews/phase-2-entry.md`](reviews/phase
 |---|---|---|
 | 1 | `folToOwl` skeleton per API §6.2 + `prefixes` parameter handling per API §3.10.4. Includes `LossSignature` / `RecoveryPayload` / `ProjectionManifest` / `OWLConversionResult` / `FolToOwlConfig` type definitions per API §6.4 + frozen `LOSS_SIGNATURE_SEVERITY_ORDER` constant per §6.4.1. Skeleton emits structurally-valid `OWLConversionResult` with zero projected axioms; strategy routing + audit-artifact emission land in Steps 2-6. | ✅ Complete (this commit) |
 | 2 | Direct Mapping strategy per spec §6.1.1 + first ABox/RBox/TBox projection rules: `fol:Atom` arity-1 → `ClassAssertion`; arity-2 with both `fol:Constant` → `ObjectPropertyAssertion`; arity-2 with `fol:TypedLiteral` → `DataPropertyAssertion`; `∀x. C1(x) → C2(x)` → `SubClassOf` (named classes); `∀x,y. P(x,y) → P(y,x)` → `Symmetric`; `∀x,y,z. P(x,y) ∧ P(y,z) → P(x,z)` → `Transitive`. Round-trip green for these patterns; non-matching FOL shapes silently dropped pending Step 4 Annotated Approximation routing. | ✅ Complete (this commit) |
-| 3 | TBox direct-mapping projection rules + class-expression reconstruction | ⏳ Pending |
+| 3a | Pair-matching TBox + remaining single-axiom RBox per spec §6.1.1: `EquivalentClasses` (mutual-implication pair); `DisjointWith` (`∀x. (C1(x) ∧ C2(x)) → ⊥`); `Functional` (equality consequent); `InverseObjectProperties` (bidirectional pair); `ObjectPropertyDomain` / `ObjectPropertyRange` (binary→unary on first/second var). Two-pass matching with source-position-keyed output preserves source order across pair-matched and single-axiom emissions. | ✅ Complete (this commit) |
+| 3b | Class-expression reconstruction (intersection / union / complement / restrictions someValuesFrom / allValuesFrom / hasValue) | ⏳ Pending |
+| 3c | `SameIndividual` / `DifferentIndividuals` reserved-predicate ABox + `ClassDefinition` / `SubObjectPropertyOf` / `EquivalentObjectProperties` | ⏳ Pending |
 | 4 | Annotated Approximation strategy per spec §6.1.3 + `LossSignature` emission | ⏳ Pending |
 | 5 | Strategy selection algorithm per spec §6.2 with tiered fallthrough + `RecoveryPayload` content-addressed `@id` | ⏳ Pending |
 | 6 | Property-Chain Realization strategy per spec §6.1.2 (simplified built-in OWL form) | ⏳ Pending |
