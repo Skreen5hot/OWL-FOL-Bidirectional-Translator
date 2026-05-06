@@ -71,7 +71,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "rdf-canonize": "^4.0.0"
+    "rdf-canonize": "^5.0.0"
   },
   "peerDependencies": {
     "tau-prolog": "0.3.4"
