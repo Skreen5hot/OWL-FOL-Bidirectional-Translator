@@ -367,3 +367,42 @@ The Step 9.2 commit body documents the verification pass, the cited line ranges,
 2. **Cite line ranges** in `clifAxiomRef` that match the actual file content. Re-verification = grep + visual confirmation.
 3. **Confirm the SHA-256 in the `.SOURCE` sidecar matches the current file's hash** before flipping `[VERIFY]` → `Verified`. If the hash diverges, the file was modified post-vendoring; re-verify against the current bytes or refresh the sidecar.
 4. **Document the verification pass** in the Step's commit body (commit-prefix discipline per Section 0 Item 5: `corpus: resolve [VERIFY] markers...`).
+
+### Second originating example (Phase 2 entry verification ritual, 2026-05-06)
+
+The discipline caught its first license-type defect. `arc/upstream-canonical/owl-axiomatization.clif.SOURCE` at commit `a5b1189` carried `license: BSD-3-Clause` (asserted UNVERIFIED-against-canonical from a layperson reading of the file's preamble note "the repo-level LICENSE governs"). The Phase 2 entry verification ritual (per architect Procedural item 1 + entry-packet §6.1 license-verification gate) surfaced the actual upstream license is **CC BY 4.0** — BFO repo `LICENSE` file at commit `294fa4167f2e59784abb1e1abb9467f7de37b0cd`, SHA-256 `f5b745ef…cc3f`, 395 lines, first line "Attribution 4.0 International". The asserted commit reference `783a3f7` does not exist in BFO-ontology/BFO. The CLIF file content SHA-256 (`480193e9…5912`) verified intact at master HEAD `857be9f15…f3a7`; only the license-related metadata was wrong.
+
+ADR-010 documents the corrective action (sidecar correction + entry-packet §6.1 correction + this discipline tightening + ROADMAP Phase 4 entry-checklist item + `package.json` `files`-field whitelist). The 3-day latency between assertion (2026-05-03 sidecar authoring) and verification (2026-05-06 ritual) is the "first-use-time verification" gap the discipline tightening below closes.
+
+**The discipline functioned as designed:** the verification gate caught the discrepancy *before* any Phase 2 implementation work landed and *before* the four-way-aligned Commit 3 fixed an incorrect license-verification block into the repo. First production catch banked.
+
+### Discipline tightening (per ADR-010)
+
+**License-verification ritual MUST run BEFORE the vendored source's first commit. Applies to all vendored canonical sources regardless of format.**
+
+Specifically, the SME-persona reads the upstream repo's LICENSE file at the vendoring commit, computes SHA-256, writes the populated `license-verification` block to the SOURCE sidecar AT vendoring time, NOT at first-downstream-use time. The first commit landing the vendored source includes the `license-verification` block populated with verified canonical values.
+
+**Required fields of the `license-verification` block** (per ADR-010 schema, the canonical example being `arc/upstream-canonical/owl-axiomatization.clif.SOURCE` post-Commit-3):
+
+- `<repo>-license-url` — the upstream LICENSE file URL pinned at the verified commit
+- `<repo>-license-commit-sha` — the commit SHA where the LICENSE was created or last modified (auditable canonical reference)
+- `<repo>-master-head-at-verification` — the upstream master HEAD at verification time (snapshot for SHA-divergence detection)
+- `license-text-confirmed` — the actual license type as a stable identifier (e.g., `CC-BY-4.0`, `MIT`, `Apache-2.0`)
+- `license-file-sha256` — SHA-256 of the LICENSE file's bytes
+- `license-file-line-count` — line count for sanity-check
+- `license-first-line` — first line of the LICENSE file (sanity-check + canonical-license-boilerplate match)
+- License-type-specific fields (e.g., `cc-by-attribution-url` for CC BY family; `mit-copyright-line` for MIT family) — fields adapt to the license but the verification ritual is uniform
+- `modifications-to-vendored-file` — declarations of any post-retrieval modifications (default: none if SHA-256 matches upstream)
+- `discrepancy-resolution-cycle` — populated only if the verification ritual surfaced a defect; references the corrective-action ADR
+- `verified-by` + `verified-at` — SME-persona-and-date audit trail
+
+**Format-agnostic application.** The discipline applies to all vendored canonical sources regardless of format (CLIF, KIF, OWL, TTL, RDF/XML, JSON-LD, etc.). When v0.2 or later vendors a non-CLIF canonical source (e.g., a TTL release of CCO 2.0 if Phase 6 vendors directly), the same ritual applies. The license-verification fields' shape adapts to the license type; the ritual itself is uniform.
+
+**Phase 4 BFO 2020 CLIF Layer B vendoring** + all subsequent phase vendoring inherit this discipline. ROADMAP Phase 4 entry checklist gains the explicit item (per architect Q-γ ruling 2026-05-06).
+
+### Required of any new vendoring under the tightened discipline
+
+1. **Verify before vendoring.** The SME-persona reads the upstream repo's LICENSE at the target commit *before* `git add` of the vendored content. The `license-verification` block ships in the first commit landing the vendored source.
+2. **Vendor commit body documents the verification ritual.** Per Section 0 Item 5 commit-prefix discipline (`chore: vendor`), the commit body enumerates the verified canonical values + cites the SME-persona ritual + cross-references the vendoring-discipline subsection of this document.
+3. **No layperson reading of upstream preamble notes.** A note like "the repo-level LICENSE governs" inside the vendored file is a hint, not a verified fact. Verification ritual MUST fetch the actual LICENSE file at the target commit and confirm its bytes.
+4. **No asserted-but-unverified commit SHA references.** All commit SHAs in the sidecar (`upstream-version-*`, `<repo>-license-commit-sha`, `<repo>-master-head-at-verification`) MUST be confirmed-existent in the upstream repo (via GitHub Search Commits API or direct repo fetch). Asserting a SHA without confirming its existence is the failure mode `783a3f7` exemplifies.

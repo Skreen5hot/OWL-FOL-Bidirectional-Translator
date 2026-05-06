@@ -413,6 +413,7 @@ Three fixtures pinning down the canonical hypothetical-reasoning cases plus an e
 - [ ] **All BFO 2020 ARC entries are status Verified; no `[VERIFY]` or Draft entries remain in BFO core module**
 - [ ] **Resolve `[VERIFY]` on rows 49 (First Instant Of) and 50 (Last Instant Of) against current `bfo-2020.owl` release**
 - [ ] BFO 2020 ARC content authored, reviewed, and ingested into `arc/core/bfo-2020.json`
+- [ ] **Phase 4 BFO 2020 CLIF Layer B vendoring sidecar (`arc/upstream-canonical/bfo-2020.clif.SOURCE` or successor path) ships with a populated, verified `license-verification` block in the first commit landing the vendored source.** Verification per [`arc/AUTHORING_DISCIPLINE.md`](../arc/AUTHORING_DISCIPLINE.md) "SME-Persona Verification of Vendored Canonical Sources" subsection (license URL, license commit SHA, LICENSE file SHA-256, license-text-confirmed, master-head-at-verification). The verification ritual runs at vendoring time, not first-use time. Per [ADR-010](DECISIONS.md#adr-010-vendored-canonical-source-license-verification-corrective-action--owl-axiomatizationclif-sidecar-cc-by-40); applies to all vendored canonical sources regardless of format (CLIF, KIF, OWL, TTL, RDF/XML, JSON-LD, etc.) per architect Q-β refinement 2026-05-06.
 
 ### Phase 4 ARC Authoring Exit Criteria (per `arc/AUTHORING_DISCIPLINE.md`)
 - [ ] Every Verified BFO entry has at least one passing fixture in `tests/corpus/` registered in the manifest

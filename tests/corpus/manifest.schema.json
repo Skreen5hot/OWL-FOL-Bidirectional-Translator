@@ -33,6 +33,9 @@
         "expected_v0.2_elk_verdict"
       ],
       "additionalProperties": false,
+      "patternProperties": {
+        "^phase[1-9][0-9]*Reactivation$": { "$ref": "#/definitions/PhaseNReactivation" }
+      },
       "properties": {
         "fixtureId": {
           "type": "string",
@@ -136,6 +139,29 @@
         "owlAxiomLabel": {
           "type": "string",
           "description": "OPTIONAL. Human-readable label for the OWL axiom this CLIF citation pairs with. Used by demos and fixture-runtime tooling for display; not required by CI."
+        }
+      }
+    },
+    "PhaseNReactivation": {
+      "type": "object",
+      "description": "Cross-phase reactivation contract per the Phase 1 entry banked phase4Reactivation pattern, generalized to phaseNReactivation per architect Q5 ruling 2026-05-06. Pattern-matched property name: ^phase[1-9][0-9]*Reactivation$ where N is the activating phase. Field shape is the same regardless of the phase number; future phases inherit without re-routing per architect banked principle.",
+      "additionalProperties": true,
+      "properties": {
+        "gatedOn": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Short identifier of what the reactivation depends on at the activating phase. Examples: 'real-evaluator-via-API-§7.1' (Phase 3), 'PROV-O-ARC-content' (Phase 4 PROV-O fixture reactivation), 'compatibility-shim-and-bundle-budget-CI' (Phase 7 reactivation point)."
+        },
+        "expectedOutcome": {
+          "description": "Structured per fixture type — the result the fixture EXPECTS once the gating phase activates. Free-form by design; the fixture's own DSL determines the shape (entailment-set, query result, witness chain, etc.).",
+          "oneOf": [
+            { "type": "object" },
+            { "type": "string" }
+          ]
+        },
+        "divergenceTrigger": {
+          "type": "string",
+          "description": "OPTIONAL. The condition that, if observed at reactivation, escalates as a phase-entry escalation. Required for parity-canary fixtures (per Q3 phase3Reactivation discipline); optional for other reactivation cases. Example: 'If real evaluate() returns false where stub returned undetermined, ESCALATE: open-world-preservation broken.'"
         }
       }
     }

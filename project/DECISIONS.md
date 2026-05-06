@@ -385,3 +385,110 @@ Architect's additional refinement: API spec §13.4 must enumerate the per-module
 
 **Module taxonomy expansion via deterministic-rule evidence.** Per ADR-009 banked principle. When deterministic-rule outputs disagree with frozen-spec taxonomy, the spec expands via §0.2.3 evidence-gated change rather than forcing content into ill-fitting existing modules.
 
+---
+
+## ADR-010: Vendored canonical source license-verification corrective action — owl-axiomatization.clif sidecar (CC BY 4.0)
+
+**Status:** Accepted (architect re-confirmation 2026-05-06)
+**Date:** 2026-05-06
+**Predecessors:** ADR-007 (Phase 1 architectural commitments); architect-banked SME-Persona Verification of Vendored Canonical Sources discipline (Phase 1 Step 9.2 close, formalized at Step 9.4 doc pass `c0e2eea`).
+**Successor:** None pending. Discipline tightening folds into AUTHORING_DISCIPLINE.md "SME-Persona Verification of Vendored Canonical Sources" subsection per Decision section 3 below.
+
+### Context
+
+`arc/upstream-canonical/owl-axiomatization.clif.SOURCE` (committed at `a5b1189` 2026-05-03) carried `license: BSD-3-Clause` and an `upstream-version: master at commit 783a3f7 (or latest as of retrieval)` reference. The license assertion was based on a layperson reading of the file's preamble note "the repo-level LICENSE governs" without an actual fetch of the upstream LICENSE file.
+
+The Phase 1 closeout forward-tracked a license-verification gate item to Phase 2 entry per Option A. The architect's 2026-05-06 ruling on the Phase 2 entry packet promoted this gate item to a pre-Step-1 hard prerequisite (entry-packet §6.1).
+
+The Phase 2 entry verification ritual ran on 2026-05-06 against the BFO-ontology/BFO repo via direct API fetch. It surfaced:
+
+- **Actual license:** CC BY 4.0 (Creative Commons Attribution 4.0 International), NOT BSD-3-Clause. LICENSE file at commit `294fa4167f2e59784abb1e1abb9467f7de37b0cd` (created 2022-04-19, "Create LICENSE" — OBO-Foundry initiative PR), SHA-256 `f5b745ef98087f531e719ee8ca6a96809444573ecc7173c6fa68eaad39b3cc3f`, 395 lines, first line "Attribution 4.0 International".
+- **Asserted commit `783a3f7` does not exist** in BFO-ontology/BFO (GitHub Search Commits API: total_count: 0; direct API: 422). The actual CLIF-file last-modification commit is `7bb52bd46d73ad61cb9fbfae591bd4203e446dcb` (2013-03-19, "CLIF axiomatization of OWL from Fabian (draft)"). File byte-stable since.
+- **CLIF file content SHA-256 intact:** `480193e976720fef74b68acda7883b095f3bf4666a1b091c5204b58d78035912` matches upstream master HEAD `857be9f15100531c7202ef0eb73142f95b70f3a7` at verification time.
+
+The CLIF file content provenance is sound (Phase 1 Step 9.2 SME-persona content verification against the file's actual semantics remains valid). The license-related metadata and commit-SHA reference are wrong.
+
+### Decision
+
+Adopt five coordinated corrective actions (the five-way-aligned Commit 3 + two architect-added developer items):
+
+1. **Sidecar correction** — `arc/upstream-canonical/owl-axiomatization.clif.SOURCE` updated:
+   - `upstream-version` split into `upstream-version-file-stable-since` (`7bb52bd…`) + `upstream-version-master-head-at-verification` (`857be9f1…`)
+   - `license: BSD-3-Clause` → `license: CC-BY-4.0` + `license-url: https://creativecommons.org/licenses/by/4.0/`
+   - `attribution` rewritten to satisfy CC BY 4.0 (license link, attribution to original creator, source citation)
+   - `modifications-to-vendored-file` field added (none; byte-stable since 2024-05-23 retrieval)
+   - `license-compatibility` rewritten to address CC BY 4.0 attribution + change-disclosure requirements + downstream-redistribution flag for forks + npm-package files-field cross-reference
+   - New `license-verification` block populated with verified canonical values (full schema in entry-packet §6.1 + the corrected sidecar)
+
+2. **Entry-packet §6.1 correction** — four edits (2a/2b/2c/2d) in [`project/reviews/phase-2-entry.md`](reviews/phase-2-entry.md):
+   - Contract quote framing
+   - Current-state framing acknowledging the verified discrepancy
+   - YAML structure populated with verified canonical values
+   - Discrepancy-active acknowledgment subsection ("the discipline functioned as designed")
+
+3. **Discipline tightening** — [`arc/AUTHORING_DISCIPLINE.md`](../arc/AUTHORING_DISCIPLINE.md) "SME-Persona Verification of Vendored Canonical Sources" subsection adds (a) second originating example documenting the license-type defect catch and (b) tightened discipline requiring license-verification at vendoring time, NOT first-use time. **The discipline applies to all vendored canonical sources regardless of format** (CLIF, KIF, OWL, TTL, RDF/XML, JSON-LD, etc.) per architect Q-β refinement 2026-05-06. Phase 4 BFO 2020 CLIF Layer B vendoring + Phase 5 IAO + Phase 6 CCO 2.0 + all subsequent phase vendoring inherit this discipline regardless of source format.
+
+4. **ROADMAP Phase 4 entry checklist** — [`project/ROADMAP.md`](ROADMAP.md) Phase 4 entry checklist gains the architect-ratified item: "Phase 4 BFO 2020 CLIF Layer B vendoring sidecar (`arc/upstream-canonical/bfo-2020.clif.SOURCE` or successor path) ships with a populated, verified `license-verification` block in the first commit landing the vendored source. Verification per `arc/AUTHORING_DISCIPLINE.md` 'SME-Persona Verification of Vendored Canonical Sources' subsection. The verification ritual runs at vendoring time, not first-use time."
+
+5. **`package.json` `files`-field whitelist** — [`package.json`](../package.json) gains a `files` field whitelisting only the npm-distribution-essential paths (`dist/` and any other runtime artifacts). This excludes `arc/upstream-canonical/` from the npm package, bounding the CC BY 4.0 compliance scope to the GitHub repo per architect Q-α ruling 2026-05-06. Fork authors who alter the `files` field to include `arc/upstream-canonical/` inherit the CC BY 4.0 obligations downstream.
+
+### Consequences
+
+**Positive:**
+- License compliance restored: CC BY 4.0 attribution + license link satisfied per the sidecar's updated `attribution`, `license`, and `license-url` fields.
+- Discipline first-production-catch documented: future SME-persona verification rituals inherit the originating-example-with-defect-caught.
+- Format-agnostic discipline tightening: future vendoring (Phase 4 BFO 2020 CLIF, Phase 5 IAO, Phase 6 CCO 2.0 in TTL or other formats, future v0.2 vendoring) ships with verified `license-verification` block from the first commit; first-use-time-verification gap closed across all formats.
+- npm-distribution scope bounded: `arc/upstream-canonical/` excluded from the published artifact per `files`-field whitelist; CC BY 4.0 compliance scope is the GitHub repo only.
+
+**Negative:**
+- Phase 2 entry confirmation cycle required architect re-confirmation with corrected facts (this ADR + the four coordinated amendments + two developer items).
+- Slight delay to the four-way-aligned Commit 3 (now five-way-aligned per architect ruling, including this ADR + the corrected sidecar + AUTHORING_DISCIPLINE update + ROADMAP Phase 4 entry-checklist item + `package.json` `files`-field whitelist) and to Phase 2 implementation Step 1.
+
+**Neutral:**
+- The original `attribution` text in the sidecar remains substantively correct (Fabian Neuhaus, Barry Smith, Chris Mungall as primary contributors); only the license-frame metadata required correction.
+- The CLIF file content itself is unaffected; Phase 1 Step 9.2 SME-persona content verification against the file's actual semantics remains valid (SHA-256 intact at `480193e9…5912`).
+- ADR-010 is corrective-action ADR scope — it documents this specific corrective cycle and the discipline tightening derived from it. A separate "vendoring policy ADR" (general policy beyond the discipline tightening) is NOT folded into ADR-010 per architect ruling 2026-05-06; if wanted, that routes as its own cycle.
+
+### Banked principles
+
+1. **License-verification at vendoring time, not first-use time.** Vendoring discipline requires SME-persona verification of upstream license + commit SHA + LICENSE file SHA-256 BEFORE the first commit landing the vendored source. The verified `license-verification` block ships in the first commit. AUTHORING_DISCIPLINE.md folding-in records this.
+
+2. **License-verification-at-vendoring-time discipline applies to all vendored canonical sources regardless of format.** CLIF, KIF, OWL, TTL, RDF/XML, JSON-LD, etc. — the verification ritual is uniform; the license-verification fields' shape adapts to the license type. Per architect Q-β refinement 2026-05-06.
+
+3. **Layperson reading of upstream license preambles is unverified-against-canonical.** A note like "the repo-level LICENSE governs" inside the vendored file is a hint, not a verified fact. Verification ritual MUST fetch the actual LICENSE file at the target commit and confirm its bytes.
+
+4. **Commit SHA references in sidecars require verified existence.** Asserting a commit SHA without confirming its existence in the upstream repo (via GitHub Search Commits API or direct repo fetch) is unverified-against-canonical. The verification ritual confirms the SHA exists AND points to the asserted file at the asserted location.
+
+5. **The verification gate's first production catch is banking-worthy.** The SME-Persona Verification of Vendored Canonical Sources discipline has paid dividends in real time (3-day latency between defect introduction and discipline-driven catch). Future phases inherit the discipline AND the originating-example-with-defect-caught.
+
+6. **Borderline corrective actions default to ADR, not amendment-only.** Generalization of the Q6 schema-evolution discipline ("default to heavier path") to corrective-action discipline. Per architect Q-β ruling 2026-05-06: when a corrective action straddles "amendment vs ADR" routing, default to ADR. Borderline resolved cleanly via ADR-010.
+
+7. **Discipline first-production-catches are architecturally significant and warrant ADR-level documentation.** Generalization of the SME's Q-β reasoning. The SME-Persona Verification discipline shifted from "zero defects in Phase 1 Step 9.2" to "one license-type defect at Phase 2 entry verification ritual"; the originating-example-with-defect-caught is more pedagogically useful than the discipline framing alone for future phases inheriting the discipline.
+
+8. **v0.2 distribution-model change is the legal-review trigger.** Per architect Q-α ruling 2026-05-06: if v0.2 introduces a runtime ARC manifest loaded directly from `arc/upstream-canonical/` paths (currently the manifest is bundled as JSON-LD modules per spec §3.6), the distribution model changes and CC BY 4.0 obligations may extend into the runtime artifact. That is the natural trigger for a formal legal review pass. v0.1's moderate compatibility analysis in the sidecar suffices until then.
+
+9. **Per-phase entry cycles can have corrective-action sub-cycles when verification gates surface defects; the sub-cycle stays within the entry-cycle bucket.** Per architect cycle-cadence ruling 2026-05-06. The corrective-action sub-cycle (this ADR + amendments) increments per-phase entry-cycle effort, not the cadence-density mid-phase or between-phase counters. Phase entry cycles remain a separate cadence category from mid-phase escalations and between-phase architectural cycles.
+
+### Implementation evidence
+
+- **Verified canonical facts table (Orchestrator routing 2026-05-06):**
+  - LICENSE file path: `/LICENSE` at repo root
+  - LICENSE type: CC BY 4.0 (Creative Commons Attribution 4.0 International)
+  - LICENSE first line: "Attribution 4.0 International"
+  - LICENSE SHA-256: `f5b745ef98087f531e719ee8ca6a96809444573ecc7173c6fa68eaad39b3cc3f`
+  - LICENSE line count: 395
+  - LICENSE creating commit: `294fa4167f2e59784abb1e1abb9467f7de37b0cd` (2022-04-19, "Create LICENSE" — OBO-Foundry initiative PR)
+  - Asserted commit `783a3f7`: does not exist in BFO-ontology/BFO (Search Commits API: total_count: 0; direct API: 422)
+  - CLIF file last-modification commit: `7bb52bd46d73ad61cb9fbfae591bd4203e446dcb` (2013-03-19, file byte-stable since)
+  - CLIF file SHA-256: `480193e976720fef74b68acda7883b095f3bf4666a1b091c5204b58d78035912` (matches existing sidecar)
+  - Master HEAD at verification: `857be9f15100531c7202ef0eb73142f95b70f3a7`
+- **Source:** GitHub API direct fetch from BFO-ontology/BFO repository on 2026-05-06.
+
+### Cross-references
+
+- Entry-packet §6.1 — license-verification gate item full artifact spec
+- AUTHORING_DISCIPLINE.md "SME-Persona Verification of Vendored Canonical Sources" subsection — discipline tightening + second originating example documented
+- ROADMAP.md §Phase 4 entry checklist — gains item per Decision section 4 above
+- `arc/upstream-canonical/owl-axiomatization.clif.SOURCE` — corrected sidecar with populated `license-verification` block
+- `package.json` `files` field — whitelist excluding `arc/upstream-canonical/` from npm package per Decision section 5
+- Re-confirmation cycle architect ruling (verbatim, 2026-05-06): preserved in entry-packet §9 + this ADR's Decision section.

@@ -2,11 +2,14 @@
 #
 # Per arc/upstream-canonical/README.md vendoring discipline. Provenance fill-in
 # provided by Aaron 2026-05-03 closing the [VERIFY] markers from the initial
-# sidecar draft. Mechanical resolution; does not change the substance of the
-# BFO/CLIF parity routing packet.
+# sidecar draft. License-related fields and commit-SHA references corrected
+# 2026-05-06 per ADR-010 (Phase 2 entry verification ritual surfaced the
+# unverified BSD-3-Clause assertion; actual upstream license is CC BY 4.0).
+# CLIF file content SHA-256 verified intact at correction cycle.
 
 upstream-url: https://github.com/BFO-ontology/BFO/blob/master/src/ontology/fol-group/owl-axiomatization.clif
-upstream-version: master at commit 783a3f7 (or latest as of retrieval)
+upstream-version-file-stable-since: 7bb52bd46d73ad61cb9fbfae591bd4203e446dcb (2013-03-19, "CLIF axiomatization of OWL from Fabian (draft)")
+upstream-version-master-head-at-verification: 857be9f15100531c7202ef0eb73142f95b70f3a7 (2026-05-06)
 retrieved-at: 2024-05-23
 sha256: 480193e976720fef74b68acda7883b095f3bf4666a1b091c5204b58d78035912
 file-line-count: 1660
@@ -20,17 +23,68 @@ file-version: 0.1 (per file header line 6)
 
 # Attribution per upstream license. The file itself does not declare a license
 # header inline; the repo-level LICENSE governs.
-license: BSD-3-Clause
+license: CC-BY-4.0
+license-url: https://creativecommons.org/licenses/by/4.0/
 attribution: |
   Basic Formal Ontology (BFO) Project.
   Primary contributors to the FOL axiomatization include Fabian Neuhaus,
   Barry Smith, and Chris Mungall (per BFO repository commit history).
+  Distributed under Creative Commons Attribution 4.0 International (CC BY 4.0).
+  See https://creativecommons.org/licenses/by/4.0/ for the full license text.
+  Source: https://github.com/BFO-ontology/BFO (LICENSE created 2022-04-19,
+  commit 294fa4167f2e59784abb1e1abb9467f7de37b0cd).
+modifications-to-vendored-file: |
+  None. The file content has been byte-stable upstream since commit
+  7bb52bd46d73ad61cb9fbfae591bd4203e446dcb (2013-03-19). OFBT did not modify
+  the vendored bytes; SHA-256 480193e9...78035912 matches upstream content
+  at master HEAD 857be9f15100531c7202ef0eb73142f95b70f3a7 (2026-05-06).
 license-compatibility: |
-  Yes — BSD-3-Clause is highly permissive and compatible with OFBT's MIT
-  distribution model. No carve-out required; vendoring proceeds under
-  arc/upstream-canonical/README.md's standard discipline.
+  CC BY 4.0 is permissive and compatible with OFBT's MIT distribution model
+  for the in-repo (GitHub) distribution context. CC BY 4.0 attribution +
+  license link is satisfied by this sidecar's `attribution`, `license`, and
+  `license-url` fields.
 
-# Notes captured at vendoring time
+  Forks or downstream redistributors of OFBT that include this vendored file
+  as part of their distributed artifact (e.g., via npm publish without
+  excluding `arc/upstream-canonical/` from the package files list) inherit
+  the CC BY 4.0 attribution + change-disclosure obligations. The vendoring
+  discipline anticipates this by keeping the file in `arc/upstream-canonical/`
+  (a development verification artifact path) rather than runtime paths.
+
+  OFBT's `package.json` `files` field (set per ADR-010 Q-α architect-ratified
+  developer item) excludes `arc/upstream-canonical/` from the npm package,
+  bounding the CC BY 4.0 compliance scope to the GitHub repo. Fork authors
+  who alter the `files` field to include this path inherit the CC BY 4.0
+  obligations downstream.
+
+  Formal legal review NOT performed at v0.1; if v0.2 changes the distribution
+  model (e.g., bundles vendored sources into the runtime package, or a
+  runtime ARC manifest loaded directly from `arc/upstream-canonical/` paths),
+  legal review of CC BY 4.0 + MIT compatibility advisable at that time. This
+  v0.2-trigger condition is recorded as a banked principle in ADR-010.
+
+# License verification block — SME-persona ritual per ADR-010 + AUTHORING_DISCIPLINE
+# "SME-Persona Verification of Vendored Canonical Sources." Verified by Aaron
+# 2026-05-06 via direct fetch from BFO-ontology/BFO repo. Future verification
+# rituals against this same vendored source SHA-check against this block;
+# deviations require their own corrective-action cycle.
+license-verification:
+  bfo-repo-license-url: https://github.com/BFO-ontology/BFO/blob/294fa4167f2e59784abb1e1abb9467f7de37b0cd/LICENSE
+  bfo-repo-license-commit-sha: 294fa4167f2e59784abb1e1abb9467f7de37b0cd  # "Create LICENSE" (2022-04-19, OBO-Foundry initiative PR)
+  bfo-repo-master-head-at-verification: 857be9f15100531c7202ef0eb73142f95b70f3a7
+  license-text-confirmed: CC-BY-4.0
+  license-file-sha256: f5b745ef98087f531e719ee8ca6a96809444573ecc7173c6fa68eaad39b3cc3f
+  license-file-line-count: 395
+  license-first-line: "Attribution 4.0 International"
+  cc-by-attribution-url: https://creativecommons.org/licenses/by/4.0/
+  modifications-to-vendored-file: none (file content byte-stable since 2024-05-23 retrieval; SHA-256 matches upstream)
+  discrepancy-resolution-cycle: ADR-010 (Phase 2 entry verification ritual surfaced unverified BSD-3-Clause assertion; corrective action via this block + this sidecar's license/attribution/license-compatibility updates)
+  verified-by: SME persona, in-repo SME-persona verification ritual per AUTHORING_DISCIPLINE
+  verified-at: 2026-05-06
+
+# Notes captured at vendoring time (preserved from original sidecar; substance unchanged
+# except the bfo-2020.clif vendoring note now references the ADR-010 license-verification-
+# at-vendoring-time discipline).
 notes: |
   This is the OWL CLIF axiomatization (Layer A per arc/upstream-canonical/README.md) —
   it defines the canonical FOL semantics of OWL primitives themselves
@@ -40,7 +94,9 @@ notes: |
 
   This is NOT BFO 2020's CLIF release (which would be the Layer B source for
   BFO-specific class hierarchy and disjointness commitments). The two are
-  complementary; bfo-2020.clif is a future Phase 4 vendoring deliverable.
+  complementary; bfo-2020.clif is a future Phase 4 vendoring deliverable
+  (which per ADR-010 + AUTHORING_DISCIPLINE update SHALL ship with verified
+  license-verification block from the first commit, not first-use time).
 
   Phase 1 fixture p1_bfo_clif_classical.fixture.js cites this file as ground
   truth for the canonical CLIF semantics of the OWL constructs the fixture
@@ -55,7 +111,8 @@ notes: |
   encoding-choice convention as an implementation-choice-tier addition.
 
 # Specific axiom blocks the Phase 1 fixture cites (line references for
-# fixture clifGroundTruth.clifAxiomRef field):
+# fixture clifGroundTruth.clifAxiomRef field). Verified at Phase 1 Step 9.2
+# against the file's actual content (SHA-256 matches; line ranges intact).
 cited-blocks:
   SubClassOf:
     location: lines 1006-1015

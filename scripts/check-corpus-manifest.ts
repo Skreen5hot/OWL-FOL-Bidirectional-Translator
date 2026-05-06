@@ -198,6 +198,46 @@ async function main(): Promise<void> {
         }
       }
     }
+
+    // phaseNReactivation cross-phase reactivation discipline per architect Q5
+    // ruling 2026-05-06 + ADR-010 banking. Generalized from Phase 1's banked
+    // phase4Reactivation pattern. Recognized field names match the regex
+    // ^phase[1-9][0-9]*Reactivation$ where N is the activating phase. Suspicious
+    // typos (fields starting with `phase` and ending with `Reactivation` but
+    // NOT matching the strict regex — e.g., `phase04Reactivation` with leading
+    // zero, `phaseAReactivation` non-numeric) are flagged as hard errors.
+    const STRICT_PHASE_REACTIVATION_RE = /^phase[1-9][0-9]*Reactivation$/;
+    const SUSPICIOUS_PHASE_REACTIVATION_RE = /^phase.*Reactivation$/;
+    for (const key of Object.keys(fx)) {
+      if (STRICT_PHASE_REACTIVATION_RE.test(key)) {
+        const val = (fx as unknown as Record<string, unknown>)[key];
+        const ctx = `${fx.fixtureId}: ${key}`;
+        if (!val || typeof val !== "object" || Array.isArray(val)) {
+          err(`${ctx}: must be an object (cross-phase reactivation contract per ADR-010 banked principle)`);
+          continue;
+        }
+        const r = val as Record<string, unknown>;
+        if (typeof r.gatedOn !== "string" || r.gatedOn.trim() === "") {
+          err(`${ctx}.gatedOn: must be a non-empty string (short identifier of what the reactivation depends on)`);
+        }
+        if (r.expectedOutcome === undefined || r.expectedOutcome === null) {
+          err(`${ctx}.expectedOutcome: required (the result the fixture EXPECTS once the gating phase activates)`);
+        }
+        if (
+          Object.prototype.hasOwnProperty.call(r, "divergenceTrigger") &&
+          typeof r.divergenceTrigger !== "string"
+        ) {
+          err(`${ctx}.divergenceTrigger: must be a string if present (escalation condition observed at reactivation)`);
+        }
+      } else if (SUSPICIOUS_PHASE_REACTIVATION_RE.test(key)) {
+        // Field starts with `phase` and ends with `Reactivation` but does not
+        // match the strict regex. Suspicious typo per architect Q5 refinement.
+        err(
+          `${fx.fixtureId}: suspicious field name "${key}" — looks like a phaseNReactivation field but does not match the strict pattern ^phase[1-9][0-9]*Reactivation$ ` +
+            `(invalid leading zero, non-numeric N, or missing N). Per ADR-010 + architect Q5 ruling 2026-05-06.`
+        );
+      }
+    }
   }
 
   // (1) Every fixture file has a manifest entry
