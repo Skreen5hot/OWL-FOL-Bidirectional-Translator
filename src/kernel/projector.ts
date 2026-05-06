@@ -1,5 +1,5 @@
 /**
- * FOL → OWL Projector (Phase 2 Steps 1-3a)
+ * FOL → OWL Projector (Phase 2 Steps 1-3b)
  *
  * Per API spec §6.2 + behavioral spec §6.1 (three-strategy router) +
  * §7 (audit artifacts) + §8.1 (round-trip parity).
@@ -25,6 +25,24 @@
  *   - RBox universal-implication ∀x,y,z. P(x,y) ∧ P(y,z) → P(x,z) →
  *     ObjectPropertyCharacteristic(Transitive).
  *
+ * IMPLEMENTED (Step 3b — class-expression reconstruction in SubClassOf consequent):
+ *   - Recursive reconstructClassExpression(folShape, contextVar) handles:
+ *     - fol:Atom arity-1 on contextVar → {@type:Class, iri}
+ *     - fol:Conjunction of class-expression-shaped conjuncts → ObjectIntersectionOf
+ *     - fol:Disjunction of class-expression-shaped disjuncts → ObjectUnionOf
+ *     - fol:Negation of a class-expression-shaped inner → ObjectComplementOf
+ *     - fol:Existential { variable: y, body: fol:Conjunction([P(x,y), filler-on-y]) }
+ *       → Restriction { onProperty: P, someValuesFrom: <reconstructed filler> }
+ *     - fol:Universal { variable: y, body: fol:Implication(P(x,y), filler-on-y) }
+ *       → Restriction { onProperty: P, allValuesFrom: <reconstructed filler> }
+ *     - fol:Atom { arguments: [contextVar, fol:Constant(individual)] }
+ *       → Restriction { onProperty: predicate, hasValue: individual.iri }
+ *   - matchSubClassOfWithExpression: outer ∀x. NamedClass(x) → <reconstructed
+ *     class expression on x> → SubClassOf(NamedClass, <expression>). Subsumes
+ *     the Step 2 strict-NamedClass case as a degenerate; matchUnaryUniversalImplication
+ *     remains in the codebase for pair-matching's strict NamedClass-on-both-sides
+ *     contract.
+ *
  * IMPLEMENTED (Step 3a — pair-matching TBox + remaining single-axiom RBox):
  *   - Two-pass matching: pair-matching first (consumes both halves of a
  *     pair), then single-axiom direct matching over the remaining axioms.
@@ -44,10 +62,19 @@
  *     `∀x,y. P(x,y) → R(y)` (consequent unary atom binds the SECOND
  *     antecedent variable).
  *
- * NOT in Step 3a (deferred to Steps 3b/3c + later):
- *   - Class-expression reconstruction (intersection / union / complement /
- *     restrictions someValuesFrom / allValuesFrom / hasValue / cardinality)
- *     — Step 3b.
+ * NOT in Step 3b (deferred to Step 3c + later):
+ *   - Class expressions in subClass position (e.g.,
+ *     `SubClassOf(ObjectIntersectionOf(C1, C2), C3)` lifted as
+ *     `∀x. (C1(x) ∧ C2(x)) → C3(x)`) — Step 3c. Phase 1 corpus does not
+ *     exercise this case; right-side reconstruction covers all current
+ *     fixtures.
+ *   - Class expressions inside EquivalentClasses pair-matching halves
+ *     (each half currently must be a unary-atom-on-x SubClassOf shape) —
+ *     Step 3c.
+ *   - Cardinality restrictions (min / max / exact + qualified onClass) —
+ *     these lift to non-Horn shapes (∃-binding + pairwise distinctness per
+ *     ADR-007 §7); they route to Annotated Approximation in Step 4, NOT
+ *     Direct Mapping.
  *   - SameIndividual / DifferentIndividuals (reserved-predicate atoms),
  *     ClassDefinition, SubObjectPropertyOf, EquivalentObjectProperties — Step 3c.
  *   - Strategy selection algorithm with tiered fallthrough per spec §6.2 — Step 5.
@@ -87,6 +114,7 @@ import type {
 import type {
   ABoxAxiom,
   ClassAssertion,
+  ClassExpression,
   DataPropertyAssertion,
   DisjointWithAxiom,
   EquivalentClassesAxiom,
@@ -313,15 +341,14 @@ function projectUniversalAxiom(u: FOLUniversal): DirectMatch | null {
     return { kind: "tbox", axiom: disjoint };
   }
 
-  // ∀x. C1(x) → C2(x) — TBox SubClassOf with named classes.
-  const subClass = matchUnaryUniversalImplication(u);
-  if (subClass) {
-    const sc: SubClassOfAxiom = {
-      "@type": "SubClassOf",
-      subClass: { "@type": "Class", iri: subClass.subClassIRI },
-      superClass: { "@type": "Class", iri: subClass.superClassIRI },
-    };
-    return { kind: "tbox", axiom: sc };
+  // ∀x. C(x) → <class expression on x> — TBox SubClassOf. Subsumes the
+  // Step 2 strict NamedClass-on-both-sides case (the trivial reconstruction
+  // of an unary atom returns a NamedClass) and extends to Step 3b's full
+  // class-expression recursion in the consequent (intersection / union /
+  // complement / restrictions someValuesFrom / allValuesFrom / hasValue).
+  const subClassWithExpr = matchSubClassOfWithExpression(u);
+  if (subClassWithExpr) {
+    return { kind: "tbox", axiom: subClassWithExpr };
   }
 
   // ∀x,y. P(x,y) → D(x) — ObjectPropertyDomain (consequent unary atom on
@@ -538,6 +565,154 @@ function matchTransitiveRule(u: FOLUniversal): ObjectPropertyCharacteristicAxiom
     property: c0.predicate,
     characteristic: "Transitive",
   };
+}
+
+// ---- Step 3b: SubClassOf with class-expression consequent reconstruction ----
+
+function matchSubClassOfWithExpression(u: FOLUniversal): SubClassOfAxiom | null {
+  // Shape: ∀x. C_outer(x) → <class expression on x>
+  // The outer wrapper is a single fol:Universal whose body is fol:Implication.
+  // Multi-level universal stacks (e.g., Domain/Range/Symmetric/Transitive/
+  // Functional/Inverse) have an outer body of fol:Universal, NOT fol:Implication
+  // — so they don't false-positive here.
+  const x = u.variable;
+  if (u.body["@type"] !== "fol:Implication") return null;
+  const impl = u.body;
+
+  // Antecedent must be a unary atom on x (NamedClass on the left). Class
+  // expressions in subClass position (intersection/union/etc.) are Step 3c
+  // territory.
+  if (impl.antecedent["@type"] !== "fol:Atom") return null;
+  const ant = impl.antecedent;
+  if (!isUnaryAtomOnVariable(ant, x)) return null;
+  if (!isNamedIRI(ant.predicate)) return null;
+
+  // Consequent reconstructs recursively to a class expression.
+  const superExpr = reconstructClassExpression(impl.consequent, x);
+  if (!superExpr) return null;
+
+  return {
+    "@type": "SubClassOf",
+    subClass: { "@type": "Class", iri: ant.predicate },
+    superClass: superExpr,
+  };
+}
+
+/**
+ * Recursive class-expression reconstruction (Step 3b).
+ *
+ * Given a FOL shape and the name of the context variable bound by an outer
+ * SubClassOf wrapper (or by an outer restriction), produce the OWL
+ * ClassExpression whose `liftClassExpression(_, contextVar)` would emit
+ * exactly this shape.
+ *
+ * Returns `null` when the shape doesn't match any recognized
+ * class-expression form (the projector then falls through to other matchers,
+ * or — pending Step 4 — silently drops the axiom).
+ */
+function reconstructClassExpression(
+  shape: FOLAxiom,
+  contextVar: string,
+): ClassExpression | null {
+  // NamedClass: fol:Atom arity-1 on contextVar.
+  if (shape["@type"] === "fol:Atom") {
+    if (
+      shape.arguments.length === 1 &&
+      isVariableNamed(shape.arguments[0], contextVar) &&
+      isNamedIRI(shape.predicate)
+    ) {
+      return { "@type": "Class", iri: shape.predicate };
+    }
+    // ObjectHasValue: fol:Atom { arguments: [contextVar, fol:Constant] }.
+    if (
+      shape.arguments.length === 2 &&
+      isVariableNamed(shape.arguments[0], contextVar) &&
+      shape.arguments[1]["@type"] === "fol:Constant" &&
+      isNamedIRI(shape.predicate) &&
+      isNamedIRI(shape.arguments[1].iri)
+    ) {
+      return {
+        "@type": "Restriction",
+        onProperty: shape.predicate,
+        hasValue: shape.arguments[1].iri,
+      };
+    }
+    return null;
+  }
+
+  // ObjectIntersectionOf: fol:Conjunction of class-expression-shaped conjuncts.
+  if (shape["@type"] === "fol:Conjunction") {
+    if (shape.conjuncts.length < 2) return null;
+    const reconstructed: ClassExpression[] = [];
+    for (const c of shape.conjuncts) {
+      const r = reconstructClassExpression(c, contextVar);
+      if (!r) return null;
+      reconstructed.push(r);
+    }
+    return { "@type": "ObjectIntersectionOf", classes: reconstructed };
+  }
+
+  // ObjectUnionOf: fol:Disjunction of class-expression-shaped disjuncts.
+  if (shape["@type"] === "fol:Disjunction") {
+    if (shape.disjuncts.length < 2) return null;
+    const reconstructed: ClassExpression[] = [];
+    for (const d of shape.disjuncts) {
+      const r = reconstructClassExpression(d, contextVar);
+      if (!r) return null;
+      reconstructed.push(r);
+    }
+    return { "@type": "ObjectUnionOf", classes: reconstructed };
+  }
+
+  // ObjectComplementOf: fol:Negation of a class-expression-shaped inner.
+  if (shape["@type"] === "fol:Negation") {
+    const inner = reconstructClassExpression(shape.inner, contextVar);
+    if (!inner) return null;
+    return { "@type": "ObjectComplementOf", class: inner };
+  }
+
+  // ObjectSomeValuesFrom: fol:Existential { variable: y, body:
+  //   fol:Conjunction([P(contextVar, y), filler-on-y]) }
+  if (shape["@type"] === "fol:Existential") {
+    const innerVar = shape.variable;
+    if (innerVar === contextVar) return null;
+    if (shape.body["@type"] !== "fol:Conjunction") return null;
+    const conj = shape.body;
+    if (conj.conjuncts.length !== 2) return null;
+    const propAtom = conj.conjuncts[0];
+    const filler = conj.conjuncts[1];
+    if (propAtom["@type"] !== "fol:Atom") return null;
+    if (!isBinaryAtomOnVariables(propAtom, contextVar, innerVar)) return null;
+    if (!isNamedIRI(propAtom.predicate)) return null;
+    const fillerExpr = reconstructClassExpression(filler, innerVar);
+    if (!fillerExpr) return null;
+    return {
+      "@type": "Restriction",
+      onProperty: propAtom.predicate,
+      someValuesFrom: fillerExpr,
+    };
+  }
+
+  // ObjectAllValuesFrom: fol:Universal { variable: y, body:
+  //   fol:Implication(P(contextVar, y), filler-on-y) }
+  if (shape["@type"] === "fol:Universal") {
+    const innerVar = shape.variable;
+    if (innerVar === contextVar) return null;
+    if (shape.body["@type"] !== "fol:Implication") return null;
+    const impl = shape.body;
+    if (impl.antecedent["@type"] !== "fol:Atom") return null;
+    if (!isBinaryAtomOnVariables(impl.antecedent, contextVar, innerVar)) return null;
+    if (!isNamedIRI(impl.antecedent.predicate)) return null;
+    const fillerExpr = reconstructClassExpression(impl.consequent, innerVar);
+    if (!fillerExpr) return null;
+    return {
+      "@type": "Restriction",
+      onProperty: impl.antecedent.predicate,
+      allValuesFrom: fillerExpr,
+    };
+  }
+
+  return null;
 }
 
 // ---- Pair-matchers (Step 3a) ----

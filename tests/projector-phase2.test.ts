@@ -1008,6 +1008,347 @@ await report(
 );
 
 // ===========================================================================
+// STEP 3b — class-expression reconstruction in SubClassOf consequent
+// ===========================================================================
+
+await report(
+  "Step 3b / Boolean: SubClassOf(C, ObjectIntersectionOf(D, E)) → reconstructed from ∀x. C(x) → (D(x) ∧ E(x))",
+  async () => {
+    const axioms: FOLAxiom[] = [
+      {
+        "@type": "fol:Universal",
+        variable: "x",
+        body: {
+          "@type": "fol:Implication",
+          antecedent: {
+            "@type": "fol:Atom",
+            predicate: "http://example.org/test/Mother",
+            arguments: [{ "@type": "fol:Variable", name: "x" }],
+          },
+          consequent: {
+            "@type": "fol:Conjunction",
+            conjuncts: [
+              {
+                "@type": "fol:Atom",
+                predicate: "http://example.org/test/Female",
+                arguments: [{ "@type": "fol:Variable", name: "x" }],
+              },
+              {
+                "@type": "fol:Atom",
+                predicate: "http://example.org/test/Parent",
+                arguments: [{ "@type": "fol:Variable", name: "x" }],
+              },
+            ],
+          },
+        },
+      },
+    ];
+    const result = await folToOwl(axioms);
+    deepStrictEqual(result.ontology.tbox, [
+      {
+        "@type": "SubClassOf",
+        subClass: { "@type": "Class", iri: "http://example.org/test/Mother" },
+        superClass: {
+          "@type": "ObjectIntersectionOf",
+          classes: [
+            { "@type": "Class", iri: "http://example.org/test/Female" },
+            { "@type": "Class", iri: "http://example.org/test/Parent" },
+          ],
+        },
+      },
+    ]);
+  },
+);
+
+await report(
+  "Step 3b / Boolean: SubClassOf(C, ObjectUnionOf(D, E)) → reconstructed from ∀x. C(x) → (D(x) ∨ E(x))",
+  async () => {
+    const axioms: FOLAxiom[] = [
+      {
+        "@type": "fol:Universal",
+        variable: "x",
+        body: {
+          "@type": "fol:Implication",
+          antecedent: {
+            "@type": "fol:Atom",
+            predicate: "http://example.org/test/Person",
+            arguments: [{ "@type": "fol:Variable", name: "x" }],
+          },
+          consequent: {
+            "@type": "fol:Disjunction",
+            disjuncts: [
+              {
+                "@type": "fol:Atom",
+                predicate: "http://example.org/test/Adult",
+                arguments: [{ "@type": "fol:Variable", name: "x" }],
+              },
+              {
+                "@type": "fol:Atom",
+                predicate: "http://example.org/test/Child",
+                arguments: [{ "@type": "fol:Variable", name: "x" }],
+              },
+            ],
+          },
+        },
+      },
+    ];
+    const result = await folToOwl(axioms);
+    deepStrictEqual(result.ontology.tbox, [
+      {
+        "@type": "SubClassOf",
+        subClass: { "@type": "Class", iri: "http://example.org/test/Person" },
+        superClass: {
+          "@type": "ObjectUnionOf",
+          classes: [
+            { "@type": "Class", iri: "http://example.org/test/Adult" },
+            { "@type": "Class", iri: "http://example.org/test/Child" },
+          ],
+        },
+      },
+    ]);
+  },
+);
+
+await report(
+  "Step 3b / Boolean: SubClassOf(NotPerson, ObjectComplementOf(Person)) → ∀x. NotPerson(x) → ¬Person(x) round-trips",
+  async () => {
+    // Mirror p1_complement_of fixture exactly.
+    const input: OWLOntology = {
+      ontologyIRI: "http://example.org/test/p2_step3b_complement",
+      tbox: [
+        {
+          "@type": "SubClassOf",
+          subClass: { "@type": "Class", iri: "http://example.org/test/NotPerson" },
+          superClass: {
+            "@type": "ObjectComplementOf",
+            class: { "@type": "Class", iri: "http://example.org/test/Person" },
+          },
+        },
+      ],
+      abox: [],
+      rbox: [],
+    };
+    const lifted = await owlToFol(input);
+    const projected = await folToOwl(lifted);
+    deepStrictEqual(projected.ontology.tbox, input.tbox);
+  },
+);
+
+await report(
+  "Step 3b / Restriction: SubClassOf(C, someValuesFrom P D) round-trips through ∀x. C(x) → ∃y. (P(x,y) ∧ D(y))",
+  async () => {
+    const input: OWLOntology = {
+      ontologyIRI: "http://example.org/test/p2_step3b_someValuesFrom",
+      tbox: [
+        {
+          "@type": "SubClassOf",
+          subClass: { "@type": "Class", iri: "http://example.org/test/Parent" },
+          superClass: {
+            "@type": "Restriction",
+            onProperty: "http://example.org/test/hasChild",
+            someValuesFrom: { "@type": "Class", iri: "http://example.org/test/Person" },
+          },
+        },
+      ],
+      abox: [],
+      rbox: [],
+    };
+    const lifted = await owlToFol(input);
+    const projected = await folToOwl(lifted);
+    deepStrictEqual(projected.ontology.tbox, input.tbox);
+  },
+);
+
+await report(
+  "Step 3b / Restriction: SubClassOf(C, allValuesFrom P D) round-trips through ∀x. C(x) → ∀y. (P(x,y) → D(y))",
+  async () => {
+    const input: OWLOntology = {
+      ontologyIRI: "http://example.org/test/p2_step3b_allValuesFrom",
+      tbox: [
+        {
+          "@type": "SubClassOf",
+          subClass: { "@type": "Class", iri: "http://example.org/test/HappyParent" },
+          superClass: {
+            "@type": "Restriction",
+            onProperty: "http://example.org/test/hasChild",
+            allValuesFrom: { "@type": "Class", iri: "http://example.org/test/Happy" },
+          },
+        },
+      ],
+      abox: [],
+      rbox: [],
+    };
+    const lifted = await owlToFol(input);
+    const projected = await folToOwl(lifted);
+    deepStrictEqual(projected.ontology.tbox, input.tbox);
+  },
+);
+
+await report(
+  "Step 3b / Restriction: SubClassOf(C, hasValue P individual) round-trips through ∀x. C(x) → P(x, individual)",
+  async () => {
+    const input: OWLOntology = {
+      ontologyIRI: "http://example.org/test/p2_step3b_hasValue",
+      tbox: [
+        {
+          "@type": "SubClassOf",
+          subClass: { "@type": "Class", iri: "http://example.org/test/CitizenOfFrance" },
+          superClass: {
+            "@type": "Restriction",
+            onProperty: "http://example.org/test/citizenOf",
+            hasValue: "http://example.org/test/France",
+          },
+        },
+      ],
+      abox: [],
+      rbox: [],
+    };
+    const lifted = await owlToFol(input);
+    const projected = await folToOwl(lifted);
+    deepStrictEqual(projected.ontology.tbox, input.tbox);
+  },
+);
+
+await report(
+  "Step 3b / Round-trip: full p1_restrictions_object_value fixture (someValuesFrom + allValuesFrom + hasValue) survives lift→project",
+  async () => {
+    const input: OWLOntology = {
+      ontologyIRI: "http://example.org/test/p1_restrictions_value",
+      prefixes: { ex: "http://example.org/test/" },
+      tbox: [
+        {
+          "@type": "SubClassOf",
+          subClass: { "@type": "Class", iri: "http://example.org/test/Parent" },
+          superClass: {
+            "@type": "Restriction",
+            onProperty: "http://example.org/test/hasChild",
+            someValuesFrom: { "@type": "Class", iri: "http://example.org/test/Person" },
+          },
+        },
+        {
+          "@type": "SubClassOf",
+          subClass: { "@type": "Class", iri: "http://example.org/test/HappyParent" },
+          superClass: {
+            "@type": "Restriction",
+            onProperty: "http://example.org/test/hasChild",
+            allValuesFrom: { "@type": "Class", iri: "http://example.org/test/Happy" },
+          },
+        },
+        {
+          "@type": "SubClassOf",
+          subClass: { "@type": "Class", iri: "http://example.org/test/CitizenOfFrance" },
+          superClass: {
+            "@type": "Restriction",
+            onProperty: "http://example.org/test/citizenOf",
+            hasValue: "http://example.org/test/France",
+          },
+        },
+      ],
+      abox: [],
+      rbox: [],
+    };
+    const lifted = await owlToFol(input);
+    const projected = await folToOwl(lifted, undefined, { prefixes: input.prefixes });
+    deepStrictEqual(projected.ontology.tbox, input.tbox);
+  },
+);
+
+await report(
+  "Step 3b / Recursion: nested restriction (someValuesFrom whose filler is itself a Restriction) round-trips",
+  async () => {
+    // Grandparent ⊑ ∃hasChild. (∃hasChild. Person)
+    const input: OWLOntology = {
+      ontologyIRI: "http://example.org/test/p2_step3b_nested",
+      tbox: [
+        {
+          "@type": "SubClassOf",
+          subClass: { "@type": "Class", iri: "http://example.org/test/Grandparent" },
+          superClass: {
+            "@type": "Restriction",
+            onProperty: "http://example.org/test/hasChild",
+            someValuesFrom: {
+              "@type": "Restriction",
+              onProperty: "http://example.org/test/hasChild",
+              someValuesFrom: { "@type": "Class", iri: "http://example.org/test/Person" },
+            },
+          },
+        },
+      ],
+      abox: [],
+      rbox: [],
+    };
+    const lifted = await owlToFol(input);
+    const projected = await folToOwl(lifted);
+    deepStrictEqual(projected.ontology.tbox, input.tbox);
+  },
+);
+
+await report(
+  "Step 3b / Recursion: ObjectIntersectionOf containing a Restriction round-trips",
+  async () => {
+    // Mother ⊑ Female ⊓ ∃hasChild.Person
+    const input: OWLOntology = {
+      ontologyIRI: "http://example.org/test/p2_step3b_intersection_with_restriction",
+      tbox: [
+        {
+          "@type": "SubClassOf",
+          subClass: { "@type": "Class", iri: "http://example.org/test/Mother" },
+          superClass: {
+            "@type": "ObjectIntersectionOf",
+            classes: [
+              { "@type": "Class", iri: "http://example.org/test/Female" },
+              {
+                "@type": "Restriction",
+                onProperty: "http://example.org/test/hasChild",
+                someValuesFrom: { "@type": "Class", iri: "http://example.org/test/Person" },
+              },
+            ],
+          },
+        },
+      ],
+      abox: [],
+      rbox: [],
+    };
+    const lifted = await owlToFol(input);
+    const projected = await folToOwl(lifted);
+    deepStrictEqual(projected.ontology.tbox, input.tbox);
+  },
+);
+
+await report(
+  "Step 3b / Determinism: 100 lift→project cycles on a class-expression-bearing input are byte-stable",
+  async () => {
+    const input: OWLOntology = {
+      ontologyIRI: "http://example.org/test/p2_step3b_determinism",
+      tbox: [
+        {
+          "@type": "SubClassOf",
+          subClass: { "@type": "Class", iri: "http://example.org/test/Mother" },
+          superClass: {
+            "@type": "ObjectIntersectionOf",
+            classes: [
+              { "@type": "Class", iri: "http://example.org/test/Female" },
+              {
+                "@type": "Restriction",
+                onProperty: "http://example.org/test/hasChild",
+                someValuesFrom: { "@type": "Class", iri: "http://example.org/test/Person" },
+              },
+            ],
+          },
+        },
+      ],
+      abox: [],
+      rbox: [],
+    };
+    const first = stableStringify(await folToOwl(await owlToFol(input)));
+    for (let i = 0; i < 99; i++) {
+      const next = stableStringify(await folToOwl(await owlToFol(input)));
+      strictEqual(next, first, `run ${i + 2}/100 diverged`);
+    }
+  },
+);
+
+// ===========================================================================
 // LOSS_SIGNATURE_SEVERITY_ORDER — frozen contract per API §6.4.1
 // ===========================================================================
 
