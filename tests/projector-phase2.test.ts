@@ -1349,6 +1349,483 @@ await report(
 );
 
 // ===========================================================================
+// STEP 3c — reserved-predicate ABox + remaining TBox/RBox forms
+// ===========================================================================
+
+await report(
+  "Step 3c / ABox: owl:sameAs atom on constants → SameIndividual([a, b])",
+  async () => {
+    const axioms: FOLAxiom[] = [
+      {
+        "@type": "fol:Atom",
+        predicate: "http://www.w3.org/2002/07/owl#sameAs",
+        arguments: [
+          { "@type": "fol:Constant", iri: "http://example.org/test/superman" },
+          { "@type": "fol:Constant", iri: "http://example.org/test/clarkkent" },
+        ],
+      },
+    ];
+    const result = await folToOwl(axioms);
+    deepStrictEqual(result.ontology.abox, [
+      {
+        "@type": "SameIndividual",
+        individuals: [
+          "http://example.org/test/superman",
+          "http://example.org/test/clarkkent",
+        ],
+      },
+    ]);
+  },
+);
+
+await report(
+  "Step 3c / ABox: owl:differentFrom atom on constants → DifferentIndividuals([a, b])",
+  async () => {
+    const axioms: FOLAxiom[] = [
+      {
+        "@type": "fol:Atom",
+        predicate: "http://www.w3.org/2002/07/owl#differentFrom",
+        arguments: [
+          { "@type": "fol:Constant", iri: "http://example.org/test/superman" },
+          { "@type": "fol:Constant", iri: "http://example.org/test/lexluthor" },
+        ],
+      },
+    ];
+    const result = await folToOwl(axioms);
+    deepStrictEqual(result.ontology.abox, [
+      {
+        "@type": "DifferentIndividuals",
+        individuals: [
+          "http://example.org/test/superman",
+          "http://example.org/test/lexluthor",
+        ],
+      },
+    ]);
+  },
+);
+
+await report(
+  "Step 3c / Suppression: sameAs reflexivity / symmetry / transitivity axioms NOT round-tripped as ObjectPropertyCharacteristic",
+  async () => {
+    const axioms: FOLAxiom[] = [
+      // sameAs reflexivity: ∀x. owl:sameAs(x,x)
+      {
+        "@type": "fol:Universal",
+        variable: "x",
+        body: {
+          "@type": "fol:Atom",
+          predicate: "http://www.w3.org/2002/07/owl#sameAs",
+          arguments: [
+            { "@type": "fol:Variable", name: "x" },
+            { "@type": "fol:Variable", name: "x" },
+          ],
+        },
+      },
+      // sameAs symmetry: ∀x,y. owl:sameAs(x,y) → owl:sameAs(y,x)
+      {
+        "@type": "fol:Universal",
+        variable: "x",
+        body: {
+          "@type": "fol:Universal",
+          variable: "y",
+          body: {
+            "@type": "fol:Implication",
+            antecedent: {
+              "@type": "fol:Atom",
+              predicate: "http://www.w3.org/2002/07/owl#sameAs",
+              arguments: [
+                { "@type": "fol:Variable", name: "x" },
+                { "@type": "fol:Variable", name: "y" },
+              ],
+            },
+            consequent: {
+              "@type": "fol:Atom",
+              predicate: "http://www.w3.org/2002/07/owl#sameAs",
+              arguments: [
+                { "@type": "fol:Variable", name: "y" },
+                { "@type": "fol:Variable", name: "x" },
+              ],
+            },
+          },
+        },
+      },
+      // sameAs transitivity: ∀x,y,z. owl:sameAs(x,y) ∧ owl:sameAs(y,z) → owl:sameAs(x,z)
+      {
+        "@type": "fol:Universal",
+        variable: "x",
+        body: {
+          "@type": "fol:Universal",
+          variable: "y",
+          body: {
+            "@type": "fol:Universal",
+            variable: "z",
+            body: {
+              "@type": "fol:Implication",
+              antecedent: {
+                "@type": "fol:Conjunction",
+                conjuncts: [
+                  {
+                    "@type": "fol:Atom",
+                    predicate: "http://www.w3.org/2002/07/owl#sameAs",
+                    arguments: [
+                      { "@type": "fol:Variable", name: "x" },
+                      { "@type": "fol:Variable", name: "y" },
+                    ],
+                  },
+                  {
+                    "@type": "fol:Atom",
+                    predicate: "http://www.w3.org/2002/07/owl#sameAs",
+                    arguments: [
+                      { "@type": "fol:Variable", name: "y" },
+                      { "@type": "fol:Variable", name: "z" },
+                    ],
+                  },
+                ],
+              },
+              consequent: {
+                "@type": "fol:Atom",
+                predicate: "http://www.w3.org/2002/07/owl#sameAs",
+                arguments: [
+                  { "@type": "fol:Variable", name: "x" },
+                  { "@type": "fol:Variable", name: "z" },
+                ],
+              },
+            },
+          },
+        },
+      },
+    ];
+    const result = await folToOwl(axioms);
+    // All three identity-axiomatization axioms suppressed; nothing emitted.
+    deepStrictEqual(result.ontology.tbox, []);
+    deepStrictEqual(result.ontology.abox, []);
+    deepStrictEqual(result.ontology.rbox, []);
+  },
+);
+
+await report(
+  "Step 3c / Suppression: per-predicate unary identity-rewrite is dropped",
+  async () => {
+    // ∀x,z. P(x) ∧ owl:sameAs(x,z) → P(z)
+    const axioms: FOLAxiom[] = [
+      {
+        "@type": "fol:Universal",
+        variable: "x",
+        body: {
+          "@type": "fol:Universal",
+          variable: "z",
+          body: {
+            "@type": "fol:Implication",
+            antecedent: {
+              "@type": "fol:Conjunction",
+              conjuncts: [
+                {
+                  "@type": "fol:Atom",
+                  predicate: "http://example.org/test/Person",
+                  arguments: [{ "@type": "fol:Variable", name: "x" }],
+                },
+                {
+                  "@type": "fol:Atom",
+                  predicate: "http://www.w3.org/2002/07/owl#sameAs",
+                  arguments: [
+                    { "@type": "fol:Variable", name: "x" },
+                    { "@type": "fol:Variable", name: "z" },
+                  ],
+                },
+              ],
+            },
+            consequent: {
+              "@type": "fol:Atom",
+              predicate: "http://example.org/test/Person",
+              arguments: [{ "@type": "fol:Variable", name: "z" }],
+            },
+          },
+        },
+      },
+    ];
+    const result = await folToOwl(axioms);
+    deepStrictEqual(result.ontology.tbox, []);
+    deepStrictEqual(result.ontology.rbox, []);
+  },
+);
+
+await report(
+  "Step 3c / Round-trip: full p1_owl_same_and_different fixture (sameAs + differentFrom + identity machinery) survives",
+  async () => {
+    const input: OWLOntology = {
+      ontologyIRI: "http://example.org/test/p1_same_diff",
+      prefixes: { ex: "http://example.org/test/" },
+      tbox: [],
+      rbox: [],
+      abox: [
+        {
+          "@type": "SameIndividual",
+          individuals: [
+            "http://example.org/test/superman",
+            "http://example.org/test/clarkkent",
+          ],
+        },
+        {
+          "@type": "DifferentIndividuals",
+          individuals: [
+            "http://example.org/test/superman",
+            "http://example.org/test/lexluthor",
+          ],
+        },
+      ],
+    };
+    const lifted = await owlToFol(input);
+    const projected = await folToOwl(lifted, undefined, { prefixes: input.prefixes });
+    deepStrictEqual(projected.ontology.abox, input.abox);
+    // No spurious tbox/rbox emissions from the identity-machinery axioms.
+    deepStrictEqual(projected.ontology.tbox, []);
+    deepStrictEqual(projected.ontology.rbox, []);
+  },
+);
+
+await report(
+  "Step 3c / RBox: ∀x,y. P(x,y) → Q(x,y) → SubObjectPropertyOf(P, Q)",
+  async () => {
+    const axioms: FOLAxiom[] = [
+      {
+        "@type": "fol:Universal",
+        variable: "x",
+        body: {
+          "@type": "fol:Universal",
+          variable: "y",
+          body: {
+            "@type": "fol:Implication",
+            antecedent: {
+              "@type": "fol:Atom",
+              predicate: "http://example.org/test/parentOf",
+              arguments: [
+                { "@type": "fol:Variable", name: "x" },
+                { "@type": "fol:Variable", name: "y" },
+              ],
+            },
+            consequent: {
+              "@type": "fol:Atom",
+              predicate: "http://example.org/test/ancestorOf",
+              arguments: [
+                { "@type": "fol:Variable", name: "x" },
+                { "@type": "fol:Variable", name: "y" },
+              ],
+            },
+          },
+        },
+      },
+    ];
+    const result = await folToOwl(axioms);
+    deepStrictEqual(result.ontology.rbox, [
+      {
+        "@type": "SubObjectPropertyOf",
+        subProperty: "http://example.org/test/parentOf",
+        superProperty: "http://example.org/test/ancestorOf",
+      },
+    ]);
+  },
+);
+
+await report(
+  "Step 3c / RBox pair: two converse SubObjectPropertyOf axioms → EquivalentObjectProperties(P, Q)",
+  async () => {
+    const axioms: FOLAxiom[] = [
+      {
+        "@type": "fol:Universal",
+        variable: "x",
+        body: {
+          "@type": "fol:Universal",
+          variable: "y",
+          body: {
+            "@type": "fol:Implication",
+            antecedent: {
+              "@type": "fol:Atom",
+              predicate: "http://example.org/test/marriedTo",
+              arguments: [
+                { "@type": "fol:Variable", name: "x" },
+                { "@type": "fol:Variable", name: "y" },
+              ],
+            },
+            consequent: {
+              "@type": "fol:Atom",
+              predicate: "http://example.org/test/spouseOf",
+              arguments: [
+                { "@type": "fol:Variable", name: "x" },
+                { "@type": "fol:Variable", name: "y" },
+              ],
+            },
+          },
+        },
+      },
+      {
+        "@type": "fol:Universal",
+        variable: "x",
+        body: {
+          "@type": "fol:Universal",
+          variable: "y",
+          body: {
+            "@type": "fol:Implication",
+            antecedent: {
+              "@type": "fol:Atom",
+              predicate: "http://example.org/test/spouseOf",
+              arguments: [
+                { "@type": "fol:Variable", name: "x" },
+                { "@type": "fol:Variable", name: "y" },
+              ],
+            },
+            consequent: {
+              "@type": "fol:Atom",
+              predicate: "http://example.org/test/marriedTo",
+              arguments: [
+                { "@type": "fol:Variable", name: "x" },
+                { "@type": "fol:Variable", name: "y" },
+              ],
+            },
+          },
+        },
+      },
+    ];
+    const result = await folToOwl(axioms);
+    deepStrictEqual(result.ontology.rbox, [
+      {
+        "@type": "EquivalentObjectProperties",
+        properties: [
+          "http://example.org/test/marriedTo",
+          "http://example.org/test/spouseOf",
+        ],
+      },
+    ]);
+    strictEqual(result.ontology.rbox.length, 1);
+  },
+);
+
+await report(
+  "Step 3c / RBox: ∀x,y. (P(x,y) ∧ Q(x,y)) → ⊥ → DisjointObjectProperties(P, Q)",
+  async () => {
+    const axioms: FOLAxiom[] = [
+      {
+        "@type": "fol:Universal",
+        variable: "x",
+        body: {
+          "@type": "fol:Universal",
+          variable: "y",
+          body: {
+            "@type": "fol:Implication",
+            antecedent: {
+              "@type": "fol:Conjunction",
+              conjuncts: [
+                {
+                  "@type": "fol:Atom",
+                  predicate: "http://example.org/test/parentOf",
+                  arguments: [
+                    { "@type": "fol:Variable", name: "x" },
+                    { "@type": "fol:Variable", name: "y" },
+                  ],
+                },
+                {
+                  "@type": "fol:Atom",
+                  predicate: "http://example.org/test/childOf",
+                  arguments: [
+                    { "@type": "fol:Variable", name: "x" },
+                    { "@type": "fol:Variable", name: "y" },
+                  ],
+                },
+              ],
+            },
+            consequent: { "@type": "fol:False" },
+          },
+        },
+      },
+    ];
+    const result = await folToOwl(axioms);
+    deepStrictEqual(result.ontology.rbox, [
+      {
+        "@type": "DisjointObjectProperties",
+        properties: [
+          "http://example.org/test/parentOf",
+          "http://example.org/test/childOf",
+        ],
+      },
+    ]);
+  },
+);
+
+await report(
+  "Step 3c / Round-trip: full p1_property_characteristics fixture (Functional + Transitive + Symmetric + InverseObjectProperties) survives",
+  async () => {
+    // p1_property_characteristics has all 4 RBox forms in its rbox plus
+    // a ClassAssertion exercise. Round-trip preserves all of them.
+    const input: OWLOntology = {
+      ontologyIRI: "http://example.org/test/p1_props",
+      tbox: [],
+      abox: [],
+      rbox: [
+        {
+          "@type": "ObjectPropertyCharacteristic",
+          property: "http://example.org/test/hasIDNumber",
+          characteristic: "Functional",
+        },
+        {
+          "@type": "ObjectPropertyCharacteristic",
+          property: "http://example.org/test/ancestorOf",
+          characteristic: "Transitive",
+        },
+        {
+          "@type": "ObjectPropertyCharacteristic",
+          property: "http://example.org/test/connectedTo",
+          characteristic: "Symmetric",
+        },
+        {
+          "@type": "InverseObjectProperties",
+          first: "http://example.org/test/parentOf",
+          second: "http://example.org/test/childOf",
+        },
+      ],
+    };
+    const lifted = await owlToFol(input);
+    const projected = await folToOwl(lifted);
+    deepStrictEqual(projected.ontology.rbox, input.rbox);
+  },
+);
+
+await report(
+  "Step 3c / ClassDefinition with NamedClass body round-trips as EquivalentClasses (semantically equivalent)",
+  async () => {
+    // Simple ClassDefinition (NamedClass body) round-trips correctly because
+    // both halves of the lifted pair are unary-atom-on-x SubClassOf shapes
+    // that the existing pair-matcher catches. ClassDefinition with a
+    // class-expression body is banked as a known gap (see projector.ts
+    // docstring) — left-side class-expression reconstruction is the missing
+    // piece, awaiting a corpus fixture to activate.
+    const input: OWLOntology = {
+      ontologyIRI: "http://example.org/test/p2_step3c_classdef_named",
+      tbox: [
+        {
+          "@type": "ClassDefinition",
+          iri: "http://example.org/test/Person",
+          expression: { "@type": "Class", iri: "http://example.org/test/HumanBeing" },
+        },
+      ],
+      abox: [],
+      rbox: [],
+    };
+    const lifted = await owlToFol(input);
+    const projected = await folToOwl(lifted);
+    // The lifter erases the ClassDefinition vs EquivalentClasses distinction;
+    // the projector emits EquivalentClasses (semantically equivalent).
+    deepStrictEqual(projected.ontology.tbox, [
+      {
+        "@type": "EquivalentClasses",
+        classes: [
+          { "@type": "Class", iri: "http://example.org/test/Person" },
+          { "@type": "Class", iri: "http://example.org/test/HumanBeing" },
+        ],
+      },
+    ]);
+  },
+);
+
+// ===========================================================================
 // LOSS_SIGNATURE_SEVERITY_ORDER — frozen contract per API §6.4.1
 // ===========================================================================
 

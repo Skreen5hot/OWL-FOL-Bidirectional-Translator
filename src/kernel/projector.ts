@@ -1,5 +1,5 @@
 /**
- * FOL → OWL Projector (Phase 2 Steps 1-3b)
+ * FOL → OWL Projector (Phase 2 Steps 1-3c)
  *
  * Per API spec §6.2 + behavioral spec §6.1 (three-strategy router) +
  * §7 (audit artifacts) + §8.1 (round-trip parity).
@@ -24,6 +24,47 @@
  *     (Symmetric).
  *   - RBox universal-implication ∀x,y,z. P(x,y) ∧ P(y,z) → P(x,z) →
  *     ObjectPropertyCharacteristic(Transitive).
+ *
+ * IMPLEMENTED (Step 3c — reserved-predicate ABox + remaining TBox/RBox forms):
+ *   - Identity-axiomatization SUPPRESSION pre-pass: detects the lifter's
+ *     library-injected identity-machinery axioms (per spec §5.5.1-§5.5.2)
+ *     and drops them from the projected output. The dropped shapes:
+ *     - `∀x. owl:sameAs(x,x)` (reflexivity)
+ *     - `∀x,y. owl:sameAs(x,y) → owl:sameAs(y,x)` (sameAs symmetry — would
+ *       otherwise round-trip as Symmetric(owl:sameAs))
+ *     - `∀x,y,z. owl:sameAs(x,y) ∧ owl:sameAs(y,z) → owl:sameAs(x,z)`
+ *       (sameAs transitivity)
+ *     - `∀x,y. owl:differentFrom(x,y) → owl:differentFrom(y,x)`
+ *       (differentFrom symmetry)
+ *     - Per-predicate identity-rewrite rules (unary + binary first-arg +
+ *       binary second-arg variants) that propagate sameAs through other
+ *     atoms.
+ *   - SameIndividual / DifferentIndividuals reconstruction: atoms on the
+ *     reserved owl:sameAs / owl:differentFrom predicates with constant
+ *     arguments emit pairwise SameIndividual([a, b]) /
+ *     DifferentIndividuals([a, b]) ABox axioms.
+ *   - RBox SubObjectPropertyOf(P, Q): single-axiom from
+ *     `∀x,y. P(x,y) → Q(x,y)` (binary→binary same-args universal-implication
+ *     with different predicates).
+ *   - RBox EquivalentObjectProperties(P, Q): pair-matched from a converse
+ *     SubObjectPropertyOf pair (P→Q and Q→P).
+ *   - RBox DisjointObjectProperties(P, Q): single-axiom from
+ *     `∀x,y. (P(x,y) ∧ Q(x,y)) → ⊥` (binary version of DisjointWith with
+ *     different conjunct predicates).
+ *   - ClassDefinition: NOT separately detected. The lifter emits
+ *     ClassDefinition with the same FOL shape as EquivalentClasses[NamedClass,
+ *     expression] (per `liftBidirectionalSubsumption`). For the simple
+ *     ClassDefinition(iri, NamedClass) case the projector emits
+ *     EquivalentClasses correctly. For ClassDefinition(iri, ClassExpression)
+ *     where the expression is non-NamedClass (e.g., ObjectIntersectionOf),
+ *     the lifted reverse direction has class-expression-in-subClass position
+ *     which the Step 3b pair-matcher does not yet handle — the forward
+ *     direction emits as a single SubClassOf and the reverse direction is
+ *     silently dropped. Phase 1 corpus does not exercise this case;
+ *     re-activating round-trip parity for the non-NamedClass case requires
+ *     extending `matchSubClassOfWithExpression` + `matchEquivalentClassesPair`
+ *     to recursive-reconstruct both antecedent and consequent. Banked for a
+ *     follow-up Step when corpus surfaces a ClassDefinition fixture.
  *
  * IMPLEMENTED (Step 3b — class-expression reconstruction in SubClassOf consequent):
  *   - Recursive reconstructClassExpression(folShape, contextVar) handles:
@@ -62,21 +103,14 @@
  *     `∀x,y. P(x,y) → R(y)` (consequent unary atom binds the SECOND
  *     antecedent variable).
  *
- * NOT in Step 3b (deferred to Step 3c + later):
- *   - Class expressions in subClass position (e.g.,
- *     `SubClassOf(ObjectIntersectionOf(C1, C2), C3)` lifted as
- *     `∀x. (C1(x) ∧ C2(x)) → C3(x)`) — Step 3c. Phase 1 corpus does not
- *     exercise this case; right-side reconstruction covers all current
- *     fixtures.
+ * NOT in Step 3c (deferred to later Steps):
+ *   - Class expressions in subClass (left) position (e.g.,
+ *     `SubClassOf(ObjectIntersectionOf(C1, C2), C3)`). Phase 1 corpus does
+ *     not exercise this case; if needed, lands as a Step-3 follow-up.
  *   - Class expressions inside EquivalentClasses pair-matching halves
- *     (each half currently must be a unary-atom-on-x SubClassOf shape) —
- *     Step 3c.
+ *     (each half currently must be a unary-atom-on-x SubClassOf shape).
  *   - Cardinality restrictions (min / max / exact + qualified onClass) —
- *     these lift to non-Horn shapes (∃-binding + pairwise distinctness per
- *     ADR-007 §7); they route to Annotated Approximation in Step 4, NOT
- *     Direct Mapping.
- *   - SameIndividual / DifferentIndividuals (reserved-predicate atoms),
- *     ClassDefinition, SubObjectPropertyOf, EquivalentObjectProperties — Step 3c.
+ *     non-Horn shapes that route to Annotated Approximation in Step 4.
  *   - Strategy selection algorithm with tiered fallthrough per spec §6.2 — Step 5.
  *     Until that lands, axioms that don't match any Direct Mapping pattern are
  *     dropped silently from the output. This is a temporary scope-bound
@@ -116,8 +150,11 @@ import type {
   ClassAssertion,
   ClassExpression,
   DataPropertyAssertion,
+  DifferentIndividuals,
+  DisjointObjectPropertiesAxiom,
   DisjointWithAxiom,
   EquivalentClassesAxiom,
+  EquivalentObjectPropertiesAxiom,
   InverseObjectPropertiesAxiom,
   ObjectPropertyAssertion,
   ObjectPropertyCharacteristicAxiom,
@@ -125,10 +162,22 @@ import type {
   ObjectPropertyRangeAxiom,
   OWLOntology,
   RBoxAxiom,
+  SameIndividual,
   SubClassOfAxiom,
+  SubObjectPropertyOfAxiom,
   TBoxAxiom,
   TypedLiteral,
 } from "./owl-types.js";
+
+// Reserved-predicate IRIs for the identity discipline (spec §5.5.1-§5.5.2).
+// Local definitions match the lifter's private constants — mirroring rather
+// than cross-importing keeps the projector self-contained.
+const OWL_SAME_AS_IRI = "http://www.w3.org/2002/07/owl#sameAs";
+const OWL_DIFFERENT_FROM_IRI = "http://www.w3.org/2002/07/owl#differentFrom";
+
+function isReservedIdentityPredicate(iri: string): boolean {
+  return iri === OWL_SAME_AS_IRI || iri === OWL_DIFFERENT_FROM_IRI;
+}
 import type {
   FolToOwlConfig,
   OWLConversionResult,
@@ -156,16 +205,35 @@ export async function folToOwl(
   recoveryPayloads?: RecoveryPayload[],
   config?: FolToOwlConfig,
 ): Promise<OWLConversionResult> {
-  // Step 3a: two-pass matching with source-position-keyed output. Both
-  // passes record their results indexed by source position; the final
-  // distribution to ABox/TBox/RBox buckets walks positions in ascending
-  // order, preserving source order across pair-matched and single-axiom
-  // outputs.
+  // Step 3a-3c: three-pass matching with source-position-keyed output.
   //
-  // Pass-ordering is load-bearing: each half of an EquivalentClasses pair
-  // individually matches the SubClassOf single-axiom rule, so pair-matching
-  // MUST run first to absorb both halves into the EquivalentClasses
-  // emission rather than emitting two separate SubClassOf axioms.
+  // Pass 0 (Step 3c): identity-axiomatization SUPPRESSION. The lifter
+  // injects library-managed axioms for the owl:sameAs / owl:differentFrom
+  // identity discipline (per spec §5.5.1-§5.5.2) — reflexivity, symmetry,
+  // transitivity for sameAs; symmetry for differentFrom; per-predicate
+  // identity-rewrite rules. These are NOT user-authored axioms; the
+  // projector marks them consumed so they do not surface as
+  // ObjectPropertyCharacteristic axioms on reserved predicates in the
+  // projected output.
+  //
+  // Pass 1 (Step 3a): pair-matching for axioms whose canonical OWL form
+  // spans two FOL axioms (EquivalentClasses, InverseObjectProperties,
+  // EquivalentObjectProperties).
+  //
+  // Pass 2 (Step 2-3b-3c): single-axiom Direct Mapping over unconsumed
+  // axioms.
+  //
+  // Distribution pass walks positions in ascending order, preserving
+  // source order across all output paths.
+  //
+  // Pass-ordering is load-bearing:
+  //   - Identity-axiomatization SUPPRESSION must run before pair-matching
+  //     because the sameAs symmetry axiom shape would pair with a
+  //     hypothetical differentFrom counterpart as InverseObjectProperties
+  //     (or otherwise misfire).
+  //   - Pair-matching MUST run before single-axiom matching because each
+  //     half of an EquivalentClasses pair individually matches the
+  //     SubClassOf single-axiom rule.
   //
   // Determinism: pairs are matched in source order with strict left-to-right
   // sweep (i, j) where i < j. The first valid pair wins; the pair's output
@@ -173,14 +241,22 @@ export async function folToOwl(
   const positioned: Array<DirectMatch | null> = new Array(axioms.length).fill(null);
   const consumed = new Set<number>();
 
-  // First pass — pair-matching.
+  // Pass 0 — identity-axiomatization suppression.
+  for (let i = 0; i < axioms.length; i++) {
+    if (isIdentityAxiomatizationAxiom(axioms[i])) {
+      consumed.add(i);
+    }
+  }
+
+  // Pass 1 — pair-matching.
   for (let i = 0; i < axioms.length; i++) {
     if (consumed.has(i)) continue;
     for (let j = i + 1; j < axioms.length; j++) {
       if (consumed.has(j)) continue;
       const pair =
         matchEquivalentClassesPair(axioms[i], axioms[j]) ??
-        matchInverseObjectPropertiesPair(axioms[i], axioms[j]);
+        matchInverseObjectPropertiesPair(axioms[i], axioms[j]) ??
+        matchEquivalentObjectPropertiesPair(axioms[i], axioms[j]);
       if (pair) {
         positioned[i] = pair;
         consumed.add(i);
@@ -190,8 +266,8 @@ export async function folToOwl(
     }
   }
 
-  // Second pass — single-axiom Direct Mapping. Patterns that don't match
-  // any Direct Mapping shape are dropped silently for now; Step 4-5 routes
+  // Pass 2 — single-axiom Direct Mapping. Patterns that don't match any
+  // Direct Mapping shape are dropped silently for now; Step 4-5 routes
   // them to Annotated Approximation.
   for (let i = 0; i < axioms.length; i++) {
     if (consumed.has(i)) continue;
@@ -272,6 +348,39 @@ function projectDirectMapping(axiom: FOLAxiom): DirectMatch | null {
 
 function projectAtomAsAssertion(atom: FOLAtom): DirectMatch | null {
   if (!isNamedIRI(atom.predicate)) return null;
+
+  // Reserved-predicate ABox: owl:sameAs / owl:differentFrom atoms with both
+  // arguments named-IRI constants project as SameIndividual /
+  // DifferentIndividuals pairwise axioms (one per atom; n-ary input lifts to
+  // pairwise atoms via the lifter's i<j emission, and each pair projects
+  // back as a 2-individual axiom of the corresponding kind).
+  if (
+    isReservedIdentityPredicate(atom.predicate) &&
+    atom.arguments.length === 2
+  ) {
+    const a0 = atom.arguments[0];
+    const a1 = atom.arguments[1];
+    if (
+      a0["@type"] === "fol:Constant" &&
+      a1["@type"] === "fol:Constant" &&
+      isNamedIRI(a0.iri) &&
+      isNamedIRI(a1.iri)
+    ) {
+      if (atom.predicate === OWL_SAME_AS_IRI) {
+        const si: SameIndividual = {
+          "@type": "SameIndividual",
+          individuals: [a0.iri, a1.iri],
+        };
+        return { kind: "abox", axiom: si };
+      }
+      const di: DifferentIndividuals = {
+        "@type": "DifferentIndividuals",
+        individuals: [a0.iri, a1.iri],
+      };
+      return { kind: "abox", axiom: di };
+    }
+    return null;
+  }
 
   if (atom.arguments.length === 1) {
     const a0 = atom.arguments[0];
@@ -363,6 +472,21 @@ function projectUniversalAxiom(u: FOLUniversal): DirectMatch | null {
   const range = matchObjectPropertyRange(u);
   if (range) {
     return { kind: "rbox", axiom: range };
+  }
+
+  // ∀x,y. (P(x,y) ∧ Q(x,y)) → ⊥ — DisjointObjectProperties (binary version
+  // of DisjointWith with different conjunct predicates).
+  const disjointProps = matchDisjointObjectProperties(u);
+  if (disjointProps) {
+    return { kind: "rbox", axiom: disjointProps };
+  }
+
+  // ∀x,y. P(x,y) → Q(x,y) — SubObjectPropertyOf (different predicates).
+  // Must run AFTER Domain/Range (which have unary consequents) and BEFORE
+  // Symmetric (which has same-predicate-with-swapped-args).
+  const subProperty = matchSubObjectPropertyOf(u);
+  if (subProperty) {
+    return { kind: "rbox", axiom: subProperty };
   }
 
   // ∀x,y. P(x,y) → P(y,x) — Symmetric.
@@ -715,7 +839,204 @@ function reconstructClassExpression(
   return null;
 }
 
-// ---- Pair-matchers (Step 3a) ----
+// ---- Step 3c: SubObjectPropertyOf + DisjointObjectProperties detectors ----
+
+function matchSubObjectPropertyOf(u: FOLUniversal): SubObjectPropertyOfAxiom | null {
+  // Shape: ∀x. ∀y. P(x,y) → Q(x,y), with P and Q distinct named IRIs.
+  // Distinguishes itself from Symmetric (same predicate with swapped args)
+  // and from Domain/Range (unary consequent).
+  const x = u.variable;
+  if (u.body["@type"] !== "fol:Universal") return null;
+  const inner = u.body;
+  const y = inner.variable;
+  if (x === y) return null;
+  if (inner.body["@type"] !== "fol:Implication") return null;
+  const impl = inner.body;
+  if (impl.antecedent["@type"] !== "fol:Atom") return null;
+  if (impl.consequent["@type"] !== "fol:Atom") return null;
+  const ant = impl.antecedent;
+  const con = impl.consequent;
+  if (!isNamedIRI(ant.predicate) || !isNamedIRI(con.predicate)) return null;
+  if (ant.predicate === con.predicate) return null;
+  if (!isBinaryAtomOnVariables(ant, x, y)) return null;
+  if (!isBinaryAtomOnVariables(con, x, y)) return null;
+  return {
+    "@type": "SubObjectPropertyOf",
+    subProperty: ant.predicate,
+    superProperty: con.predicate,
+  };
+}
+
+function matchDisjointObjectProperties(u: FOLUniversal): DisjointObjectPropertiesAxiom | null {
+  // Shape: ∀x. ∀y. (P(x,y) ∧ Q(x,y)) → fol:False, with P and Q distinct
+  // named IRIs (the binary analogue of DisjointWith for object properties).
+  const x = u.variable;
+  if (u.body["@type"] !== "fol:Universal") return null;
+  const inner = u.body;
+  const y = inner.variable;
+  if (x === y) return null;
+  if (inner.body["@type"] !== "fol:Implication") return null;
+  const impl = inner.body;
+  if (impl.consequent["@type"] !== "fol:False") return null;
+  if (impl.antecedent["@type"] !== "fol:Conjunction") return null;
+  const conj = impl.antecedent;
+  if (conj.conjuncts.length !== 2) return null;
+  const c0 = conj.conjuncts[0];
+  const c1 = conj.conjuncts[1];
+  if (c0["@type"] !== "fol:Atom" || c1["@type"] !== "fol:Atom") return null;
+  if (!isNamedIRI(c0.predicate) || !isNamedIRI(c1.predicate)) return null;
+  if (c0.predicate === c1.predicate) return null;
+  if (!isBinaryAtomOnVariables(c0, x, y)) return null;
+  if (!isBinaryAtomOnVariables(c1, x, y)) return null;
+  return {
+    "@type": "DisjointObjectProperties",
+    properties: [c0.predicate, c1.predicate],
+  };
+}
+
+// ---- Step 3c: identity-axiomatization SUPPRESSION filter ----
+
+/**
+ * Identify the lifter's library-injected identity-discipline axioms (per
+ * spec §5.5.1-§5.5.2) so the projector can drop them rather than
+ * round-tripping them as user-authored ObjectPropertyCharacteristic axioms
+ * on owl:sameAs / owl:differentFrom predicates. The lifter's
+ * `emitIdentityMachinery` produces these shapes:
+ *
+ *   - `∀x. owl:sameAs(x,x)` (sameAs reflexivity)
+ *   - `∀x,y. owl:sameAs(x,y) → owl:sameAs(y,x)` (sameAs symmetry)
+ *   - `∀x,y,z. owl:sameAs(x,y) ∧ owl:sameAs(y,z) → owl:sameAs(x,z)`
+ *     (sameAs transitivity)
+ *   - `∀x,y. owl:differentFrom(x,y) → owl:differentFrom(y,x)`
+ *     (differentFrom symmetry)
+ *   - Per-predicate identity-rewrite rules for unary and binary predicates.
+ */
+function isIdentityAxiomatizationAxiom(axiom: FOLAxiom): boolean {
+  if (axiom["@type"] !== "fol:Universal") return false;
+
+  // ∀x. owl:sameAs(x,x) — reflexivity.
+  if (
+    axiom.body["@type"] === "fol:Atom" &&
+    axiom.body.predicate === OWL_SAME_AS_IRI &&
+    axiom.body.arguments.length === 2 &&
+    isVariableNamed(axiom.body.arguments[0], axiom.variable) &&
+    isVariableNamed(axiom.body.arguments[1], axiom.variable)
+  ) {
+    return true;
+  }
+
+  // 2-level universals: sameAs/differentFrom symmetry, unary identity-rewrite.
+  if (axiom.body["@type"] === "fol:Universal") {
+    const x = axiom.variable;
+    const inner = axiom.body;
+    const y = inner.variable;
+    if (x === y) return false;
+
+    // ∀x,y. P(x,y) → P(y,x) on a reserved predicate — sameAs OR
+    // differentFrom symmetry.
+    if (
+      inner.body["@type"] === "fol:Implication" &&
+      inner.body.antecedent["@type"] === "fol:Atom" &&
+      inner.body.consequent["@type"] === "fol:Atom" &&
+      isReservedIdentityPredicate(inner.body.antecedent.predicate) &&
+      inner.body.antecedent.predicate === inner.body.consequent.predicate &&
+      isBinaryAtomOnVariables(inner.body.antecedent, x, y) &&
+      isBinaryAtomOnVariables(inner.body.consequent, y, x)
+    ) {
+      return true;
+    }
+
+    // ∀x,z. P(x) ∧ owl:sameAs(x,z) → P(z) — unary identity-rewrite.
+    if (
+      inner.body["@type"] === "fol:Implication" &&
+      inner.body.antecedent["@type"] === "fol:Conjunction" &&
+      inner.body.consequent["@type"] === "fol:Atom"
+    ) {
+      const conj = inner.body.antecedent;
+      if (conj.conjuncts.length === 2) {
+        const c0 = conj.conjuncts[0];
+        const c1 = conj.conjuncts[1];
+        if (
+          c0["@type"] === "fol:Atom" &&
+          c1["@type"] === "fol:Atom" &&
+          c1.predicate === OWL_SAME_AS_IRI &&
+          isUnaryAtomOnVariable(c0, x) &&
+          isBinaryAtomOnVariables(c1, x, y) &&
+          isUnaryAtomOnVariable(inner.body.consequent, y) &&
+          c0.predicate === inner.body.consequent.predicate
+        ) {
+          return true;
+        }
+      }
+    }
+  }
+
+  // 3-level universals: sameAs transitivity, binary identity-rewrites.
+  if (
+    axiom.body["@type"] === "fol:Universal" &&
+    axiom.body.body["@type"] === "fol:Universal"
+  ) {
+    const x = axiom.variable;
+    const y = axiom.body.variable;
+    const z = axiom.body.body.variable;
+    if (x === y || y === z || x === z) return false;
+    if (axiom.body.body.body["@type"] !== "fol:Implication") return false;
+    const impl = axiom.body.body.body;
+    if (impl.antecedent["@type"] !== "fol:Conjunction") return false;
+    const conj = impl.antecedent;
+    if (conj.conjuncts.length !== 2) return false;
+    const c0 = conj.conjuncts[0];
+    const c1 = conj.conjuncts[1];
+    if (
+      c0["@type"] !== "fol:Atom" ||
+      c1["@type"] !== "fol:Atom" ||
+      impl.consequent["@type"] !== "fol:Atom"
+    ) {
+      return false;
+    }
+    const con = impl.consequent;
+
+    // ∀x,y,z. owl:sameAs(x,y) ∧ owl:sameAs(y,z) → owl:sameAs(x,z) — transitivity.
+    if (
+      c0.predicate === OWL_SAME_AS_IRI &&
+      c1.predicate === OWL_SAME_AS_IRI &&
+      con.predicate === OWL_SAME_AS_IRI &&
+      isBinaryAtomOnVariables(c0, x, y) &&
+      isBinaryAtomOnVariables(c1, y, z) &&
+      isBinaryAtomOnVariables(con, x, z)
+    ) {
+      return true;
+    }
+
+    // ∀x,y,z. P(x,y) ∧ owl:sameAs(x,z) → P(z,y) — binary first-arg rewrite.
+    if (
+      c0.predicate !== OWL_SAME_AS_IRI &&
+      c1.predicate === OWL_SAME_AS_IRI &&
+      con.predicate === c0.predicate &&
+      isBinaryAtomOnVariables(c0, x, y) &&
+      isBinaryAtomOnVariables(c1, x, z) &&
+      isBinaryAtomOnVariables(con, z, y)
+    ) {
+      return true;
+    }
+
+    // ∀x,y,z. P(x,y) ∧ owl:sameAs(y,z) → P(x,z) — binary second-arg rewrite.
+    if (
+      c0.predicate !== OWL_SAME_AS_IRI &&
+      c1.predicate === OWL_SAME_AS_IRI &&
+      con.predicate === c0.predicate &&
+      isBinaryAtomOnVariables(c0, x, y) &&
+      isBinaryAtomOnVariables(c1, y, z) &&
+      isBinaryAtomOnVariables(con, x, z)
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// ---- Pair-matchers (Step 3a + 3c) ----
 
 type PairMatch =
   | { kind: "tbox"; axiom: TBoxAxiom }
@@ -746,6 +1067,30 @@ function matchEquivalentClassesPair(a: FOLAxiom, b: FOLAxiom): PairMatch | null 
     ],
   };
   return { kind: "tbox", axiom: ec };
+}
+
+function matchEquivalentObjectPropertiesPair(a: FOLAxiom, b: FOLAxiom): PairMatch | null {
+  // Each half is a SubObjectPropertyOf-shaped axiom: ∀x,y. P(x,y) → Q(x,y).
+  // The pair forms EquivalentObjectProperties(P, Q) when one half is the
+  // converse of the other (P→Q paired with Q→P).
+  if (a["@type"] !== "fol:Universal" || b["@type"] !== "fol:Universal") return null;
+  const aMatch = matchSubObjectPropertyOf(a);
+  const bMatch = matchSubObjectPropertyOf(b);
+  if (!aMatch || !bMatch) return null;
+  if (
+    aMatch.subProperty !== bMatch.superProperty ||
+    aMatch.superProperty !== bMatch.subProperty
+  ) {
+    return null;
+  }
+  // Self-pair guard (already enforced inside matchSubObjectPropertyOf via
+  // distinct-predicate check, but defensive).
+  if (aMatch.subProperty === aMatch.superProperty) return null;
+  const eqp: EquivalentObjectPropertiesAxiom = {
+    "@type": "EquivalentObjectProperties",
+    properties: [aMatch.subProperty, aMatch.superProperty],
+  };
+  return { kind: "rbox", axiom: eqp };
 }
 
 function matchInverseObjectPropertiesPair(a: FOLAxiom, b: FOLAxiom): PairMatch | null {
