@@ -2,15 +2,24 @@
 /**
  * ARC Manifest Compiler — TSV → JSON-LD modules
  *
- * Phase 0.6 deliverable per ROADMAP.
+ * Phase 0.6 deliverable per ROADMAP. Updated post-ADR-008 + ADR-009 (2026-05-05):
+ * 8 active v0.1 modules; OFI deontic deferred to v0.2 and absent from emitter.
  *
- * Reads `project/relations_catalogue_v3.tsv` and produces the five
+ * Reads `project/relations_catalogue_v3_3.tsv` and produces the eight
  * JSON-LD ARC module files under `arc/` per spec §3.6.1:
  *   arc/core/bfo-2020.json
  *   arc/core/iao-information.json
  *   arc/cco/realizable-holding.json
  *   arc/cco/mereotopology.json
- *   arc/ofi/deontic.json
+ *   arc/cco/measurement.json
+ *   arc/cco/aggregate.json
+ *   arc/cco/organizational.json
+ *   arc/cco/deontic.json
+ *
+ * Per ADR-008 (2026-05-05): rows with Module column = `[V0.2-CANDIDATE]` are
+ * silently skipped (NOT counted as unassigned), since they are intentionally
+ * deferred from v0.1 scope. The skip is reported in the build summary so the
+ * v0.2 forward-track remains visible.
  *
  * Module assignment for each TSV row is read from one of two sources,
  * in this order:
@@ -21,7 +30,8 @@
  *       affordance until the SME has folded the Module column into the TSV.
  *
  * Rows with no module assignment under either mechanism produce a warning
- * and are skipped. Run with `--strict` to fail instead of warn.
+ * and are skipped. Run with `--strict` to fail instead of warn. v0.2-deferred
+ * rows are skipped under both `--strict` and non-strict modes.
  *
  * The script is intentionally pure-Node and dependency-free so it can
  * run before `npm install` resolves the project's full devDependency tree.
@@ -33,7 +43,7 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, "..");
-const tsvPath = join(root, "project", "relations_catalogue_v3.tsv");
+const tsvPath = join(root, "project", "relations_catalogue_v3_3.tsv");
 const arcDir = join(root, "arc");
 const assignmentsPath = join(arcDir, "module-assignments.json");
 
@@ -42,7 +52,19 @@ const VALID_MODULES = new Set([
   "core/iao-information",
   "cco/realizable-holding",
   "cco/mereotopology",
-  "ofi/deontic",
+  "cco/measurement",
+  "cco/aggregate",
+  "cco/organizational",
+  "cco/deontic",
+]);
+
+// Per ADR-008 (2026-05-05): rows tagged with these sentinel values in the
+// Module column are intentionally deferred from v0.1 scope. They are skipped
+// silently (not counted as unassigned) but reported in the build summary so
+// the v0.2 forward-track remains visible.
+const V02_DEFERRAL_TAGS = new Set([
+  "[V0.2-CANDIDATE]",
+  "[V0.2-DEFERRED]",
 ]);
 
 const args = process.argv.slice(2);
@@ -130,11 +152,16 @@ async function main() {
   const assignments = await loadAssignments();
   const buckets = new Map();
   const unassigned = [];
+  const v02Deferred = [];
 
   for (const row of rows) {
     const mod = pickModule(row, assignments);
     if (!mod) {
       unassigned.push(row);
+      continue;
+    }
+    if (V02_DEFERRAL_TAGS.has(mod)) {
+      v02Deferred.push(row);
       continue;
     }
     if (!VALID_MODULES.has(mod)) {
@@ -162,10 +189,10 @@ async function main() {
 
   await mkdir(join(arcDir, "core"), { recursive: true });
   await mkdir(join(arcDir, "cco"), { recursive: true });
-  await mkdir(join(arcDir, "ofi"), { recursive: true });
+  // arc/ofi/ directory not created in v0.1 — OFI deontic deferred to v0.2 per ADR-008.
 
-  // Always emit all five module files (empty if no rows assigned to that module)
-  // so downstream code can rely on their existence.
+  // Always emit all eight active v0.1 module files (empty if no rows assigned
+  // to that module) so downstream code can rely on their existence.
   for (const mod of VALID_MODULES) {
     const entries = buckets.get(mod) || [];
     const moduleDoc = {
@@ -184,11 +211,20 @@ async function main() {
     log(`  wrote ${outPath} (${entries.length} entries)`);
   }
 
+  const builtCount = rows.length - unassigned.length - v02Deferred.length;
   console.log(
-    `  ✓ ARC build complete: ${rows.length - unassigned.length} entries across ${VALID_MODULES.size} modules`
+    `  ✓ ARC build complete: ${builtCount} entries across ${VALID_MODULES.size} modules`
   );
   if (unassigned.length > 0) {
     console.log(`    (${unassigned.length} unassigned row(s) skipped)`);
+  }
+  if (v02Deferred.length > 0) {
+    console.log(
+      `    (${v02Deferred.length} row(s) deferred to v0.2 per ADR-008: ` +
+      v02Deferred.slice(0, 5).map((r) => `"${r["Relation Name"]}"`).join(", ") +
+      (v02Deferred.length > 5 ? ", …" : "") +
+      ")"
+    );
   }
 }
 

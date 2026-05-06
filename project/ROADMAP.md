@@ -78,16 +78,18 @@ Implement all twelve error classes per API spec §10 plus `TauPrologVersionMisma
 
 ### 0.6 ARC Manifest TSV→JSON-LD Migration
 
-**Status:** ✅ Engineering scaffolding COMPLETE 2026-05-02 (commit `d990353`); SME-side Module-column population is the Aaron-led parallel workstream (per ADR-003) gating Phase 4 entry, not Phase 0 exit. | **Priority:** High | **Owner:** Aaron (Module column) + engineering (compiler tooling)
+**Status:** ✅ COMPLETE 2026-05-05 — engineering scaffolding shipped 2026-05-02 (commit `d990353`); SME Module-column population closed at v3.3 catalogue regeneration (`a5b1189` + closeout edits) with all 135 rows assigned to a module under the post-ADR-008/ADR-009 8-module taxonomy (rows 129-136 marked `[V0.2-CANDIDATE]` per ADR-008 OFI deferral). | **Priority:** High | **Owner:** Aaron (Module column) + engineering (compiler tooling)
 
-The current ARC catalogue is TSV-only (`project/relations_catalogue_v3.tsv`). Phases 4-7 cannot begin until the five JSON-LD modules per spec §3.6.1 exist. Per ADR-003 the engineering compiler scaffolding ships in Phase 0; the SME-authored `Module` column / `arc/module-assignments.json` population is the parallel SME workstream.
+The current ARC catalogue is now SPARQL-regenerated (`project/relations_catalogue_v3_3.tsv`, 135 rows). Phases 4-7 cannot begin until the JSON-LD modules per spec §3.6.1 exist. Per ADR-003 the engineering compiler scaffolding ships in Phase 0; the SME-authored `Module` column population was the parallel SME workstream and is now closed.
+
+**Per ADR-008 + ADR-009 (ratified 2026-05-05):** the spec §3.6.1 module taxonomy expanded from 5 to 8 modules. Four new CCO modules added: `cco/measurement`, `cco/aggregate`, `cco/organizational`, `cco/deontic`. OFI deontic (`ofi/deontic`) deferred to v0.2 — see Phase 7 scope reduction (Option A) below.
 
 **Acceptance Criteria:**
-- [ ] **(Aaron parallel workstream, gates Phase 4 entry)** `relations_catalogue_v3.tsv` gains a `Module` column assigning each row to one of the five modules from spec §3.6.1 — OR `arc/module-assignments.json` is populated as the transition affordance per ADR-003
-- [x] Compiler scaffolding for five JSON-LD module file targets: `arc/core/bfo-2020.json`, `arc/core/iao-information.json`, `arc/cco/realizable-holding.json`, `arc/cco/mereotopology.json`, `arc/ofi/deontic.json` (`scripts/build-arc.js`; populates from TSV Module column or `arc/module-assignments.json`)
-- [ ] **(Phase 7 deliverable per architect)** Disjointness commitments currently in the Notes column (rows 65-66 `discharges`/`violates`) are formalized into machine-readable axiom entries in `arc/ofi/deontic.json`
+- [x] **(Aaron parallel workstream, closed)** `relations_catalogue_v3_3.tsv` Module column populated for all 135 rows under the 8-module taxonomy from spec §3.6.1; rows 129-136 (formerly OFI deontic) carry `[V0.2-CANDIDATE]` per ADR-008
+- [x] Compiler scaffolding for JSON-LD module file targets: 8 active modules — `arc/core/bfo-2020.json`, `arc/core/iao-information.json`, `arc/cco/realizable-holding.json`, `arc/cco/mereotopology.json`, `arc/cco/measurement.json`, `arc/cco/aggregate.json`, `arc/cco/organizational.json`, `arc/cco/deontic.json` (`scripts/build-arc.js`; populates from TSV Module column or `arc/module-assignments.json`); `arc/ofi/deontic.json` deferred to v0.2 per ADR-008
 - [x] TSV remains as auto-generated human-readable view per spec §14 Q1 resolution (`scripts/regenerate-arc-tsv.js`)
-- [x] Round-trip script: TSV → JSON-LD modules → regenerated TSV produces byte-identical TSV (`scripts/round-trip-arc.js`; runs in non-strict mode in Phase 0; `--strict` gates Phase 4 entry per the per-phase ARC Authoring Exit Criteria below)
+- [x] Round-trip script: TSV → JSON-LD modules → regenerated TSV produces byte-identical TSV (`scripts/round-trip-arc.js`; runs in non-strict mode in Phase 0; `--strict` gates Phase 4 entry per the per-phase ARC Authoring Exit Criteria below; `--strict` MUST skip rows tagged `[V0.2-CANDIDATE]` rather than failing on missing module routing — see ADR-008)
+- [x] **Disjointness commitments formerly slated for OFI deontic (rows 65-66 `discharges`/`violates`) are deferred to v0.2** per ADR-008 alongside the OFI deontic module. CCO deontic disjointness commitments (Directive ↔ Action) are formalized in `arc/cco/deontic.json` as a Phase 6 deliverable.
 
 ### 0.7 SME Tooling and Authoring Infrastructure
 
@@ -261,6 +263,10 @@ Step 4 promotion (Aaron-led):
 - [x] All listed exit criteria pass in CI — `25368645008` green on remote
 - [x] Risk retrospective recorded (per plan §6.3) — `phase-1-exit.md` Section 8 (seven banked items + two opportunistic Phase 3 entry items + Item 9 date/dateTime range gap scope-documented for v0.2)
 - [x] Exit summary committed to repo — [`project/reviews/phase-1-exit.md`](reviews/phase-1-exit.md) (this commit)
+
+**Forward-tracks for v0.2 surfaced post-Phase-1 (after exit):**
+- [x] **OFI deontic v0.2 candidacy** — per ADR-008 (ratified 2026-05-05): the OFI deontic ARC module and its eight catalogue rows are deferred from v0.1 to v0.2 because the OFI specification has not stabilized. CCO deontic (Directive→Action) is retained in v0.1 as a Phase 6 deliverable per ADR-009. See [`project/DECISIONS.md`](DECISIONS.md#adr-008-ofi-deontic-deferral-to-v02) and `relations_catalogue_v3_3.tsv` rows 129-136 (`[V0.2-CANDIDATE]` Module column).
+- [x] **CCO module taxonomy expansion (v0.1)** — per ADR-009 (ratified 2026-05-05): four new CCO modules added to v0.1 (cco/measurement, cco/aggregate, cco/organizational, cco/deontic) — Phase 6 scope expanded accordingly. See [`project/DECISIONS.md`](DECISIONS.md#adr-009-cco-module-expansion-to-six-modules).
 
 ---
 
@@ -498,44 +504,55 @@ Structural smoke test of the modular ARC discipline.
 
 ---
 
-## Phase 6 — CCO Modules
+## Phase 6 — CCO Modules (six modules)
 
-**Goal:** Add CCO realizable-holding and mereotopology ARC modules.
+**Goal:** Add the six CCO ARC modules: realizable-holding, mereotopology, measurement, aggregate, organizational, and deontic.
 
 **Status:** Not Started
 
 **Plan reference:** §3.7
 
+**Per ADR-009 (ratified 2026-05-05):** Phase 6 scope expanded from 2 CCO modules to 6 CCO modules. Four new modules — `cco/measurement`, `cco/aggregate`, `cco/organizational`, `cco/deontic` — were added when v3.3 catalogue regeneration surfaced 39 catalogue rows that did not fit the original 5-module taxonomy. Per-module size budgets are enumerated in spec §13.4.
+
 ### Phase 6 Entry Checklist (must close before phase begins)
 - [ ] **All CCO realizable-holding entries are Verified — resolve `[VERIFY CCO IRI]` on rows 56-60 (Has Role, Has Disposition, Has Function, Agent In, Patient In)**
-- [ ] CCO realizable-holding and mereotopology ARC content authored, reviewed, and ingested
+- [ ] All six CCO ARC modules' content authored, reviewed, and ingested
+- [ ] **Per-module size-budget pre-check (advisory in Phase 0-5; enforced in Phase 7):** module-by-module bundle sizes reported and compared against spec §13.4 caps. A module currently over its cap MUST be triaged before phase exit (split, prune, or budget revision via ADR)
 
 ### Phase 6 ARC Authoring Exit Criteria (per `arc/AUTHORING_DISCIPLINE.md`)
-- [ ] Every Verified CCO realizable-holding entry has at least one passing fixture in `tests/corpus/` registered in the manifest
-- [ ] Every Verified CCO mereotopology entry has at least one passing fixture
+- [ ] Every Verified entry across all six CCO modules has at least one passing fixture in `tests/corpus/` registered in the manifest
 - [ ] Every Verified CCO entry has been peer-reviewed against canonical literature (CCO 2.0 release) with citation captured
-- [ ] `scripts/lint-arc.js --strict` passes against both CCO modules with zero violations
-- [ ] `scripts/build-arc.js --strict` reports 0 skipped rows for the CCO modules
+- [ ] `scripts/lint-arc.js --strict` passes against all six CCO modules with zero violations
+- [ ] `scripts/build-arc.js --strict` reports 0 skipped rows for any of the six CCO modules
+- [ ] CCO deontic disjointness commitments (Directive ↔ Action — distinct from OFI Directive→Issuing-Agent semantics, deferred per ADR-008) formalized as machine-readable axioms in `arc/cco/deontic.json`
 
 ### Deliverables Checklist
-- [ ] `arc/cco/realizable-holding.json` per spec §3.6.1 (≤ 15 KB minified target) covering `has_role`, `has_disposition`, `has_function`, `agent_in`, `patient_in`
-- [ ] `arc/cco/mereotopology.json` per spec §3.6.1 (≤ 5 KB minified target) — Connected With CCO-specific extensions
+- [ ] `arc/cco/realizable-holding.json` per spec §3.6.1 (≤ 15 KB minified per §13.4) — `has_role`, `has_disposition`, `has_function`, `agent_in`, `patient_in`
+- [ ] `arc/cco/mereotopology.json` per spec §3.6.1 (≤ 5 KB minified per §13.4) — Connected With CCO-specific extensions
+- [ ] `arc/cco/measurement.json` per spec §3.6.1 (≤ 8 KB minified per §13.4) — measurement processes, units, magnitudes
+- [ ] `arc/cco/aggregate.json` per spec §3.6.1 (≤ 5 KB minified per §13.4) — aggregate-of-individuals patterns
+- [ ] `arc/cco/organizational.json` per spec §3.6.1 (≤ 12 KB minified per §13.4) — organizational membership, roles, structural relations
+- [ ] `arc/cco/deontic.json` per spec §3.6.1 (≤ 8 KB minified per §13.4) — CCO Directive→Action deontic vocabulary (distinct from OFI deontic which is deferred to v0.2)
 
 ### Phase 6 Test Corpus
 Every fixture MUST be registered in `tests/corpus/manifest.json`.
 
-- [ ] Built-in OWL + BFO + IAO + CCO fixtures
-- [ ] CCO Geospatial: spatial regions, locations, mereotopological closures
-- [ ] CCO Agent: agents with roles, dispositions, functions
+- [ ] Built-in OWL + BFO + IAO + all six CCO modules' fixtures
+- [ ] CCO realizable-holding: agents with roles, dispositions, functions
+- [ ] CCO mereotopology: spatial regions, locations, mereotopological closures
+- [ ] CCO measurement: measurement-of relations, unit assertions
+- [ ] CCO aggregate: aggregates and their part-individuals
+- [ ] CCO organizational: organization-membership and structural relations
+- [ ] CCO deontic: Directive→Action with disjointness witnesses
 - [ ] Cross-module: CCO Agent participates_in (BFO) a process described by IAO documentation
 
-### Exit Criteria — Rings 1-3 on built-in OWL + BFO + IAO + CCO
+### Exit Criteria — Rings 1-3 on built-in OWL + BFO + IAO + (all six CCO modules)
 - [ ] All Phase 5 exit criteria continue to hold
-- [ ] All CCO corpus members pass Rings 1-3
-- [ ] **Coverage matrix (API §14.11) cells for CCO Geospatial and CCO Agent exercised**
+- [ ] All CCO corpus members pass Rings 1-3 across all six modules
+- [ ] **Coverage matrix (API §14.11) cells for each of the six CCO modules exercised**
 - [ ] **Domain/range canonical exerciser (criterion 13) passing both via PROV-O (already in scope) and CCO patterns**
 
-Largest content expansion; most likely phase to surface module-interaction bugs.
+Largest content expansion in v0.1; most likely phase to surface module-interaction bugs across the expanded CCO surface.
 
 ### Phase 6 Exit Review
 - [ ] All listed exit criteria pass in CI
@@ -544,9 +561,9 @@ Largest content expansion; most likely phase to surface module-interaction bugs.
 
 ---
 
-## Phase 7 — OFI Deontic ARC Module and Compatibility Shim
+## Phase 7 — Compatibility Shim, Bundle Budget Enforcement, Coverage Matrix CI
 
-**Goal:** Add the final v0.1 ARC module (OFI deontic, RDM v1.2.1 chain). Implement the compatibility shim. Land bundle budget enforcement and test corpus coverage matrix CI.
+**Goal:** Implement the compatibility shim. Land bundle budget enforcement and test corpus coverage matrix CI. **(Option A scope per ADR-008 ratification: OFI deontic ARC module removed from v0.1 scope; constitution.ttl Article I §2 pipeline rolled forward to Phase 8 alongside the v0.1 release tag-and-publish.)**
 
 **Status:** Not Started
 
@@ -554,17 +571,15 @@ Largest content expansion; most likely phase to surface module-interaction bugs.
 
 **Cross-team dependency:** Fandaws Bucket C helper signature inventory (per spec §17.7) required before Phase 7 entry.
 
-### Phase 7 ARC Authoring Exit Criteria (per `arc/AUTHORING_DISCIPLINE.md`)
-- [ ] Every Verified OFI deontic entry has at least one passing fixture in `tests/corpus/` registered in the manifest
-- [ ] Every Verified OFI entry has been peer-reviewed against canonical literature (RDM v1.2.1 spec, constitution.ttl Article I) with citation captured
-- [ ] All directive/commitment disjointness commitments declared in the catalogue Notes are formalized as machine-readable axioms in `arc/ofi/deontic.json` (resolves rows 65-66 `discharges`/`violates` from Phase 0.6)
-- [ ] `scripts/lint-arc.js --strict` passes against the OFI deontic module with zero violations
-- [ ] `scripts/build-arc.js --strict` reports 0 skipped rows for the OFI deontic module
-- [ ] `npm run test:arc-roundtrip -- --strict` wired into CI as a gated step
+**Per ADR-008 (ratified 2026-05-05):** OFI deontic ARC content is deferred to v0.2 because the OFI specification it depends on has not stabilized. Phase 7 retains the compatibility shim, bundle budget CI, and coverage matrix CI as v0.1-IMPLEMENTATION-COMPLETE-bearing deliverables. The OFI-bearing fixtures and `arc/ofi/deontic.json` are removed from v0.1 scope.
+
+### Phase 7 Exit Criteria — Bundle Budget + Coverage Matrix CI
+- [ ] `npm run test:arc-roundtrip -- --strict` wired into CI as a gated step (does NOT regress when `[V0.2-CANDIDATE]`-tagged catalogue rows are present — they are skipped per ADR-008)
+- [ ] Bundle budget CI gating per API spec §13.4: regressions block PRs (per-CCO-module caps from spec §13.4.1 enforced)
+- [ ] Test corpus coverage matrix CI per API spec §14.11 covering all 8 active modules
 
 ### Deliverables Checklist
-- [ ] `arc/ofi/deontic.json` per spec §3.6.1 (≤ 15 KB minified target) — directives, commitments, RDM v1.2.1 chain
-- [ ] `@ontology-of-freedom/ofbt-compat-fandaws` package per API spec §12 with all Bucket C helper signatures backed by OFBT calls
+- [ ] `@ontology-of-freedom/ofbt-compat-fandaws` package per API spec §12 with all Bucket C helper signatures backed by OFBT calls (shim retained per ADR-008 Option A — Fandaws-side interface stability obligation is independent of OFI ARC content)
 - [ ] Parallel-run mode per API spec §12.3 with `expectedDivergences` mechanism per §12.3.1
 - [ ] Bundle budget CI gating per API spec §13.4: regressions block PRs
 - [ ] Test corpus coverage matrix CI per API spec §14.11
@@ -572,26 +587,27 @@ Largest content expansion; most likely phase to surface module-interaction bugs.
 ### Phase 7 Test Corpus
 Every fixture MUST be registered in `tests/corpus/manifest.json`.
 
-- [ ] Built-in OWL + BFO + IAO + CCO + OFI deontic
-- [ ] constitution.ttl Article I §2 pipeline (spec §14 Q5)
-- [ ] Full RDM v1.2.1 chain fixture exercising property-chain realization
-- [ ] Structural annotation fixtures using interim Fandaws IRIs
+- [ ] Built-in OWL + BFO + IAO + (all six CCO modules); OFI deontic fixtures deferred to v0.2 per ADR-008
+- [ ] Structural annotation fixtures using interim Fandaws IRIs (shim parallel-run cases)
 
-#### Phase 7 Wrong-Translation Canary Set
-- [ ] `canary_realizes_directive_naive_subproperty.fixture.js` — `realizes_directive` MUST decompose into the property chain (VerbPhrase DiscourseReferent + DirectiveICE + PlanSpecification + RealizableEntity); asserts the projector does NOT collapse it to a naive `subPropertyOf` (the wrong translation that loses the chain decomposition the RDM v1.2.1 contract depends on). The test verifies the property-chain realization strategy fired, not that the output round-trips.
-- [ ] `canary_directive_disjointness_silent_pass.fixture.js` — directive that simultaneously discharges and violates a commitment; `checkConsistency` MUST return `false` with the OFI deontic disjointness witness, NOT silently `true`
+**OFI-bearing fixtures deferred to v0.2 per ADR-008 (NOT Phase 7 deliverables):**
+- `canary_realizes_directive_naive_subproperty.fixture.js` — `realizes_directive` property-chain decomposition canary
+- `canary_directive_disjointness_silent_pass.fixture.js` — OFI Directive→Issuing-Agent disjointness witness canary
+- Full RDM v1.2.1 chain fixture exercising OFI property-chain realization
+
+(Note: CCO deontic Directive→Action disjointness fixtures are Phase 6 deliverables, not deferred — see `cco/deontic` module above.)
 
 ### Exit Criteria — v0.1 IMPLEMENTATION COMPLETE
-- [ ] Rings 1-3 passing on full v0.1 corpus
-- [ ] All v0.1.7 spec §12 acceptance criteria 1-15 pass
+- [ ] Rings 1-3 passing on full v0.1 corpus (built-in OWL + BFO + IAO + 6 CCO modules; OFI deferred per ADR-008)
+- [ ] All v0.1.7 spec §12 acceptance criteria 1-15 pass (those gated on OFI ARC content carry the ADR-008 deferral note)
 - [ ] All API spec §14 acceptance criteria API-1 through API-11 pass
 - [ ] Compatibility shim parallel-run mode operational
-- [ ] Bundle budget CI passing: OFBT core ≤ 100 KB, rdf-canonize ≤ 50 KB, ARC core ≤ 50 KB, total mandatory ≤ 200 KB
-- [ ] Coverage matrix fully exercised end-to-end; per-phase cells (Phases 4, 5, 6) consolidated; "n/a" cells documented with rationale
+- [ ] Bundle budget CI passing: OFBT core ≤ 100 KB, rdf-canonize ≤ 50 KB, ARC core ≤ 50 KB, total mandatory ≤ 200 KB; per-module CCO caps per spec §13.4
+- [ ] Coverage matrix fully exercised across the 8 active modules; per-phase cells (Phases 4, 5, 6) consolidated; OFI-cell "deferred to v0.2 per ADR-008" annotation explicit; other "n/a" cells documented with rationale
 - [ ] Expected-divergence mechanism verified against synthetic baseline entries
 
 ### Phase 7 Entry Review
-- [ ] Entry criteria confirmed met (Phase 6 exited; OFI deontic ARC content authored; Fandaws Bucket C inventory provided)
+- [ ] Entry criteria confirmed met (Phase 6 exited with all six CCO modules ratified; Fandaws Bucket C inventory provided)
 - [ ] Entry summary committed to repo
 
 ### Phase 7 Exit Review
@@ -601,9 +617,9 @@ Every fixture MUST be registered in `tests/corpus/manifest.json`.
 
 ---
 
-## Phase 8 — Verification Gate Support and Release
+## Phase 8 — Verification Gate Support, constitution.ttl Pipeline, and Release
 
-**Goal:** Support Fandaws's verification cycle gate. Tag and publish v0.1.0.
+**Goal:** Support Fandaws's verification cycle gate. Exercise the constitution.ttl Article I §2 pipeline (rolled forward from Phase 7 per ADR-008 Option A — exercises CCO deontic + IAO + BFO machinery without OFI dependence). Tag and publish v0.1.0.
 
 **Status:** Not Started
 
@@ -611,13 +627,18 @@ Every fixture MUST be registered in `tests/corpus/manifest.json`.
 
 **Fundamentally collaborative:** cannot complete without Fandaws-side participation.
 
+**Per ADR-008 Option A (ratified 2026-05-05):** the constitution.ttl Article I §2 pipeline (spec §14 Q5) is rolled forward from Phase 7 to Phase 8. The pipeline exercises CCO deontic Directive→Action machinery against the v0.1 module set (BFO + IAO + six CCO modules); OFI-specific extensions are deferred to v0.2 alongside the OFI deontic ARC module.
+
 ### Deliverables Checklist
+- [ ] constitution.ttl Article I §2 pipeline fixture (spec §14 Q5) exercised against v0.1 active modules; OFI-specific extensions documented as v0.2 follow-up
 - [ ] Verification Gate Guide per API spec §15.4 (installation, parallel-run config, mismatch interpretation)
 - [ ] Response to Fandaws-side gate findings: investigate, attribute (OFBT bug vs undocumented legacy bug), fix or baseline
 - [ ] `@ontology-of-freedom/ofbt@0.1.0` and `@ontology-of-freedom/ofbt-compat-fandaws@0.1.0` published to npm
 - [ ] Tagged release, changelog, README finalized
+- [ ] v0.2 OFI-deferral forward-track recorded in release notes (links ADR-008 + the OFI candidacy entries in `relations_catalogue_v3_3.tsv`)
 
 ### Exit Criteria
+- [ ] constitution.ttl Article I §2 pipeline exercises green against the v0.1 active module set
 - [ ] Fandaws verification gate passes per API spec §15.3 + §15.3.1
 - [ ] npm packages published and installable
 - [ ] Any Phase 8 patch releases are themselves green per Phases 1-7 validation rings

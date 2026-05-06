@@ -43,7 +43,10 @@ const MODULE_DEPS = {
   "core/iao-information": ["core/bfo-2020"],
   "cco/realizable-holding": ["core/bfo-2020"],
   "cco/mereotopology": ["core/bfo-2020"],
-  "ofi/deontic": ["core/bfo-2020", "core/iao-information"],
+  "cco/measurement": ["core/bfo-2020"],
+  "cco/aggregate": ["core/bfo-2020"],
+  "cco/organizational": ["core/bfo-2020"],
+  "cco/deontic": ["core/bfo-2020", "core/iao-information"],
 };
 
 const violations = [];

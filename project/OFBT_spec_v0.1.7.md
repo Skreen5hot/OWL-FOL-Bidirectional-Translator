@@ -413,12 +413,24 @@ The v0.1 ARC manifest decomposes into the following modules, each in its own fil
 | Module | Contents | Approximate size (minified JSON-LD) |
 |---|---|---|
 | `core/bfo-2020.json` | BFO 2020 core relations: parthood, dependence, realization, participation, spatial, temporal, time-indexing | ≤ 40 KB |
-| `core/iao-information.json` | IAO information bridge: `is_about`, `denotes`, `is_token_of` | ≤ 10 KB |
-| `cco/realizable-holding.json` | CCO realizable-holding: `has_role`, `has_disposition`, `has_function`, `agent_in`, `patient_in` | ≤ 15 KB |
-| `cco/mereotopology.json` | CCO Connected With and bridge axioms (§3.4.1) | ≤ 5 KB |
-| `ofi/deontic.json` | OFI deontic sublayer: directives, commitments, RDM v1.2.1 chain | ≤ 15 KB |
+| `core/iao-information.json` | IAO information bridge: `is_about`, `denotes` (and v0.2+ `is_token_of` per ADR-008 deferral) | ≤ 10 KB |
+| `cco/realizable-holding.json` | CCO realizable-holding (individual realizable-holding pattern): `agent_in`, `affects`, `has_input`, `has_output`, etc. | ≤ 15 KB |
+| `cco/mereotopology.json` | CCO Connected With primitive + bridge axioms (§3.4.1); coincides with, externally connects, partially overlaps; tangential and nontangential parthood | ≤ 5 KB |
+| `cco/measurement.json` | CCO measurement vocabulary: measurement units, reference systems, time zones, geospatial coordinate reference systems | ≤ 8 KB |
+| `cco/aggregate.json` | CCO aggregate vocabulary: collective bearer-of, aggregate capability, aggregate quality, inheres-in-aggregate | ≤ 5 KB |
+| `cco/organizational.json` | CCO organizational vocabulary: affiliation, supervision, organizational context, subordinate roles, interest-bearing, delimitation | ≤ 12 KB |
+| `cco/deontic.json` | CCO deontic vocabulary (Directive→Action): `prescribes`, `prohibits`, `permits`, `requires`, plus inverses | ≤ 8 KB |
 
-Total v0.1 default ARC: ≤ 85 KB minified, of which the BFO core module (~40 KB) is the only mandatory module.
+Total v0.1 default ARC: ≤ 103 KB minified across the eight modules, of which `core/bfo-2020.json` (~40 KB) is the only mandatory module.
+
+**Module-list evolution (architect-ratified post-freeze changes per §0.2.3):**
+
+- v0.1.7 (frozen): 5 modules — `core/bfo-2020`, `core/iao-information`, `cco/realizable-holding`, `cco/mereotopology`, `ofi/deontic`.
+- v0.1 implementation amendments (post-freeze evidence-gated changes per §0.2.3):
+  - **ADR-008 (Accepted 2026-05-05):** `ofi/deontic.json` deferred from v0.1 to v0.2. The 8 OFI deontic relations are preserved in `project/relations_catalogue_v3_3.tsv` with module assignment `[V0.2-CANDIDATE]`; v0.1 build pipeline does not load them. OFI returns to scope at v0.2 when the external Reified Constitutive Relations Specification §3 publishes (or when SME-led decision finalizes the OFI namespace authority).
+  - **ADR-009 (Accepted 2026-05-05):** Four CCO modules added per v0.1 corpus evidence: `cco/measurement`, `cco/aggregate`, `cco/organizational`, `cco/deontic`. Evidence base is `project/relations_catalogue_v3_3.tsv` (committed pre-ratification per architect's procedural gating ruling); 35 CCO rows from v0.1 test corpus that don't fit the original 5-module taxonomy fit the four new modules cleanly per the deterministic module-assignment rule (namespace + property-path closure to BFO ancestor).
+
+Net v0.1 module count: **8 modules** (5 original − 1 deferred + 4 added).
 
 #### 3.6.2 Tree-shaking and consumer selection
 
@@ -440,9 +452,13 @@ A consumer using strict mode with a minimal ARC selection commits to ingesting o
 
 Modules may depend on other modules. Currently:
 
-- `cco/realizable-holding.json` depends on `core/bfo-2020.json` (it uses BFO realization relations)
+- `cco/realizable-holding.json` depends on `core/bfo-2020.json` (uses BFO realization relations)
 - `cco/mereotopology.json` depends on `core/bfo-2020.json` (uses BFO part_of for the bridge axiom)
-- `ofi/deontic.json` depends on `cco/realizable-holding.json` (RDM chain uses Roles)
+- `cco/measurement.json` depends on `core/bfo-2020.json` (uses `BFO_0000084` specifically_depends_on, `BFO_0000101` generically_depends_on)
+- `cco/aggregate.json` depends on `core/bfo-2020.json` (Object Aggregate is a BFO category; multi-ancestor to `BFO_0000196` bearer_of and `BFO_0000194` specifically_depended_on_by)
+- `cco/organizational.json` depends on `core/bfo-2020.json` (Organization is a BFO category)
+- `cco/deontic.json` depends on `core/iao-information.json` (Directive is an Information Content Entity per IAO)
+- `ofi/deontic.json` (v0.2+ per ADR-008) depends on `cco/realizable-holding.json` (RDM chain uses Roles); not loaded in v0.1
 
 The lifter validates dependencies at `createSession()` and throws `ARCManifestError` if a declared module's dependencies are not also loaded. The error message includes the missing dependencies for diagnostic purposes.
 

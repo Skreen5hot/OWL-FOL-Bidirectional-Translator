@@ -1904,7 +1904,7 @@ Per the architect's G1 critique: v0.1.6 said "ARC manifest is in budget" without
 | `rdf-canonize` | ≤ 50 KB | The only external runtime dependency outside Tau Prolog (peer-dep, not bundled). Cap reflects current measured size with tree-shaking. |
 | ARC core (BFO 2020 + IAO essentials) | ≤ 50 KB | The mandatory ARC modules (`core/bfo-2020.json` + `core/iao-information.json` per behavioral spec §3.6.1). All consumers pay this cost. |
 | **Total mandatory budget** | **≤ 200 KB** | Matches Fandaws's HARD requirement |
-| Optional ARC modules | (loaded separately) | `cco/realizable-holding`, `cco/mereotopology`, `ofi/deontic` per behavioral spec §3.6.1. Tree-shaken when not declared in `arcModules` (§2.0). Each module ≤ 15-20 KB. |
+| Optional ARC modules | (loaded separately) | Per behavioral spec §3.6.1 post-ADR-008/ADR-009 ratification (2026-05-05): six optional modules. Tree-shaken when not declared in `arcModules` (§2.0). Per-module caps: `cco/realizable-holding` ≤ 15 KB; `cco/mereotopology` ≤ 5 KB; `cco/measurement` ≤ 8 KB; `cco/aggregate` ≤ 5 KB; `cco/organizational` ≤ 12 KB; `cco/deontic` ≤ 8 KB. Consumer loading all six pays ≤ 53 KB optional. `ofi/deontic` deferred to v0.2 per ADR-008. |
 
 The mandatory budget is conservative: it leaves headroom against measured implementation reality. If `rdf-canonize` measures at 40 KB, OFBT core has 110 KB to work with; if ARC core measures at 45 KB, OFBT has 105 KB. The caps are *upper bounds* per component, not target sizes.
 
@@ -1931,14 +1931,23 @@ esbuild --minify --bundle src/index.js --external:tau-prolog | wc -c
 esbuild --minify --bundle src/index.js --external:tau-prolog | wc -c
 # Asserts ≤ 200 KB
 
-# Per ARC module
-for mod in arc/*.json; do
+# Per ARC module — eight modules in v0.1 (post-ADR-008/ADR-009 ratification)
+# Per-module cap enforcement table:
+#   core/bfo-2020.json         ≤ 40 KB
+#   core/iao-information.json  ≤ 10 KB
+#   cco/realizable-holding.json ≤ 15 KB
+#   cco/mereotopology.json     ≤ 5 KB
+#   cco/measurement.json       ≤ 8 KB
+#   cco/aggregate.json         ≤ 5 KB
+#   cco/organizational.json    ≤ 12 KB
+#   cco/deontic.json           ≤ 8 KB
+for mod in arc/core/*.json arc/cco/*.json; do
   cat "$mod" | esbuild --minify --loader=json | wc -c
 done
-# Asserts each ≤ documented cap
+# Asserts each ≤ its per-module cap above
 ```
 
-Regressions in any measurement block PRs. The CI script is part of the library's repo and is consumer-replicable: Fandaws CI runs the same measurement against its OFBT pin to verify no bundle creep.
+Regressions in any measurement block PRs. The CI script is part of the library's repo and is consumer-replicable: Fandaws CI runs the same measurement against its OFBT pin to verify no bundle creep. Per-module enforcement is required so a regression in one CCO module is attributable rather than masked by other modules' headroom.
 
 #### 13.4.4 Tau Prolog explicitly excluded
 

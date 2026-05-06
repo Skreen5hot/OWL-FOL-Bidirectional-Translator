@@ -144,17 +144,41 @@ Per ROADMAP cross-cutting "ARC Authoring Discipline":
 
 ## Module Dependencies
 
-Per spec §3.6.4 and `MODULE_DEPS` in `scripts/lint-arc.js`:
+Per spec §3.6.4 (post-ADR-009) and `MODULE_DEPS` in `scripts/lint-arc.js`:
 
 ```
 core/bfo-2020             (root)
 core/iao-information      depends on: core/bfo-2020
 cco/realizable-holding    depends on: core/bfo-2020
 cco/mereotopology         depends on: core/bfo-2020
-ofi/deontic               depends on: core/bfo-2020, core/iao-information
+cco/measurement           depends on: core/bfo-2020
+cco/aggregate             depends on: core/bfo-2020
+cco/organizational        depends on: core/bfo-2020
+cco/deontic               depends on: core/bfo-2020, core/iao-information
+ofi/deontic               (DEFERRED to v0.2 per ADR-008; absent from v0.1 active modules)
 ```
 
 An entry's `subPropertyOf` IRI MUST resolve to an entry in the same module or one of its declared dependencies. `lint-arc.js` flags violations.
+
+### CCO vs OFI deontic — semantic distinction (do not conflate)
+
+CCO `cco/deontic` and OFI `ofi/deontic` (the latter deferred to v0.2 per ADR-008) cover deontic territory but with **different semantics**. Both modules use the word "directive" but the relationships they encode are not interchangeable:
+
+- **CCO deontic (`cco/deontic`)** — Directive → Action. The directive specifies what the agent is to do; the consummation is the agent's action. Disjointness commitments (Directive ↔ Action) are formalized as machine-readable axioms in `arc/cco/deontic.json`.
+- **OFI deontic (`ofi/deontic`)** — Directive → Issuing-Agent. The directive identifies the agent who issued it; downstream the realizing chain (RDM v1.2.1) decomposes via VerbPhrase DiscourseReferent + DirectiveICE + PlanSpecification + RealizableEntity. The disjointness commitments differ from CCO deontic and live with the OFI specification — deferred to v0.2.
+
+**Authoring rule:** when an ARC entry concerns "directive" semantics, the SME MUST identify which Layer the entry belongs to (CCO Directive→Action vs OFI Directive→Issuing-Agent). The Module column assignment follows this distinction. A row that conflates the two layers is a content bug — surface it under the Failure-Triage Handoff protocol below.
+
+### External-dependency management — when v0.1 doesn't ship dependent content
+
+When an OFBT v0.1 module depends on an external specification that has not yet stabilized (e.g., the OFI specification at the time of the v3.3 catalogue regeneration), the dependent ARC content MUST be deferred to a later release (typically v0.2) rather than authored against an unstable target. The deferral path is:
+
+1. SME identifies that the external dependency has not stabilized (provenance markers like `[V0.2-CANDIDATE]` in the catalogue Module column flag the affected rows).
+2. SME files a routing packet to the Architect proposing deferral, citing the deterministic-rule evidence (which rows, which provenance markers, why the external dependency is unstable).
+3. Architect ratifies via ADR (deferral pattern: see ADR-008 OFI deontic deferral as the originating example).
+4. The catalogue rows carry `[V0.2-CANDIDATE]` in the Module column; `scripts/build-arc.js --strict` skips them rather than failing on missing module routing; the v0.2 forward-track is recorded in the release notes.
+
+**Authoring rule:** SME does NOT speculatively author content against an unstable external specification "to be safe." The deferral path is the correct channel; speculative content is content debt that must be re-litigated when the external spec stabilizes.
 
 ## Per-Phase Exit Checklists
 
@@ -162,8 +186,9 @@ Each ARC-bearing phase has explicit ARC Authoring Exit Criteria in `project/ROAD
 
 - **Phase 4** (BFO 2020 core): every Verified BFO entry has a fixture; BFO Disjointness Map commitments formalized; bridge axioms (Connected With) present with FOL definitions; lint passes.
 - **Phase 5** (IAO information): every Verified IAO entry has a fixture; lint passes.
-- **Phase 6** (CCO realizable-holding + mereotopology): every Verified CCO entry has a fixture; lint passes.
-- **Phase 7** (OFI deontic): every Verified OFI entry has a fixture; directive/commitment disjointness commitments formalized (rows 65-66 from Phase 0.6); lint passes.
+- **Phase 6** (six CCO modules — realizable-holding, mereotopology, measurement, aggregate, organizational, deontic per ADR-009): every Verified CCO entry across all six modules has a fixture; CCO deontic Directive↔Action disjointness commitments formalized; lint passes.
+- **Phase 7** (compatibility shim, bundle budget enforcement, coverage matrix CI per ADR-008 Option A): no new ARC modules; OFI deontic deferred to v0.2; OFI-bearing fixtures absent from v0.1 corpus; coverage matrix annotates OFI cells as "deferred to v0.2 per ADR-008".
+- **Phase 8** (verification gate + constitution.ttl pipeline rolled forward per ADR-008 Option A): constitution.ttl Article I §2 pipeline exercises CCO deontic + IAO + BFO machinery against the v0.1 active module set.
 
 ## Failure-Triage Handoff
 

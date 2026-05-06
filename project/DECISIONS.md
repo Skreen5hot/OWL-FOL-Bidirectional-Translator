@@ -272,3 +272,116 @@ Architect-ratified at the BFO/CLIF parity routing cycle 2026-05-03 ("yes the eli
 - The Phase 3 evaluator's Prolog-rule-emission algorithm has a documented contract: ingest classical-FOL term trees and apply the visited-ancestor cycle-guard at ingestion time.
 - All ADR-007 sections §§1-10 are Resolved at Phase 1 exit. Phase 2+ extensions to ADR-007 (e.g., projector-side conventions) land as new sections in the same document; pre-existing sections do not get re-litigated without architect-banked implementation evidence per spec §0.2.
 
+---
+
+## ADR-008: OFI deontic deferred from v0.1 to v0.2
+
+**Date:** 2026-05-05 (drafted at v3.3 catalogue closeout per Orchestrator architectural concern; ratified Accepted at architect's bundled ADR-008 + ADR-009 routing cycle ruling 2026-05-05)
+
+**Status:** Accepted (architect-ratified post-freeze spec change per spec §0.2.3, evidence-gated change category "consumer-facing breakage")
+
+**Decision:** Remove `ofi/deontic.json` from spec §3.6.1's v0.1 ARC module list. The eight OFI deontic relation rows authored in `project/relations_catalogue_v3_3.tsv` (rows 129-136) are preserved with module assignment changed from `ofi/deontic` to `[V0.2-CANDIDATE]`; they do NOT compile to a v0.1 ARC module and are NOT loaded by the v0.1 build pipeline. OFI deontic content returns to scope at v0.2.
+
+**Context.** v3.3 catalogue regeneration discipline surfaced that the eight OFI rows carry interim placeholder IRIs `ofi:0000001` through `ofi:0000008`. Finalization of these IRIs depends on the external Reified Constitutive Relations Specification §3 (referenced in spec §17.7), which has not yet published. Shipping placeholder IRIs in v0.1 creates a consumer-facing commitment OFBT cannot honor without the external spec's stabilization.
+
+The Orchestrator (2026-05-05) raised the architectural concern: "OFI doesn't belong in v0.1 — it's not a real ontology in the BFO/CCO sense; it's OFBT-internally-minted content pending an external specification." Bundled with ADR-009 into one architect routing cycle.
+
+**Implementation evidence per spec §0.2.3.** Falls under "consumer-facing breakage" evidence category:
+
+- v3.3 catalogue's 8 OFI rows carry `[PROVENANCE-AUTHORED]` markers explicitly (no source ontology to verify against).
+- Interim IRIs are not stable; the external spec may finalize them differently.
+- Shipping placeholder IRIs in v0.1 commits downstream consumers to IRIs that may change at v0.2 — exactly what §0.2.3 evidence-gating exists to prevent.
+- v0.1 test corpus does not currently exercise OFI deontic content (Phases 1-6 use BFO/CCO/IAO; only Phase 7 was scoped to exercise OFI). Removing OFI from v0.1 does not break any existing fixture.
+
+**Architect ruling (verbatim, 2026-05-05):** "The evidence is exactly what §0.2.3 was designed to gate on... Treating OFI as a real ontology in v0.1 alongside BFO/CCO/IAO conflates two structurally different things: BFO/CCO/IAO are upstream-canonical with stable IRIs; OFI is OFBT-internal with provisional IRIs. Spec §3.6.1's module list should reflect that distinction. v0.2 is the right reintroduction point — when the external dependency has stabilized, OFI returns via a new ADR with implementation evidence."
+
+**Phase 7 scope ruling (Option A):** Phase 7 retains scope reduction. Compatibility shim work + parallel-run mode + expected-divergence baseline + bundle budget CI gating + coverage matrix CI all stay in Phase 7. `constitution.ttl` Article I §2 pipeline rolls forward to Phase 8 as a verification-gate-prep deliverable. Phase 8 scope under Option A: Verification Gate Guide + Fandaws-side gate response + npm publish + tagged release + the rolled-forward `constitution.ttl` pipeline as the migration-discipline-demonstrating artifact.
+
+**Banked principle (architect-ratified):** "When OFBT depends on an external specification that has not yet stabilized, OFBT does not ship dependent content in v0.1. The dependent content is authored as a v0.2 candidate and added back via ADR when the external dependency stabilizes." This generalizes spec §0.2.3 honest-admission discipline to external-dependency management. Folded into `arc/AUTHORING_DISCIPLINE.md` "External-dependency management — when v0.1 doesn't ship dependent content" subsection.
+
+**Consequences (post-ratification implementation):**
+
+- Spec §3.6.1 module list: `ofi/deontic.json` removed (editorial revision per §0.2.1)
+- Spec §3.6.4 module dependencies: `ofi/deontic` removed from dependency graph
+- ROADMAP Phase 7 scope: OFI deontic ARC module deliverable removed; compatibility shim retained
+- ROADMAP Phase 8 scope: `constitution.ttl` Article I §2 pipeline rolled forward as verification-gate-prep deliverable
+- Plan §3.8 (Phase 7) revised per Option A
+- Plan §3.9 (Phase 8) revised to receive the rolled-forward `constitution.ttl` work
+- Plan §1.3 (out of scope for v0.1): adds OFI deferral
+- v3.3 catalogue rows 129-136: Module column flipped from `ofi/deontic` to `[V0.2-CANDIDATE]`
+- `scripts/build-arc.js`: skip-`[V0.2-CANDIDATE]` logic added for v0.1 module emission
+- `arc/AUTHORING_DISCIPLINE.md`: External-dependency management section added per banked principle
+- ADR record: this entry, references architect ruling 2026-05-05
+
+---
+
+## ADR-009: Four new ARC modules added per v0.1 corpus evidence
+
+**Date:** 2026-05-05 (drafted at v3.3 catalogue closeout; ratified Accepted at architect's bundled ADR-008 + ADR-009 routing cycle ruling 2026-05-05)
+
+**Status:** Accepted (architect-ratified post-freeze spec change per spec §0.2.3, evidence-gated change category "consumer-facing breakage")
+
+**Decision:** Add four ARC modules to spec §3.6.1's v0.1 module list:
+
+| Module | Row count in v3.3 | Primary CCO content |
+|---|---|---|
+| `cco/measurement.json` | 8 | Measurement units, reference systems, time zones, geospatial coordinate reference systems |
+| `cco/aggregate.json` | 5 | Object aggregate bearer-of, inheres-in-aggregate, capability-of-aggregate |
+| `cco/organizational.json` | 14 | Affiliation, supervision, organizational context, subordinate roles, interest-bearing, delimitation |
+| `cco/deontic.json` | 8 | CCO's deontic vocabulary: prescribes, prohibits, permits, requires (Directive→Action) |
+
+**Context.** v3.3 catalogue regeneration (verified against loaded BFO 2020 + CCO + IAO triplestore via SPARQL) surfaced 35 CCO rows that do not fit the existing five-module taxonomy from spec §3.6.1. The deterministic module-assignment rule (namespace + property-path closure to BFO ancestor) places these rows in modules the spec doesn't currently enumerate.
+
+**Implementation evidence per spec §0.2.3.** Falls under "consumer-facing breakage" evidence category:
+
+- v0.1 CCO Geospatial test corpus exercises `is_geospatial_coordinate_reference_system_of` and `uses_geospatial_coordinate_reference_system`. These don't fit `cco/realizable-holding` or `cco/mereotopology`; they belong in `cco/measurement`.
+- v0.1 CCO Agent test corpus exercises affiliation, supervision, organizational hierarchies. These don't fit `cco/realizable-holding`; they belong in `cco/organizational`.
+- CCO aggregate vocabulary: collective bearer-of pattern doesn't fit `cco/realizable-holding`'s individual realizable-holding pattern. Belongs in `cco/aggregate`.
+- CCO deontic vocabulary: distinct from OFI deontic. CCO covers Directive→Action; OFI (deferred per ADR-008) covers Directive→Issuing-Agent and the RDM v1.2.1 chain. Belongs in `cco/deontic`.
+
+Without these four modules, 35 CCO rows have no valid module assignment in v0.1. Spec's five-module taxonomy is provably insufficient for v0.1's actual CCO content scope.
+
+**Architect ruling (verbatim, 2026-05-05):** "The evidence is the v3.3 catalogue itself, which is the most rigorous evidence form §0.2.3 admits. The deterministic module-assignment rule's outputs are the evidence... Approving the four-module addition aligns the spec with what the deterministic rule produces, rather than forcing 35 rows into ill-fitting existing modules."
+
+**Module dependencies (per spec §3.6.4 pattern):**
+
+- `cco/measurement` depends on `core/bfo-2020` (uses `BFO_0000084` specifically_depends_on, `BFO_0000101` generically_depends_on)
+- `cco/aggregate` depends on `core/bfo-2020` (Object Aggregate is a BFO category; multi-ancestor to `BFO_0000196` bearer_of and `BFO_0000194` specifically_depended_on_by)
+- `cco/organizational` depends on `core/bfo-2020` (Organization is a BFO category)
+- `cco/deontic` depends on `core/iao-information` (Directive is an Information Content Entity per IAO)
+
+**Per-module size budgets (architect-ratified):**
+
+- `cco/measurement.json` ≤ 8 KB minified
+- `cco/aggregate.json` ≤ 5 KB minified
+- `cco/organizational.json` ≤ 12 KB minified
+- `cco/deontic.json` ≤ 8 KB minified
+
+Architect's additional refinement: API spec §13.4 must enumerate the per-module caps so the Phase 7 bundle CI gate can enforce per-module rather than per-total. Current spec §13.4.1's "≤ 15-20 KB" generic optional-module size is insufficient documentation; v0.1.7.x patch updates §13.4 with the per-CCO-module table.
+
+**Cross-module compatibility — `cco/deontic` vs `ofi/deontic`:** load-bearing distinction even with ADR-008's OFI deferral. CCO covers Directive→Action; OFI covers Directive→Issuing-Agent. v0.1 ships `cco/deontic` only; v0.2's eventual OFI re-introduction adds `ofi/deontic` alongside (not replacing). Naming distinction matters now, not just at v0.2. Folded into `arc/AUTHORING_DISCIPLINE.md` "CCO vs OFI deontic distinction" subsection.
+
+**Banked principle (architect-ratified):** "When v0.1 implementation reveals that the spec's module taxonomy is insufficient for the actual content scope, the taxonomy expands via §0.2.3 evidence-gated change rather than the content being forced into ill-fitting existing modules. The deterministic module-assignment rule's outputs are the evidence." Generalizes the §0.2.3 discipline beyond OFI/external-dependency cases to any case where deterministic-rule outputs disagree with frozen-spec taxonomy.
+
+**Consequences (post-ratification implementation):**
+
+- Spec §3.6.1 module list: four modules added (editorial revision per §0.2.1; combined with ADR-008's removal, list grows from 5 to 8)
+- Spec §3.6.4 module dependencies: four new dependency entries
+- API spec §13.4: per-CCO-module size budget table enumerated; CI gate enforces per-module caps
+- ROADMAP Phase 6 scope: extended to six CCO modules (original two + four new)
+- Plan §3.7 (Phase 6) revised
+- `scripts/lint-arc.js`: `MODULE_DEPS` map extended with four new modules
+- `scripts/build-arc.js`: four new module emitters
+- `arc/AUTHORING_DISCIPLINE.md`: "CCO vs OFI deontic distinction" subsection added per banked principle
+- ADR record: this entry, references architect ruling 2026-05-05
+
+---
+
+## Bankable observations from the bundled ADR-008 + ADR-009 routing cycle
+
+**Cycle-density mid-vs-between-phase distinction (architect-banked 2026-05-05).** Mid-phase escalations and between-phase architectural cycles are different cadence categories. The same numeric count at different positions has different implications. Phase 1's mid-phase count: 3 (Step 4 fixture amendment, Step 5 ADR-007 + reserved-predicate, BFO/CLIF parity initial) plus 1 cycle-completion (BFO/CLIF Layer A correction). Between-phase count: 1 (this ADR-008 + ADR-009 cycle). Future Phase 2+ mid-phase cycles weigh against Phase 1's 3, not against the cumulative 5. Between-phase cycles increment a separate counter.
+
+**External-dependency management discipline.** Per ADR-008 banked principle. v0.1 does not ship content dependent on unstable external specifications. Pattern: author the dependent content as `[V0.2-CANDIDATE]` in catalogue; do not include in v0.1 ARC module compilation; reintroduce via new ADR when external dependency stabilizes.
+
+**Module taxonomy expansion via deterministic-rule evidence.** Per ADR-009 banked principle. When deterministic-rule outputs disagree with frozen-spec taxonomy, the spec expands via §0.2.3 evidence-gated change rather than forcing content into ill-fitting existing modules.
+

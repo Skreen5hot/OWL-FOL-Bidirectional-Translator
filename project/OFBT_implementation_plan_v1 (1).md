@@ -80,6 +80,7 @@ Per spec §13 and §17.5:
 - TagTeam.js bridge (v0.3+)
 - Fandaws-Sentinel orchestration integration (v0.4+)
 - SLG tabling for SLD termination (v0.2 planned)
+- **OFI deontic ARC module** — deferred to v0.2 per ADR-008 (ratified 2026-05-05) because the OFI specification it depends on has not stabilized. CCO deontic (Directive→Action) is retained in v0.1 as a Phase 6 deliverable per ADR-009 and is semantically distinct from OFI deontic (Directive→Issuing-Agent). The compatibility shim, bundle budget enforcement, and constitution.ttl Article I §2 pipeline (rolled forward to Phase 8) all remain v0.1-bearing.
 
 These do not appear in any v0.1 phase below.
 
@@ -151,8 +152,9 @@ A phase exits when **all three rings pass against the phase's corpus**. The corp
 - Phase 3: built-in OWL fixtures + consistency-check fixtures
 - Phase 4: above + BFO 2020 core fixtures
 - Phase 5: above + IAO information-bridge fixtures
-- Phase 6: above + CCO Geospatial + CCO Agent fixtures
-- Phase 7: above + OFI deontic + constitution.ttl fixtures
+- Phase 6: above + (six CCO modules: realizable-holding, mereotopology, measurement, aggregate, organizational, deontic)
+- Phase 7: above + compatibility shim parallel-run fixtures + bundle budget + coverage matrix CI (OFI deontic deferred to v0.2 per ADR-008)
+- Phase 8: above + constitution.ttl Article I §2 pipeline (rolled forward from Phase 7 per ADR-008 Option A)
 
 The phase exit gate is automatic: CI runs all three rings against all corpus members in scope; failure on any single combination blocks exit. Manual review confirms the failures (if any) are the *expected* failures (the Loss Signature ledger correctly captures the documented losses, etc.).
 
@@ -400,86 +402,109 @@ This authoring is **not part of the loader implementation** and proceeds as a pa
 
 This phase is structurally similar to Phase 4 but with a smaller content scope. It serves as a "second integration test" of the modular ARC structure: if BFO loaded correctly in isolation, does adding IAO break anything? If not, the modularity discipline is working.
 
-### 3.7 Phase 6 — CCO Modules
+### 3.7 Phase 6 — CCO Modules (six modules)
 
-**Goal:** Add the CCO realizable-holding and mereotopology ARC modules. Re-run validation against BFO + IAO + CCO content.
+**Goal:** Add the six CCO ARC modules — realizable-holding, mereotopology, measurement, aggregate, organizational, and deontic. Re-run validation against BFO + IAO + (six CCO modules) content.
+
+**Per ADR-009 (ratified 2026-05-05):** Phase 6 scope expanded from 2 CCO modules to 6 CCO modules. Four new modules — `cco/measurement`, `cco/aggregate`, `cco/organizational`, `cco/deontic` — were added when v3.3 catalogue regeneration surfaced 39 catalogue rows that did not fit the original 5-module taxonomy. Per-module size budgets are enumerated in spec §13.4. The CCO `cco/deontic` module covers Directive→Action machinery and is semantically distinct from OFI deontic (Directive→Issuing-Agent), which is deferred to v0.2 per ADR-008.
 
 **Entry criteria:**
 
 - Phase 5 exited
-- CCO realizable-holding and mereotopology ARC content authored
+- All six CCO ARC modules' content authored, reviewed, and ingested
+- Per-module size-budget pre-check (advisory until Phase 7 enforcement) reported and triaged
 
 **Deliverables:**
 
-- `arc/cco/realizable-holding.json` per spec §3.6.1 (≤ 15 KB minified target) covering `has_role`, `has_disposition`, `has_function`, `agent_in`, `patient_in`
-- `arc/cco/mereotopology.json` per spec §3.6.1 (≤ 5 KB minified target) covering Connected With as primitive plus the bridge axiom (already partially in BFO core; this module formalizes the CCO-specific extensions)
-- Test corpus members for CCO Geospatial and CCO Agent (spec §14 Q5)
+- `arc/cco/realizable-holding.json` per spec §3.6.1 (≤ 15 KB minified per §13.4) — `has_role`, `has_disposition`, `has_function`, `agent_in`, `patient_in`
+- `arc/cco/mereotopology.json` per spec §3.6.1 (≤ 5 KB minified per §13.4) — Connected With as primitive plus the CCO-specific bridge axioms
+- `arc/cco/measurement.json` per spec §3.6.1 (≤ 8 KB minified per §13.4) — measurement processes, units, magnitudes
+- `arc/cco/aggregate.json` per spec §3.6.1 (≤ 5 KB minified per §13.4) — aggregate-of-individuals patterns
+- `arc/cco/organizational.json` per spec §3.6.1 (≤ 12 KB minified per §13.4) — organizational membership, roles, structural relations
+- `arc/cco/deontic.json` per spec §3.6.1 (≤ 8 KB minified per §13.4) — CCO Directive→Action deontic vocabulary; disjointness commitments formalized as machine-readable axioms
+- Test corpus members for each of the six CCO modules
 
 **Test corpus expansion for Phase 6:**
 
-- Built-in OWL + BFO + IAO + CCO corpus
-- CCO Geospatial fixtures: spatial regions, locations, mereotopological closures
-- CCO Agent fixtures: agents with roles, dispositions, functions
+- Built-in OWL + BFO + IAO + (six CCO modules) corpus
+- CCO realizable-holding fixtures: agents with roles, dispositions, functions
+- CCO mereotopology fixtures: spatial regions, locations, mereotopological closures
+- CCO measurement fixtures: measurement-of relations, unit assertions
+- CCO aggregate fixtures: aggregates and their part-individuals
+- CCO organizational fixtures: organization-membership and structural relations
+- CCO deontic fixtures: Directive→Action with disjointness witnesses (CCO-side; OFI-side deferred)
 - Cross-module fixtures: a CCO Agent (CCO) that participates_in (BFO) a process described by IAO documentation
 
-**Exit criteria — Rings 1-3 passing on built-in OWL + BFO + IAO + CCO corpus.**
+**Exit criteria — Rings 1-3 passing on built-in OWL + BFO + IAO + (six CCO modules) corpus.**
 
-This is the largest content expansion and the most likely phase to surface module-interaction bugs. CCO realizable-holding interacts heavily with BFO realization relations; the §3.4.1 Connected With closure interacts with both BFO parthood and CCO spatial relations. Validation against this expanded corpus exercises the most complex content combinations v0.1 supports.
+This is the largest content expansion in v0.1 and the most likely phase to surface module-interaction bugs. CCO realizable-holding interacts heavily with BFO realization relations; the §3.4.1 Connected With closure interacts with both BFO parthood and CCO spatial relations; CCO organizational and CCO deontic span agent / process / disposition territory shared with realizable-holding. Validation against this expanded corpus exercises the most complex content combinations v0.1 supports.
 
-### 3.8 Phase 7 — OFI Deontic ARC Module and Compatibility Shim
+### 3.8 Phase 7 — Compatibility Shim, Bundle Budget Enforcement, Coverage Matrix CI
 
-**Goal:** Add the final v0.1 ARC module (OFI deontic) covering the RDM v1.2.1 chain. Implement the compatibility shim package. Land the bundle budget enforcement and the test corpus coverage matrix CI.
+**Goal:** Implement the compatibility shim package. Land the bundle budget enforcement and the test corpus coverage matrix CI.
+
+**Per ADR-008 Option A (ratified 2026-05-05):** OFI deontic ARC content is deferred to v0.2 because the OFI specification it depends on has not stabilized. Phase 7 retains the compatibility shim, bundle budget CI, and coverage matrix CI as v0.1-IMPLEMENTATION-COMPLETE-bearing deliverables. The OFI-bearing fixtures and `arc/ofi/deontic.json` are removed from v0.1 scope. The constitution.ttl Article I §2 pipeline is rolled forward to Phase 8 — it exercises CCO deontic + IAO + BFO machinery without OFI dependence.
 
 **Entry criteria:**
 
-- Phase 6 exited
-- OFI deontic ARC content authored
+- Phase 6 exited (all six CCO modules ratified)
 - Fandaws Bucket C helper signature inventory provided (per spec §17.7) — required for shim function-list
 
 **Deliverables:**
 
-- `arc/ofi/deontic.json` per spec §3.6.1 (≤ 15 KB minified target) covering directives, commitments, the RDM v1.2.1 chain (DirectiveICE + PlanSpecification + RealizableEntity + VerbPhrase DiscourseReferent)
-- The `@ontology-of-freedom/ofbt-compat-fandaws` package per API spec §12 with all Bucket C helper signatures backed by OFBT calls
+- The `@ontology-of-freedom/ofbt-compat-fandaws` package per API spec §12 with all Bucket C helper signatures backed by OFBT calls (shim retained per ADR-008 Option A — Fandaws-side interface stability obligation is independent of OFI ARC content)
 - Parallel-run mode per API spec §12.3 with the `expectedDivergences` mechanism per §12.3.1
-- Bundle budget enforcement per API spec §13.4: per-component caps gated in CI, regressions block PRs
-- Test corpus coverage matrix CI per API spec §14.11: every cell in the matrix exercised, expected statuses verified
+- Bundle budget enforcement per API spec §13.4: per-component caps gated in CI, regressions block PRs (per-CCO-module caps from §13.4.1 enforced)
+- Test corpus coverage matrix CI per API spec §14.11: every cell in the matrix exercised across the 8 active modules; OFI cells annotated "deferred to v0.2 per ADR-008"
+- `npm run test:arc-roundtrip -- --strict` wired into CI as a gated step (skips `[V0.2-CANDIDATE]`-tagged catalogue rows per ADR-008)
 
 **Test corpus expansion for Phase 7:**
 
-- Built-in OWL + BFO + IAO + CCO + OFI deontic corpus
-- The constitution.ttl Article I §2 pipeline (spec §14 Q5)
-- The full RDM v1.2.1 chain fixture: `realizes_directive` decomposed into VerbPhrase DiscourseReferent + DirectiveICE + PlanSpecification + RealizableEntity, exercising the property-chain realization projection strategy (spec §6.1)
-- Structural annotation fixtures using the (interim, per spec §17.7.2) `fandaws:bfoSubcategory` and similar IRIs
+- Built-in OWL + BFO + IAO + (six CCO modules) corpus; OFI deontic fixtures deferred to v0.2 per ADR-008
+- Structural annotation fixtures using the (interim, per spec §17.7.2) `fandaws:bfoSubcategory` and similar IRIs (shim parallel-run cases)
+
+**Deferred to v0.2 per ADR-008 (NOT Phase 7 deliverables):**
+
+- `arc/ofi/deontic.json` directives, commitments, RDM v1.2.1 chain (DirectiveICE + PlanSpecification + RealizableEntity + VerbPhrase DiscourseReferent)
+- `realizes_directive` property-chain decomposition canary fixture
+- OFI Directive→Issuing-Agent disjointness silent-pass canary fixture
+
+(The constitution.ttl Article I §2 pipeline is not deleted — it rolls forward to Phase 8. CCO Directive→Action deontic is a Phase 6 deliverable and is not deferred.)
 
 **Exit criteria:**
 
-- Rings 1-3 passing on the full v0.1 corpus (built-in OWL + all five ARC modules + constitution.ttl)
-- All v0.1.7 spec acceptance criteria pass: behavioral §12 criteria 1-15, API §14 criteria API-1 through API-11
+- Rings 1-3 passing on the v0.1 active corpus (built-in OWL + BFO + IAO + six CCO modules)
+- All v0.1.7 spec acceptance criteria pass: behavioral §12 criteria 1-15 (OFI-gated criteria carry the ADR-008 deferral note), API §14 criteria API-1 through API-11
 - The compatibility shim parallel-run mode operational
-- Bundle budget CI passing: OFBT core ≤ 100 KB, rdf-canonize ≤ 50 KB, ARC core ≤ 50 KB, total mandatory ≤ 200 KB
-- The test corpus coverage matrix from API spec §14.11 fully exercised: every "exercised" and "exercised (canonical)" cell has a passing test; every "n/a" cell has documentation explaining why
+- Bundle budget CI passing: OFBT core ≤ 100 KB, rdf-canonize ≤ 50 KB, ARC core ≤ 50 KB, total mandatory ≤ 200 KB; per-module CCO caps enforced per spec §13.4
+- The test corpus coverage matrix from API spec §14.11 fully exercised across the 8 active modules; every "exercised" and "exercised (canonical)" cell has a passing test; OFI cells annotated "deferred to v0.2 per ADR-008"; other "n/a" cells have documentation explaining why
 - The compatibility shim's expected-divergence mechanism verified against synthetic baseline entries (real entries are Fandaws-side)
 
-**Significance:** Phase 7 exit is **v0.1 implementation complete**. The library is ready for the verification gate (API spec §15), which is the Fandaws-side process that runs after this phase exits.
+**Significance:** Phase 7 exit, plus the Phase 8 constitution.ttl pipeline rolled forward per Option A, marks **v0.1 implementation complete**. The library is ready for the verification gate (API spec §15), which is the Fandaws-side process that runs in Phase 8.
 
-### 3.9 Phase 8 — Verification Gate Support and Release
+### 3.9 Phase 8 — Verification Gate Support, constitution.ttl Pipeline, and Release
 
-**Goal:** Support Fandaws's verification cycle gate. Tag and publish v0.1.0.
+**Goal:** Support Fandaws's verification cycle gate. Exercise the constitution.ttl Article I §2 pipeline (rolled forward from Phase 7 per ADR-008 Option A). Tag and publish v0.1.0.
+
+**Per ADR-008 Option A (ratified 2026-05-05):** the constitution.ttl Article I §2 pipeline (spec §14 Q5) is rolled forward from Phase 7 to Phase 8. The pipeline exercises CCO deontic Directive→Action machinery against the v0.1 active module set (BFO + IAO + six CCO modules); OFI-specific extensions are deferred to v0.2 alongside the OFI deontic ARC module.
 
 **Entry criteria:**
 
-- Phase 7 exited
+- Phase 7 exited (compatibility shim, bundle budget CI, coverage matrix CI all green)
 - Fandaws ready to run the verification gate (Bucket C inventory complete, expected-divergence baseline drafted, parallel-run setup ready)
 
 **Deliverables:**
 
+- constitution.ttl Article I §2 pipeline fixture (spec §14 Q5) exercised against the v0.1 active module set; OFI-specific extensions documented as v0.2 follow-up
 - The verification-gate-supporting documentation: Verification Gate Guide per API spec §15.4 with installation instructions, parallel-run configuration, mismatch interpretation
 - Response to Fandaws-side gate findings: any unexpected mismatches investigated, attributed (OFBT bug vs undocumented legacy bug), and either fixed (OFBT bug → patch release) or added to baseline (undocumented legacy bug → Fandaws-side baseline update)
 - The npm publish pipeline executed: `@ontology-of-freedom/ofbt@0.1.0` and `@ontology-of-freedom/ofbt-compat-fandaws@0.1.0` published
 - Tagged release, changelog, README finalized
+- v0.2 OFI-deferral forward-track recorded in release notes (links ADR-008 + the OFI candidacy entries in `relations_catalogue_v3_3.tsv`)
 
 **Exit criteria:**
 
+- constitution.ttl Article I §2 pipeline exercises green against the v0.1 active module set (BFO + IAO + six CCO modules)
 - Fandaws's verification gate passes (per API spec §15.3 and the §15.3.1 expected-divergence accommodation)
 - npm packages published and installable
 - Any Phase 8 patch releases (responding to gate findings) are themselves green per Phases 1-7 validation rings
