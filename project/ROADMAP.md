@@ -274,13 +274,28 @@ Step 4 promotion (Aaron-led):
 
 **Goal:** Implement `folToOwl` for the same constructs Phase 1 covers, plus audit artifact emission. Closes the bidirectional pipeline for built-in OWL.
 
-**Status:** Not Started
+**Status:** 🟡 In progress (Step 1 ✅ Complete; entry ratified [`project/reviews/phase-2-entry.md`](reviews/phase-2-entry.md))
 
 **Plan reference:** §3.3
 
+### Step Ledger
+Proposed step granularity per [`project/reviews/phase-2-entry.md`](reviews/phase-2-entry.md) §7.4. SHAs filled in at Step close.
+
+| Step | Deliverable | Status |
+|---|---|---|
+| 1 | `folToOwl` skeleton per API §6.2 + `prefixes` parameter handling per API §3.10.4. Includes `LossSignature` / `RecoveryPayload` / `ProjectionManifest` / `OWLConversionResult` / `FolToOwlConfig` type definitions per API §6.4 + frozen `LOSS_SIGNATURE_SEVERITY_ORDER` constant per §6.4.1. Skeleton emits structurally-valid `OWLConversionResult` with zero projected axioms; strategy routing + audit-artifact emission land in Steps 2-6. | ✅ Complete (this commit) |
+| 2 | Direct Mapping strategy per spec §6.1.1 + first ABox/RBox projection rules | ⏳ Pending |
+| 3 | TBox direct-mapping projection rules + class-expression reconstruction | ⏳ Pending |
+| 4 | Annotated Approximation strategy per spec §6.1.3 + `LossSignature` emission | ⏳ Pending |
+| 5 | Strategy selection algorithm per spec §6.2 with tiered fallthrough + `RecoveryPayload` content-addressed `@id` | ⏳ Pending |
+| 6 | Property-Chain Realization strategy per spec §6.1.2 (simplified built-in OWL form) | ⏳ Pending |
+| 7 | `roundTripCheck` per API §6.3 + spec §8.1 parity criterion | ⏳ Pending |
+| 8 | 11 new fixtures landed (3 projection edge cases + 4 strategy routing + 3 parity canaries + 1 BFO/CLIF Layer A round-trip); stub-evaluator harness `tests/corpus/_stub-evaluator.js` per entry packet §3.4 | ⏳ Pending |
+| 9 | Phase 2 exit deliverables (100-run determinism extension to 26 fixtures, demo `demo_p2.html`, exit summary) | ⏳ Pending |
+
 ### Deliverables Checklist
-- [ ] `folToOwl()` per API spec §6.2 (including `prefixes` parameter per C1 closure)
-- [ ] Audit artifacts: `LossSignature`, `RecoveryPayload`, `ProjectionManifest` per API spec §6.4 with content-addressing and severity ordering per §6.4.1
+- [~] `folToOwl()` per API spec §6.2 (including `prefixes` parameter per C1 closure) — Step 1 skeleton ✅; strategy router and audit-artifact emission ⏳ Steps 2-6
+- [~] Audit artifacts: `LossSignature`, `RecoveryPayload`, `ProjectionManifest` per API spec §6.4 with content-addressing and severity ordering per §6.4.1 — type definitions + frozen severity ordering ✅ Step 1; emission ⏳ Steps 4-5
 - [ ] Three projection strategies per spec §6.1: Direct Mapping, Property-Chain Realization, Annotated Approximation
 - [ ] `roundTripCheck()` per API spec §6.3 implementing the spec §8.1 parity criterion
 - [ ] Default OWA negation handling per spec §6.3 (no `closedPredicates` yet — that ships with evaluation in Phase 3)

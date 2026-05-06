@@ -42,6 +42,28 @@ export type { TauPrologProbe } from "./tau-prolog-probe.js";
 
 // --- Phase 1 Step 1: lifter foundation ---
 export { owlToFol } from "./lifter.js";
+export type { LifterConfig } from "./lifter.js";
+
+// --- Phase 2 Step 1: projector skeleton (API §6.2) + audit artifact types
+//     (API §6.4) + frozen LOSS_SIGNATURE_SEVERITY_ORDER. Strategy routing
+//     and audit-artifact emission land in later Steps. ---
+export { folToOwl } from "./projector.js";
+export {
+  LOSS_SIGNATURE_SEVERITY_ORDER,
+} from "./projector-types.js";
+export type {
+  LossType,
+  LossSignature,
+  LossSignatureProvenance,
+  RecoveryPayload,
+  ApproximationStrategy,
+  OperatingMode,
+  ProjectionActivity,
+  ProjectionManifest,
+  FolToOwlConfig,
+  OWLConversionResult,
+} from "./projector-types.js";
+
 export { canonicalizeIRI, canonicalizeWithOntology } from "./iri.js";
 export type {
   OWLOntology,
