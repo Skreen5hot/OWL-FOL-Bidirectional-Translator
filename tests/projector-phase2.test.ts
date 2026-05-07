@@ -1826,6 +1826,400 @@ await report(
 );
 
 // ===========================================================================
+// STEP 6 — Property-Chain Realization per spec §6.1.2 + architect Q-Step6 rulings
+// ===========================================================================
+
+await report(
+  "Step 6 / 2-property chain: ∀x,y,z. parent(x,y) ∧ parent(y,z) → grandparent(x,z) → ObjectPropertyChain([parent, parent], grandparent)",
+  async () => {
+    const PARENT = "http://example.org/test/p2_chain_test/parent";
+    const GRANDPARENT = "http://example.org/test/p2_chain_test/grandparent";
+    const axioms: FOLAxiom[] = [
+      {
+        "@type": "fol:Universal",
+        variable: "x",
+        body: {
+          "@type": "fol:Universal",
+          variable: "y",
+          body: {
+            "@type": "fol:Universal",
+            variable: "z",
+            body: {
+              "@type": "fol:Implication",
+              antecedent: {
+                "@type": "fol:Conjunction",
+                conjuncts: [
+                  {
+                    "@type": "fol:Atom",
+                    predicate: PARENT,
+                    arguments: [
+                      { "@type": "fol:Variable", name: "x" },
+                      { "@type": "fol:Variable", name: "y" },
+                    ],
+                  },
+                  {
+                    "@type": "fol:Atom",
+                    predicate: PARENT,
+                    arguments: [
+                      { "@type": "fol:Variable", name: "y" },
+                      { "@type": "fol:Variable", name: "z" },
+                    ],
+                  },
+                ],
+              },
+              consequent: {
+                "@type": "fol:Atom",
+                predicate: GRANDPARENT,
+                arguments: [
+                  { "@type": "fol:Variable", name: "x" },
+                  { "@type": "fol:Variable", name: "z" },
+                ],
+              },
+            },
+          },
+        },
+      },
+    ];
+    const result = await folToOwl(axioms);
+    deepStrictEqual(result.ontology.rbox, [
+      {
+        "@type": "ObjectPropertyChain",
+        chain: [PARENT, PARENT],
+        superProperty: GRANDPARENT,
+      },
+    ]);
+  },
+);
+
+await report(
+  "Step 6 / 3-property chain: ∀x,y,w,z. P₁(x,y) ∧ P₂(y,w) ∧ P₃(w,z) → Q(x,z) → ObjectPropertyChain([P₁,P₂,P₃], Q)",
+  async () => {
+    const P1 = "http://example.org/test/p2_chain_3/p1";
+    const P2 = "http://example.org/test/p2_chain_3/p2";
+    const P3 = "http://example.org/test/p2_chain_3/p3";
+    const Q = "http://example.org/test/p2_chain_3/q";
+    const axioms: FOLAxiom[] = [
+      {
+        "@type": "fol:Universal",
+        variable: "x",
+        body: {
+          "@type": "fol:Universal",
+          variable: "y",
+          body: {
+            "@type": "fol:Universal",
+            variable: "w",
+            body: {
+              "@type": "fol:Universal",
+              variable: "z",
+              body: {
+                "@type": "fol:Implication",
+                antecedent: {
+                  "@type": "fol:Conjunction",
+                  conjuncts: [
+                    {
+                      "@type": "fol:Atom",
+                      predicate: P1,
+                      arguments: [
+                        { "@type": "fol:Variable", name: "x" },
+                        { "@type": "fol:Variable", name: "y" },
+                      ],
+                    },
+                    {
+                      "@type": "fol:Atom",
+                      predicate: P2,
+                      arguments: [
+                        { "@type": "fol:Variable", name: "y" },
+                        { "@type": "fol:Variable", name: "w" },
+                      ],
+                    },
+                    {
+                      "@type": "fol:Atom",
+                      predicate: P3,
+                      arguments: [
+                        { "@type": "fol:Variable", name: "w" },
+                        { "@type": "fol:Variable", name: "z" },
+                      ],
+                    },
+                  ],
+                },
+                consequent: {
+                  "@type": "fol:Atom",
+                  predicate: Q,
+                  arguments: [
+                    { "@type": "fol:Variable", name: "x" },
+                    { "@type": "fol:Variable", name: "z" },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      },
+    ];
+    const result = await folToOwl(axioms);
+    deepStrictEqual(result.ontology.rbox, [
+      {
+        "@type": "ObjectPropertyChain",
+        chain: [P1, P2, P3],
+        superProperty: Q,
+      },
+    ]);
+  },
+);
+
+await report(
+  "Step 6 / RecoveryPayload: chain emits PROPERTY_CHAIN payload with regularity_scope_warning scopeNotes per Q-Step6-1",
+  async () => {
+    const PARENT = "http://example.org/test/p2_chain_rp/parent";
+    const GRANDPARENT = "http://example.org/test/p2_chain_rp/grandparent";
+    const axioms: FOLAxiom[] = [
+      {
+        "@type": "fol:Universal",
+        variable: "x",
+        body: {
+          "@type": "fol:Universal",
+          variable: "y",
+          body: {
+            "@type": "fol:Universal",
+            variable: "z",
+            body: {
+              "@type": "fol:Implication",
+              antecedent: {
+                "@type": "fol:Conjunction",
+                conjuncts: [
+                  {
+                    "@type": "fol:Atom",
+                    predicate: PARENT,
+                    arguments: [
+                      { "@type": "fol:Variable", name: "x" },
+                      { "@type": "fol:Variable", name: "y" },
+                    ],
+                  },
+                  {
+                    "@type": "fol:Atom",
+                    predicate: PARENT,
+                    arguments: [
+                      { "@type": "fol:Variable", name: "y" },
+                      { "@type": "fol:Variable", name: "z" },
+                    ],
+                  },
+                ],
+              },
+              consequent: {
+                "@type": "fol:Atom",
+                predicate: GRANDPARENT,
+                arguments: [
+                  { "@type": "fol:Variable", name: "x" },
+                  { "@type": "fol:Variable", name: "z" },
+                ],
+              },
+            },
+          },
+        },
+      },
+    ];
+    const result = await folToOwl(axioms);
+    // Exactly 1 RecoveryPayload; NO LossSignatures (chain projection is
+    // reversible-regime per spec §6.1.0 taxonomy).
+    strictEqual(result.newRecoveryPayloads.length, 1);
+    strictEqual(result.newLossSignatures.length, 0);
+    const rp = result.newRecoveryPayloads[0];
+    strictEqual(rp.approximationStrategy, "PROPERTY_CHAIN");
+    strictEqual(rp.relationIRI, GRANDPARENT);
+    deepStrictEqual(rp.originalFOL, axioms[0]);
+    ok(/^ofbt:rp\/[0-9a-f]{64}$/.test(rp["@id"]), `RP @id matches regex; got ${rp["@id"]}`);
+    ok(Array.isArray(rp.scopeNotes), "scopeNotes is an array");
+    ok(
+      rp.scopeNotes!.some((note) => note.includes("regularity_scope_warning")),
+      "scopeNotes contains regularity_scope_warning",
+    );
+  },
+);
+
+await report(
+  "Step 6 / Strategy attribution: chain-matched axiom reports strategy='property-chain' (not 'direct'; not 'annotated-approximation')",
+  async () => {
+    const PARENT = "http://example.org/test/p2_chain_strategy/parent";
+    const GRANDPARENT = "http://example.org/test/p2_chain_strategy/grandparent";
+    const axioms: FOLAxiom[] = [
+      {
+        "@type": "fol:Universal",
+        variable: "x",
+        body: {
+          "@type": "fol:Universal",
+          variable: "y",
+          body: {
+            "@type": "fol:Universal",
+            variable: "z",
+            body: {
+              "@type": "fol:Implication",
+              antecedent: {
+                "@type": "fol:Conjunction",
+                conjuncts: [
+                  {
+                    "@type": "fol:Atom",
+                    predicate: PARENT,
+                    arguments: [
+                      { "@type": "fol:Variable", name: "x" },
+                      { "@type": "fol:Variable", name: "y" },
+                    ],
+                  },
+                  {
+                    "@type": "fol:Atom",
+                    predicate: PARENT,
+                    arguments: [
+                      { "@type": "fol:Variable", name: "y" },
+                      { "@type": "fol:Variable", name: "z" },
+                    ],
+                  },
+                ],
+              },
+              consequent: {
+                "@type": "fol:Atom",
+                predicate: GRANDPARENT,
+                arguments: [
+                  { "@type": "fol:Variable", name: "x" },
+                  { "@type": "fol:Variable", name: "z" },
+                ],
+              },
+            },
+          },
+        },
+      },
+    ];
+    const result = await folToOwl(axioms);
+    strictEqual(result.strategySelections.length, 1);
+    strictEqual(result.strategySelections[0].strategy, "property-chain");
+    strictEqual(result.strategySelections[0].lossSignatureCount, 0);
+    strictEqual(result.strategySelections[0].recoveryPayloadCount, 1);
+  },
+);
+
+await report(
+  "Step 6 / Transitive precedence: same-predicate 2-chain still routes to Transitive (not chain) — Step 2 matcher takes priority",
+  async () => {
+    // ∀x,y,z. P(x,y) ∧ P(y,z) → P(x,z) — same predicate; should match
+    // Transitive (Step 2) before chain (Step 6).
+    const ANCESTOR = "http://example.org/test/p2_chain_transitive_precedence/ancestor";
+    const axioms: FOLAxiom[] = [
+      {
+        "@type": "fol:Universal",
+        variable: "x",
+        body: {
+          "@type": "fol:Universal",
+          variable: "y",
+          body: {
+            "@type": "fol:Universal",
+            variable: "z",
+            body: {
+              "@type": "fol:Implication",
+              antecedent: {
+                "@type": "fol:Conjunction",
+                conjuncts: [
+                  {
+                    "@type": "fol:Atom",
+                    predicate: ANCESTOR,
+                    arguments: [
+                      { "@type": "fol:Variable", name: "x" },
+                      { "@type": "fol:Variable", name: "y" },
+                    ],
+                  },
+                  {
+                    "@type": "fol:Atom",
+                    predicate: ANCESTOR,
+                    arguments: [
+                      { "@type": "fol:Variable", name: "y" },
+                      { "@type": "fol:Variable", name: "z" },
+                    ],
+                  },
+                ],
+              },
+              consequent: {
+                "@type": "fol:Atom",
+                predicate: ANCESTOR,
+                arguments: [
+                  { "@type": "fol:Variable", name: "x" },
+                  { "@type": "fol:Variable", name: "z" },
+                ],
+              },
+            },
+          },
+        },
+      },
+    ];
+    const result = await folToOwl(axioms);
+    deepStrictEqual(result.ontology.rbox, [
+      {
+        "@type": "ObjectPropertyCharacteristic",
+        property: ANCESTOR,
+        characteristic: "Transitive",
+      },
+    ]);
+    strictEqual(result.strategySelections[0].strategy, "direct");
+    strictEqual(result.newRecoveryPayloads.length, 0);
+  },
+);
+
+await report(
+  "Step 6 / Determinism: chain projection (axioms + RP @id) is byte-stable across 100 runs",
+  async () => {
+    const PARENT = "http://example.org/test/p2_chain_determinism/parent";
+    const GRANDPARENT = "http://example.org/test/p2_chain_determinism/grandparent";
+    const axioms: FOLAxiom[] = [
+      {
+        "@type": "fol:Universal",
+        variable: "x",
+        body: {
+          "@type": "fol:Universal",
+          variable: "y",
+          body: {
+            "@type": "fol:Universal",
+            variable: "z",
+            body: {
+              "@type": "fol:Implication",
+              antecedent: {
+                "@type": "fol:Conjunction",
+                conjuncts: [
+                  {
+                    "@type": "fol:Atom",
+                    predicate: PARENT,
+                    arguments: [
+                      { "@type": "fol:Variable", name: "x" },
+                      { "@type": "fol:Variable", name: "y" },
+                    ],
+                  },
+                  {
+                    "@type": "fol:Atom",
+                    predicate: PARENT,
+                    arguments: [
+                      { "@type": "fol:Variable", name: "y" },
+                      { "@type": "fol:Variable", name: "z" },
+                    ],
+                  },
+                ],
+              },
+              consequent: {
+                "@type": "fol:Atom",
+                predicate: GRANDPARENT,
+                arguments: [
+                  { "@type": "fol:Variable", name: "x" },
+                  { "@type": "fol:Variable", name: "z" },
+                ],
+              },
+            },
+          },
+        },
+      },
+    ];
+    const first = stableStringify(await folToOwl(axioms));
+    for (let i = 0; i < 99; i++) {
+      const next = stableStringify(await folToOwl(axioms));
+      strictEqual(next, first, `determinism drift on run ${i + 2}/100`);
+    }
+  },
+);
+
+// ===========================================================================
 // STEP 4b — Cardinality n-tuple matcher per ADR-012
 // ===========================================================================
 

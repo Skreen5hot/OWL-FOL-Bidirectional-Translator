@@ -1,5 +1,5 @@
 /**
- * FOL → OWL Projector (Phase 2 Steps 1-5 + Step 4b)
+ * FOL → OWL Projector (Phase 2 Steps 1-6)
  *
  * Per API spec §6.2 + behavioral spec §6.1 (three-strategy router) +
  * §7 (audit artifacts) + §8.1 (round-trip parity).
@@ -24,6 +24,57 @@
  *     (Symmetric).
  *   - RBox universal-implication ∀x,y,z. P(x,y) ∧ P(y,z) → P(x,z) →
  *     ObjectPropertyCharacteristic(Transitive).
+ *
+ * IMPLEMENTED (Step 6 — Property-Chain Realization per spec §6.1.2 +
+ * architect Q-Step6 rulings 2026-05-XX):
+ *
+ *   - matchPropertyChain: detects the lifter's chain shape (`∀x,y₁,...,yₙ₋₁,z.
+ *     P₁(x,y₁) ∧ P₂(y₁,y₂) ∧ ... ∧ Pₙ(yₙ₋₁,z) → Q(x,z)`) for n ≥ 2
+ *     properties. Walks the universal stack collecting (n+1) bound variables
+ *     [x, y₁, ..., yₙ₋₁, z]; validates the antecedent's chained binary atoms
+ *     (each consuming one intermediate variable); validates the consequent's
+ *     binary atom on (x, z). Reconstructs as `ObjectPropertyChain { chain:
+ *     [P₁, ..., Pₙ], superProperty: Q }` (RBox axiom).
+ *
+ *   - n=1 chain (`∀x,y. P(x,y) → Q(x,y)`) is SubObjectPropertyOf and is
+ *     handled by Step 3c's matcher; matchPropertyChain requires n ≥ 2 to
+ *     avoid overlap. Same-predicate 2-chain (`∀x,y,z. P(x,y) ∧ P(y,z) →
+ *     P(x,z)`) is Transitive and is handled by Step 2's matcher (which
+ *     requires same predicate); matchPropertyChain accepts cross-predicate
+ *     chains where matchTransitiveRule rejects them. Dispatch order:
+ *     Transitive first; chain after.
+ *
+ *   - Strategy router: chain-matched axioms attribute strategy
+ *     `'property-chain'`, satisfying spec §6.2 Tier-3 dispatch BEFORE
+ *     Annotated Approximation Tier-default. The DirectMatch type carries an
+ *     optional `strategy` field that the strategy attribution loop honors:
+ *     explicit strategy (chain) overrides AA-emission override of
+ *     DM-success.
+ *
+ *   - Recovery Payload emission per architect Q-Step6-1 ruling
+ *     (always-emit regularity_scope_warning at Phase 2): every detected
+ *     chain emits a RecoveryPayload with `approximationStrategy:
+ *     "PROPERTY_CHAIN"`, `originalFOL` preserving the input verbatim, and
+ *     `scopeNotes: ["regularity_scope_warning: import closure not loaded;
+ *     regularity verified against currently-loaded graph only"]` per spec
+ *     §6.2.1's literal framing. NO LossSignature emitted (chain projection
+ *     is reversible-regime, not loss-bearing — per spec §6.1.0 taxonomy).
+ *
+ *   - Phase 4 forward-track (architect Q-Step6-1 ruling): when ARC content
+ *     + import-closure machinery land, the projector runs
+ *     regularityCheck(A, importClosure) first; on success the warning is
+ *     not emitted; on failure the chain falls through to Annotated
+ *     Approximation per spec §6.2 algorithm. Existing Phase 2 chain
+ *     projections with the warning are not invalidated — they were
+ *     correctly emitted under Phase 2's bounded regularity-check
+ *     capability.
+ *
+ *   - Step scope per architect Q-Step6-3 ruling (projector-only): Step 6
+ *     ships projector chain-detection + emission. Lifter
+ *     ObjectPropertyChain support is deferred to Phase 3 OR Phase 4
+ *     entry packet (whichever surfaces the demand first). Phase 2 chain
+ *     fixtures are projector-direct (`p2_property_chain_realization_simplified`,
+ *     `strategy_routing_chain` — both regime: "reversible" per Q-Step6-2).
  *
  * IMPLEMENTED (Step 4b — cardinality n-tuple matcher per ADR-012):
  *   - MinCardinality(P, n, onClass?): matches the lifter's
@@ -277,6 +328,7 @@ import type {
   EquivalentObjectPropertiesAxiom,
   InverseObjectPropertiesAxiom,
   ObjectPropertyAssertion,
+  ObjectPropertyChainAxiom,
   ObjectPropertyCharacteristicAxiom,
   ObjectPropertyDomainAxiom,
   ObjectPropertyRangeAxiom,
@@ -472,6 +524,22 @@ export async function folToOwl(
     if (!isShape(axiom)) continue;
     let lsCount = 0;
     let rpCount = 0;
+
+    // Step 6 — chain Recovery Payload emission per architect Q-Step6-1
+    // ruling. When the Direct Mapping dispatch matched this axiom as a
+    // property chain (positioned[i].strategy === 'property-chain'), emit
+    // a RecoveryPayload with PROPERTY_CHAIN strategy + regularity_scope_warning
+    // scopeNotes. NO LossSignature for chains (reversible regime per spec
+    // §6.1.0 taxonomy; Recovery Payload preserves FOL for downstream
+    // Phase 4 regularity-check upgrade).
+    const positionedEntry = positioned[i];
+    if (positionedEntry !== null && positionedEntry.strategy === "property-chain") {
+      const chainAxiom = positionedEntry.axiom as ObjectPropertyChainAxiom;
+      const chainRP = await emitChainRecoveryPayload(axiom, chainAxiom);
+      newRecoveryPayloads.push(chainRP);
+      rpCount++;
+    }
+
     const naf = await emitNafResidueIfApplicable(axiom, sourceGraphIRI, arcVersion);
     if (naf) {
       newLossSignatures.push(naf.signature);
@@ -492,11 +560,15 @@ export async function folToOwl(
     axiomEmissionCounts.set(i, { lossSignatureCount: lsCount, recoveryPayloadCount: rpCount });
   }
 
-  // Step 5 strategy attribution. Pair-matched axioms are attributed to
-  // their `positioned[i]` entry (the earlier of the two consumed indices);
-  // the consumed-but-not-positioned entry contributed no output and is
-  // attributed to its source position with strategy `'annotated-approximation'`
-  // per spec §6.2 fallthrough.
+  // Step 5 strategy attribution + Step 6 explicit-strategy override:
+  // - Explicit strategy (e.g., 'property-chain' from Step 6's chain
+  //   matcher) overrides AA-emission and DM-success per spec §6.2 tiered
+  //   dispatch order.
+  // - Otherwise: AA-emission overrides DM-success (Step 5 rule).
+  // - Otherwise: DM-success → 'direct'; fallthrough → 'annotated-approximation'.
+  // Pair-matched axioms attribute to their `positioned[i]` entry (the
+  // earlier of the two consumed indices); the consumed-but-not-positioned
+  // entry contributed no output and reports the fallthrough strategy.
   const strategySelections: StrategySelection[] = [];
   for (let i = 0; i < axioms.length; i++) {
     if (!isShape(axioms[i])) continue;
@@ -504,13 +576,17 @@ export async function folToOwl(
       lossSignatureCount: 0,
       recoveryPayloadCount: 0,
     };
-    const hasDirectMappingOutput = positioned[i] !== null;
+    const positionedEntry = positioned[i];
+    const explicitStrategy = positionedEntry?.strategy;
+    const hasDirectMappingOutput = positionedEntry !== null;
     const hasAnnotatedApproximationOutput = emission.lossSignatureCount > 0;
-    const strategy: ProjectionStrategy = hasAnnotatedApproximationOutput
-      ? "annotated-approximation"
-      : hasDirectMappingOutput
-        ? "direct"
-        : "annotated-approximation";
+    const strategy: ProjectionStrategy = explicitStrategy
+      ? explicitStrategy
+      : hasAnnotatedApproximationOutput
+        ? "annotated-approximation"
+        : hasDirectMappingOutput
+          ? "direct"
+          : "annotated-approximation";
     strategySelections.push({
       axiomIndex: i,
       strategy,
@@ -535,9 +611,9 @@ export async function folToOwl(
 // ===========================================================================
 
 type DirectMatch =
-  | { kind: "tbox"; axiom: TBoxAxiom }
-  | { kind: "abox"; axiom: ABoxAxiom }
-  | { kind: "rbox"; axiom: RBoxAxiom };
+  | { kind: "tbox"; axiom: TBoxAxiom; strategy?: ProjectionStrategy }
+  | { kind: "abox"; axiom: ABoxAxiom; strategy?: ProjectionStrategy }
+  | { kind: "rbox"; axiom: RBoxAxiom; strategy?: ProjectionStrategy };
 
 function projectDirectMapping(axiom: FOLAxiom): DirectMatch | null {
   // Defensive entry guard: malformed axioms (null entries, missing @type,
@@ -721,10 +797,19 @@ function projectUniversalAxiom(u: FOLUniversal): DirectMatch | null {
     return { kind: "rbox", axiom: functional };
   }
 
-  // ∀x,y,z. P(x,y) ∧ P(y,z) → P(x,z) — Transitive.
+  // ∀x,y,z. P(x,y) ∧ P(y,z) → P(x,z) — Transitive (same predicate).
   const transitive = matchTransitiveRule(u);
   if (transitive) {
     return { kind: "rbox", axiom: transitive };
+  }
+
+  // Step 6 — Property Chain Realization per spec §6.1.2 + architect
+  // Q-Step6 rulings. Cross-predicate n-property chain (n ≥ 2). Tier-3
+  // dispatch per spec §6.2 algorithm; runs after Transitive (which is
+  // same-predicate 2-chain).
+  const chain = matchPropertyChain(u);
+  if (chain) {
+    return { kind: "rbox", axiom: chain, strategy: "property-chain" };
   }
 
   return null;
@@ -1318,6 +1403,75 @@ function isIdentityAxiomatizationAxiom(axiom: FOLAxiom): boolean {
   return false;
 }
 
+// ---- Step 6: Property Chain Realization matcher per spec §6.1.2 ----
+
+/**
+ * Match the lifter's chain shape (per architect Q-Step6 rulings 2026-05-XX):
+ *   ∀x. ∀y₁. ... ∀yₙ₋₁. ∀z. P₁(x,y₁) ∧ P₂(y₁,y₂) ∧ ... ∧ Pₙ(yₙ₋₁,z) → Q(x,z)
+ *
+ * Returns ObjectPropertyChain { chain: [P₁, ..., Pₙ], superProperty: Q } when
+ * matched; null otherwise. Requires n ≥ 2 (n=1 chain `∀x,y. P(x,y) → Q(x,y)`
+ * is SubObjectPropertyOf and is handled by Step 3c's matcher; same-predicate
+ * 2-chain is Transitive and is handled by Step 2's matcher — those run
+ * before this one in the dispatch order).
+ *
+ * Cross-predicate constraint: chain detection accepts any predicate
+ * sequence (P_i can equal Q for some i; the chain's correctness is
+ * structural, not predicate-equality). Same-predicate-chain edge cases
+ * (e.g., generalized transitive for n ≥ 3) fall through to chain
+ * detection if Transitive (which only matches n=2) doesn't catch them
+ * first.
+ */
+function matchPropertyChain(u: FOLUniversal): ObjectPropertyChainAxiom | null {
+  // Walk the universal stack collecting bound variables.
+  const vars: string[] = [];
+  let current: unknown = u;
+  while (isShape(current) && current["@type"] === "fol:Universal") {
+    const v = (current as { variable?: unknown }).variable;
+    if (typeof v !== "string") return null;
+    vars.push(v);
+    current = (current as { body?: unknown }).body;
+  }
+  // n+1 vars for n-property chain; require n ≥ 2 → vars.length ≥ 3.
+  if (vars.length < 3) return null;
+  const n = vars.length - 1;
+  const startVar = vars[0];
+  const endVar = vars[n];
+
+  // Body must be Implication.
+  if (!isShape(current) || current["@type"] !== "fol:Implication") return null;
+  const ant = (current as { antecedent?: unknown }).antecedent;
+  const con = (current as { consequent?: unknown }).consequent;
+  if (!isShape(ant) || !isShape(con)) return null;
+
+  // Antecedent must be Conjunction of n binary atoms.
+  if (ant["@type"] !== "fol:Conjunction") return null;
+  const conjuncts = (ant as { conjuncts?: unknown }).conjuncts;
+  if (!Array.isArray(conjuncts) || conjuncts.length !== n) return null;
+
+  const chain: string[] = [];
+  for (let i = 0; i < n; i++) {
+    const c = conjuncts[i];
+    if (!isShape(c) || c["@type"] !== "fol:Atom") return null;
+    if (!isBinaryAtomOnVariables(c as FOLAtom, vars[i], vars[i + 1])) return null;
+    const predicate = (c as { predicate?: unknown }).predicate;
+    if (typeof predicate !== "string" || !isNamedIRI(predicate)) return null;
+    chain.push(predicate);
+  }
+
+  // Consequent must be a binary atom on (startVar, endVar).
+  if (con["@type"] !== "fol:Atom") return null;
+  if (!isBinaryAtomOnVariables(con as FOLAtom, startVar, endVar)) return null;
+  const superPredicate = (con as { predicate?: unknown }).predicate;
+  if (typeof superPredicate !== "string" || !isNamedIRI(superPredicate)) return null;
+
+  return {
+    "@type": "ObjectPropertyChain",
+    chain,
+    superProperty: superPredicate,
+  };
+}
+
 // ---- Step 4b: cardinality n-tuple matchers per ADR-012 ----
 
 interface CardinalityMatch {
@@ -1785,6 +1939,45 @@ async function emitNafResidueIfApplicable(
   };
 
   return { signature, recovery };
+}
+
+/**
+ * Step 6 — chain Recovery Payload emission per architect Q-Step6-1 ruling
+ * (always-emit regularity_scope_warning at Phase 2). Phase 2 cannot verify
+ * regularity against an import closure (no ARC content); per spec §6.2.1's
+ * literal framing, every detected chain emits the warning.
+ *
+ * Emission shape per ADR-011 §1 (content-addressed @id) + ADR-007 §7
+ * (Recovery Payload contract):
+ *   - approximationStrategy: "PROPERTY_CHAIN"
+ *   - relationIRI: the chain's superProperty (Q)
+ *   - originalFOL: the source axiom verbatim (preserves FOL for Phase 4
+ *     regularity-check upgrade)
+ *   - projectedForm: empty (the OWL projection IS the ObjectPropertyChain
+ *     RBox axiom; consumers read it from the ontology output)
+ *   - scopeNotes: one note documenting the regularity check's bounded
+ *     verification per spec §6.2.1
+ */
+async function emitChainRecoveryPayload(
+  axiom: FOLAxiom,
+  chain: ObjectPropertyChainAxiom,
+): Promise<RecoveryPayload> {
+  const rpId = await contentAddressedId("ofbt:rp/", {
+    originalFOL: axiom,
+    relationIRI: chain.superProperty,
+    approximationStrategy: "PROPERTY_CHAIN",
+  });
+  return {
+    "@id": rpId,
+    "@type": "ofbt:RecoveryPayload",
+    approximationStrategy: "PROPERTY_CHAIN",
+    relationIRI: chain.superProperty,
+    originalFOL: axiom,
+    projectedForm: "",
+    scopeNotes: [
+      "regularity_scope_warning: import closure not loaded; regularity verified against currently-loaded graph only",
+    ],
+  };
 }
 
 /**
