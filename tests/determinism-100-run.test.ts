@@ -1,15 +1,27 @@
 /**
- * Phase 1 Step 9.3 — 100-run determinism harness.
+ * 100-run determinism harness.
  *
- * Walks every fixture in tests/corpus/manifest.json and runs the lifter 100
- * times against it. Asserts that all 100 stableStringify-canonicalized
- * outputs are byte-identical.
+ * Phase 1 Step 9.3 origin: walks every fixture in tests/corpus/manifest.json
+ * and runs the lifter 100 times against it; asserts all 100
+ * stableStringify-canonicalized outputs are byte-identical.
  *
- * Two fixture shapes:
- *   - single-input (`fixture.input`): run owlToFol 100x; compare canonical
- *     strings.
- *   - multi-case throwing (`fixture.cases[]` with `expectedThrow`): run each
- *     case 100x; assert the same error class + `construct` field every time.
+ * Phase 2 extension: the projector-direct fixture-type convention (per
+ * Phase 2 entry packet §3.2 — first introduced by p2_lossy_naf_residue)
+ * supplies a FOL axioms array as `fixture.input` rather than an OWLOntology.
+ * The harness dispatches via folToOwl for these entries instead of owlToFol;
+ * the determinism contract (100 byte-identical canonicalized outputs) is
+ * the same.
+ *
+ * Three (now four) fixture shapes:
+ *   - single-input (`fixture.input`) with OWL ontology: run owlToFol 100x.
+ *   - single-input (`fixture.input`) projector-direct (FOL array): run
+ *     folToOwl 100x. Discriminated by manifest entry's
+ *     `expectedOutcome.fixtureType === "projector-direct"`.
+ *   - multi-input (`fixture.inputs = {key: input}`): run owlToFol 100x per
+ *     input key.
+ *   - multi-case throwing (`fixture.cases[]` with `expectedThrow`): run
+ *     each case 100x; assert the same error class + `construct` field every
+ *     time.
  *
  * Spec context:
  *   - spec §5.7 + API §6.1.1 mandate RDFC-1.0 b-node canonicalization;
@@ -18,6 +30,9 @@
  *   - ADR-007 §2 (variable allocator) and §4 (fresh-allocator-per-direction)
  *     are the determinism contract for non-Skolem axioms.
  *   - The §12 acceptance criterion family includes §12.determinism.
+ *   - Phase 2 entry packet §3.2 introduces the projector-direct fixture-type
+ *     convention; manifest schema gates `fixtureType` per the
+ *     `expectedOutcome` shape.
  *
  * The DETERMINISM_RUNS env var overrides the run count for fast local
  * iteration (e.g., DETERMINISM_RUNS=5 for a smoke check). Default is 100;
@@ -29,6 +44,7 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { owlToFol } from "../src/kernel/lifter.js";
+import { folToOwl } from "../src/kernel/projector.js";
 import { stableStringify } from "../src/kernel/canonicalize.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -49,6 +65,7 @@ const RUNS = (() => {
 
 interface FixtureEntry {
   fixtureId: string;
+  expectedOutcome?: { fixtureType?: string };
 }
 
 interface ManifestShape {
@@ -138,6 +155,31 @@ async function checkSingleInput(fixtureId: string, input: unknown): Promise<void
   }
 }
 
+/**
+ * Projector-direct determinism check: the fixture's `input` is a
+ * pre-constructed FOL axioms array (per Phase 2 entry packet §3.2). The
+ * harness invokes folToOwl 100 times and asserts byte-identical
+ * canonicalized outputs. The determinism contract is symmetric to the
+ * lifter side — same input → byte-identical projected ontology +
+ * audit-artifact-stable @ids per spec §7.5.
+ */
+async function checkSingleInputProjector(fixtureId: string, input: unknown): Promise<void> {
+  const first = await folToOwl(input as Parameters<typeof folToOwl>[0]);
+  const canonical = stableStringify(first);
+  totalLifts++;
+  for (let i = 1; i < RUNS; i++) {
+    const next = await folToOwl(input as Parameters<typeof folToOwl>[0]);
+    totalLifts++;
+    const nextCanonical = stableStringify(next);
+    if (nextCanonical !== canonical) {
+      throw new Error(
+        `non-deterministic projection on run ${i + 1}/${RUNS} for ${fixtureId}: ` +
+          `output length diff ${canonical.length} vs ${nextCanonical.length}`
+      );
+    }
+  }
+}
+
 async function checkThrowCase(
   fixtureId: string,
   caseLabel: string,
@@ -194,8 +236,16 @@ async function main(): Promise<void> {
             `error class + construct field byte-stable`
         );
       } else if (isSingleInputFixture(fixture)) {
-        await checkSingleInput(entry.fixtureId, fixture.input);
-        logPass(name);
+        const isProjectorDirect = entry.expectedOutcome?.fixtureType === "projector-direct";
+        if (isProjectorDirect) {
+          await checkSingleInputProjector(entry.fixtureId, fixture.input);
+          logPass(
+            `${entry.fixtureId}: ${RUNS} folToOwl projections produce byte-identical canonical output (projector-direct)`,
+          );
+        } else {
+          await checkSingleInput(entry.fixtureId, fixture.input);
+          logPass(name);
+        }
       } else if (isMultiInputFixture(fixture)) {
         const inputKeys = Object.keys(fixture.inputs);
         for (const key of inputKeys) {

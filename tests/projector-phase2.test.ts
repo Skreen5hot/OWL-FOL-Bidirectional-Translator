@@ -1826,6 +1826,97 @@ await report(
 );
 
 // ===========================================================================
+// Routing #0.5 — Projector robustness on malformed FOL inputs (defense-in-depth)
+// ===========================================================================
+
+await report(
+  "Routing #0.5 / Robustness: malformed fol:Negation with missing `inner` field does not crash; axiom silently dropped",
+  async () => {
+    // Fixture-typo class: a fol:Negation with `body` instead of `inner`.
+    // The projector's recursive descent encounters undefined when reading
+    // shape.inner; isShape() guard returns null, axiom drops silently
+    // pending Step 4 Annotated Approximation routing.
+    const axioms = [
+      {
+        "@type": "fol:Universal",
+        variable: "x",
+        body: {
+          "@type": "fol:Implication",
+          antecedent: {
+            "@type": "fol:Atom",
+            predicate: "http://example.org/test/Person",
+            arguments: [{ "@type": "fol:Variable", name: "x" }],
+          },
+          consequent: {
+            "@type": "fol:Negation",
+            // Deliberately missing `inner` field (typo class).
+            body: {
+              "@type": "fol:Atom",
+              predicate: "http://example.org/test/KnownDriver",
+              arguments: [{ "@type": "fol:Variable", name: "x" }],
+            },
+          },
+        },
+      },
+    ] as unknown as FOLAxiom[];
+    const result = await folToOwl(axioms);
+    deepStrictEqual(result.ontology.tbox, []);
+    deepStrictEqual(result.ontology.abox, []);
+    deepStrictEqual(result.ontology.rbox, []);
+  },
+);
+
+// Bisected fuzz cases — each input variant gets its own report() so a
+// crash localizes immediately. All variants MUST drop silently; no
+// throws, no spurious emissions.
+const malformedFuzzCases: ReadonlyArray<{ name: string; input: unknown }> = [
+  { name: "null entry", input: null },
+  {
+    name: "missing @type",
+    input: { variable: "x", body: { "@type": "fol:Atom", predicate: "http://example.org/test/X", arguments: [] } },
+  },
+  { name: "@type non-string (number)", input: { "@type": 42, body: {} } },
+  { name: "fol:Universal missing body", input: { "@type": "fol:Universal", variable: "x" } },
+  {
+    name: "fol:Universal with body as string",
+    input: { "@type": "fol:Universal", variable: "x", body: "should be an object" },
+  },
+  {
+    name: "fol:Atom with non-array arguments",
+    input: { "@type": "fol:Atom", predicate: "http://example.org/test/X", arguments: "not an array" },
+  },
+  {
+    name: "Conjunction with conjuncts:null inside SubClassOf consequent",
+    input: {
+      "@type": "fol:Universal",
+      variable: "x",
+      body: {
+        "@type": "fol:Implication",
+        antecedent: {
+          "@type": "fol:Atom",
+          predicate: "http://example.org/test/A",
+          arguments: [{ "@type": "fol:Variable", name: "x" }],
+        },
+        consequent: { "@type": "fol:Conjunction", conjuncts: null },
+      },
+    },
+  },
+];
+
+for (const c of malformedFuzzCases) {
+  await report(
+    `Routing #0.5 / Robustness fuzz [${c.name}]: drops silently with no crash`,
+    async () => {
+      const axioms = [c.input] as unknown as FOLAxiom[];
+      const result = await folToOwl(axioms);
+      deepStrictEqual(result.ontology.tbox, []);
+      deepStrictEqual(result.ontology.abox, []);
+      deepStrictEqual(result.ontology.rbox, []);
+    },
+  );
+}
+
+// ===========================================================================
 // LOSS_SIGNATURE_SEVERITY_ORDER — frozen contract per API §6.4.1
 // ===========================================================================
 

@@ -328,6 +328,10 @@ type DirectMatch =
   | { kind: "rbox"; axiom: RBoxAxiom };
 
 function projectDirectMapping(axiom: FOLAxiom): DirectMatch | null {
+  // Defensive entry guard: malformed axioms (null entries, missing @type,
+  // non-object inputs) return null rather than crashing on property access.
+  if (!isShape(axiom)) return null;
+
   // Pattern A: bare fol:Atom — ABox class / object-property / data-property
   // assertion.
   if (axiom["@type"] === "fol:Atom") {
@@ -348,6 +352,7 @@ function projectDirectMapping(axiom: FOLAxiom): DirectMatch | null {
 
 function projectAtomAsAssertion(atom: FOLAtom): DirectMatch | null {
   if (!isNamedIRI(atom.predicate)) return null;
+  if (!Array.isArray(atom.arguments)) return null;
 
   // Reserved-predicate ABox: owl:sameAs / owl:differentFrom atoms with both
   // arguments named-IRI constants project as SameIndividual /
@@ -360,6 +365,7 @@ function projectAtomAsAssertion(atom: FOLAtom): DirectMatch | null {
   ) {
     const a0 = atom.arguments[0];
     const a1 = atom.arguments[1];
+    if (!isShape(a0) || !isShape(a1)) return null;
     if (
       a0["@type"] === "fol:Constant" &&
       a1["@type"] === "fol:Constant" &&
@@ -384,6 +390,7 @@ function projectAtomAsAssertion(atom: FOLAtom): DirectMatch | null {
 
   if (atom.arguments.length === 1) {
     const a0 = atom.arguments[0];
+    if (!isShape(a0)) return null;
     if (a0["@type"] === "fol:Constant" && isNamedIRI(a0.iri)) {
       const ca: ClassAssertion = {
         "@type": "ClassAssertion",
@@ -398,6 +405,7 @@ function projectAtomAsAssertion(atom: FOLAtom): DirectMatch | null {
   if (atom.arguments.length === 2) {
     const a0 = atom.arguments[0];
     const a1 = atom.arguments[1];
+    if (!isShape(a0) || !isShape(a1)) return null;
 
     // ObjectPropertyAssertion: both args are named-IRI constants.
     if (
@@ -534,14 +542,14 @@ function matchUnaryUniversalImplication(u: FOLUniversal): UnaryUniversalMatch | 
 function matchSymmetricRule(u: FOLUniversal): ObjectPropertyCharacteristicAxiom | null {
   // Shape: ∀x. ∀y. P(x,y) → P(y,x)
   const x = u.variable;
-  if (u.body["@type"] !== "fol:Universal") return null;
+  if (!isShape(u.body) || u.body["@type"] !== "fol:Universal") return null;
   const inner = u.body;
   const y = inner.variable;
   if (x === y) return null;
-  if (inner.body["@type"] !== "fol:Implication") return null;
+  if (!isShape(inner.body) || inner.body["@type"] !== "fol:Implication") return null;
   const impl = inner.body;
-  if (impl.antecedent["@type"] !== "fol:Atom") return null;
-  if (impl.consequent["@type"] !== "fol:Atom") return null;
+  if (!isShape(impl.antecedent) || impl.antecedent["@type"] !== "fol:Atom") return null;
+  if (!isShape(impl.consequent) || impl.consequent["@type"] !== "fol:Atom") return null;
   const ant = impl.antecedent;
   const con = impl.consequent;
   if (ant.predicate !== con.predicate) return null;
@@ -558,14 +566,15 @@ function matchSymmetricRule(u: FOLUniversal): ObjectPropertyCharacteristicAxiom 
 function matchDisjointWith(u: FOLUniversal): DisjointWithAxiom | null {
   // Shape: ∀x. (C1(x) ∧ C2(x)) → fol:False
   const x = u.variable;
-  if (u.body["@type"] !== "fol:Implication") return null;
+  if (!isShape(u.body) || u.body["@type"] !== "fol:Implication") return null;
   const impl = u.body;
-  if (impl.consequent["@type"] !== "fol:False") return null;
-  if (impl.antecedent["@type"] !== "fol:Conjunction") return null;
+  if (!isShape(impl.consequent) || impl.consequent["@type"] !== "fol:False") return null;
+  if (!isShape(impl.antecedent) || impl.antecedent["@type"] !== "fol:Conjunction") return null;
   const conj = impl.antecedent;
-  if (conj.conjuncts.length !== 2) return null;
+  if (!Array.isArray(conj.conjuncts) || conj.conjuncts.length !== 2) return null;
   const c0 = conj.conjuncts[0];
   const c1 = conj.conjuncts[1];
+  if (!isShape(c0) || !isShape(c1)) return null;
   if (c0["@type"] !== "fol:Atom" || c1["@type"] !== "fol:Atom") return null;
   if (!isUnaryAtomOnVariable(c0, x) || !isUnaryAtomOnVariable(c1, x)) return null;
   if (!isNamedIRI(c0.predicate) || !isNamedIRI(c1.predicate)) return null;
@@ -581,14 +590,14 @@ function matchDisjointWith(u: FOLUniversal): DisjointWithAxiom | null {
 function matchObjectPropertyDomain(u: FOLUniversal): ObjectPropertyDomainAxiom | null {
   // Shape: ∀x. ∀y. P(x,y) → D(x)
   const x = u.variable;
-  if (u.body["@type"] !== "fol:Universal") return null;
+  if (!isShape(u.body) || u.body["@type"] !== "fol:Universal") return null;
   const inner = u.body;
   const y = inner.variable;
   if (x === y) return null;
-  if (inner.body["@type"] !== "fol:Implication") return null;
+  if (!isShape(inner.body) || inner.body["@type"] !== "fol:Implication") return null;
   const impl = inner.body;
-  if (impl.antecedent["@type"] !== "fol:Atom") return null;
-  if (impl.consequent["@type"] !== "fol:Atom") return null;
+  if (!isShape(impl.antecedent) || impl.antecedent["@type"] !== "fol:Atom") return null;
+  if (!isShape(impl.consequent) || impl.consequent["@type"] !== "fol:Atom") return null;
   const ant = impl.antecedent;
   const con = impl.consequent;
   if (!isBinaryAtomOnVariables(ant, x, y)) return null;
@@ -607,14 +616,14 @@ function matchObjectPropertyDomain(u: FOLUniversal): ObjectPropertyDomainAxiom |
 function matchObjectPropertyRange(u: FOLUniversal): ObjectPropertyRangeAxiom | null {
   // Shape: ∀x. ∀y. P(x,y) → R(y)
   const x = u.variable;
-  if (u.body["@type"] !== "fol:Universal") return null;
+  if (!isShape(u.body) || u.body["@type"] !== "fol:Universal") return null;
   const inner = u.body;
   const y = inner.variable;
   if (x === y) return null;
-  if (inner.body["@type"] !== "fol:Implication") return null;
+  if (!isShape(inner.body) || inner.body["@type"] !== "fol:Implication") return null;
   const impl = inner.body;
-  if (impl.antecedent["@type"] !== "fol:Atom") return null;
-  if (impl.consequent["@type"] !== "fol:Atom") return null;
+  if (!isShape(impl.antecedent) || impl.antecedent["@type"] !== "fol:Atom") return null;
+  if (!isShape(impl.consequent) || impl.consequent["@type"] !== "fol:Atom") return null;
   const ant = impl.antecedent;
   const con = impl.consequent;
   if (!isBinaryAtomOnVariables(ant, x, y)) return null;
@@ -630,22 +639,23 @@ function matchObjectPropertyRange(u: FOLUniversal): ObjectPropertyRangeAxiom | n
 function matchFunctionalRule(u: FOLUniversal): ObjectPropertyCharacteristicAxiom | null {
   // Shape: ∀x. ∀y. ∀z. (P(x,y) ∧ P(x,z)) → y=z
   const x = u.variable;
-  if (u.body["@type"] !== "fol:Universal") return null;
+  if (!isShape(u.body) || u.body["@type"] !== "fol:Universal") return null;
   const middle = u.body;
   const y = middle.variable;
-  if (middle.body["@type"] !== "fol:Universal") return null;
+  if (!isShape(middle.body) || middle.body["@type"] !== "fol:Universal") return null;
   const inner = middle.body;
   const z = inner.variable;
   if (x === y || y === z || x === z) return null;
-  if (inner.body["@type"] !== "fol:Implication") return null;
+  if (!isShape(inner.body) || inner.body["@type"] !== "fol:Implication") return null;
   const impl = inner.body;
-  if (impl.antecedent["@type"] !== "fol:Conjunction") return null;
+  if (!isShape(impl.antecedent) || impl.antecedent["@type"] !== "fol:Conjunction") return null;
   const conj = impl.antecedent;
-  if (conj.conjuncts.length !== 2) return null;
+  if (!Array.isArray(conj.conjuncts) || conj.conjuncts.length !== 2) return null;
   const c0 = conj.conjuncts[0];
   const c1 = conj.conjuncts[1];
+  if (!isShape(c0) || !isShape(c1)) return null;
   if (c0["@type"] !== "fol:Atom" || c1["@type"] !== "fol:Atom") return null;
-  if (impl.consequent["@type"] !== "fol:Equality") return null;
+  if (!isShape(impl.consequent) || impl.consequent["@type"] !== "fol:Equality") return null;
   const eq = impl.consequent;
   if (c0.predicate !== c1.predicate) return null;
   if (!isNamedIRI(c0.predicate)) return null;
@@ -662,22 +672,23 @@ function matchFunctionalRule(u: FOLUniversal): ObjectPropertyCharacteristicAxiom
 function matchTransitiveRule(u: FOLUniversal): ObjectPropertyCharacteristicAxiom | null {
   // Shape: ∀x. ∀y. ∀z. (P(x,y) ∧ P(y,z)) → P(x,z)
   const x = u.variable;
-  if (u.body["@type"] !== "fol:Universal") return null;
+  if (!isShape(u.body) || u.body["@type"] !== "fol:Universal") return null;
   const middle = u.body;
   const y = middle.variable;
-  if (middle.body["@type"] !== "fol:Universal") return null;
+  if (!isShape(middle.body) || middle.body["@type"] !== "fol:Universal") return null;
   const inner = middle.body;
   const z = inner.variable;
   if (x === y || y === z || x === z) return null;
-  if (inner.body["@type"] !== "fol:Implication") return null;
+  if (!isShape(inner.body) || inner.body["@type"] !== "fol:Implication") return null;
   const impl: FOLImplication = inner.body;
-  if (impl.antecedent["@type"] !== "fol:Conjunction") return null;
+  if (!isShape(impl.antecedent) || impl.antecedent["@type"] !== "fol:Conjunction") return null;
   const conj: FOLConjunction = impl.antecedent;
-  if (conj.conjuncts.length !== 2) return null;
+  if (!Array.isArray(conj.conjuncts) || conj.conjuncts.length !== 2) return null;
   const c0 = conj.conjuncts[0];
   const c1 = conj.conjuncts[1];
+  if (!isShape(c0) || !isShape(c1)) return null;
   if (c0["@type"] !== "fol:Atom" || c1["@type"] !== "fol:Atom") return null;
-  if (impl.consequent["@type"] !== "fol:Atom") return null;
+  if (!isShape(impl.consequent) || impl.consequent["@type"] !== "fol:Atom") return null;
   const con = impl.consequent;
   if (c0.predicate !== c1.predicate || c0.predicate !== con.predicate) return null;
   if (!isNamedIRI(c0.predicate)) return null;
@@ -700,13 +711,13 @@ function matchSubClassOfWithExpression(u: FOLUniversal): SubClassOfAxiom | null 
   // Functional/Inverse) have an outer body of fol:Universal, NOT fol:Implication
   // — so they don't false-positive here.
   const x = u.variable;
-  if (u.body["@type"] !== "fol:Implication") return null;
+  if (!isShape(u.body) || u.body["@type"] !== "fol:Implication") return null;
   const impl = u.body;
 
   // Antecedent must be a unary atom on x (NamedClass on the left). Class
   // expressions in subClass position (intersection/union/etc.) are Step 3c
   // territory.
-  if (impl.antecedent["@type"] !== "fol:Atom") return null;
+  if (!isShape(impl.antecedent) || impl.antecedent["@type"] !== "fol:Atom") return null;
   const ant = impl.antecedent;
   if (!isUnaryAtomOnVariable(ant, x)) return null;
   if (!isNamedIRI(ant.predicate)) return null;
@@ -738,8 +749,14 @@ function reconstructClassExpression(
   shape: FOLAxiom,
   contextVar: string,
 ): ClassExpression | null {
+  // Defensive entry guard: malformed inputs (e.g., a fol:Negation with `body`
+  // instead of `inner`, or a recursive descent passing undefined) return null
+  // rather than crashing on property access.
+  if (!isShape(shape)) return null;
+
   // NamedClass: fol:Atom arity-1 on contextVar.
   if (shape["@type"] === "fol:Atom") {
+    if (!Array.isArray(shape.arguments)) return null;
     if (
       shape.arguments.length === 1 &&
       isVariableNamed(shape.arguments[0], contextVar) &&
@@ -751,14 +768,15 @@ function reconstructClassExpression(
     if (
       shape.arguments.length === 2 &&
       isVariableNamed(shape.arguments[0], contextVar) &&
+      isShape(shape.arguments[1]) &&
       shape.arguments[1]["@type"] === "fol:Constant" &&
       isNamedIRI(shape.predicate) &&
-      isNamedIRI(shape.arguments[1].iri)
+      isNamedIRI((shape.arguments[1] as { iri?: unknown }).iri as string)
     ) {
       return {
         "@type": "Restriction",
         onProperty: shape.predicate,
-        hasValue: shape.arguments[1].iri,
+        hasValue: (shape.arguments[1] as { iri: string }).iri,
       };
     }
     return null;
@@ -766,7 +784,7 @@ function reconstructClassExpression(
 
   // ObjectIntersectionOf: fol:Conjunction of class-expression-shaped conjuncts.
   if (shape["@type"] === "fol:Conjunction") {
-    if (shape.conjuncts.length < 2) return null;
+    if (!Array.isArray(shape.conjuncts) || shape.conjuncts.length < 2) return null;
     const reconstructed: ClassExpression[] = [];
     for (const c of shape.conjuncts) {
       const r = reconstructClassExpression(c, contextVar);
@@ -778,7 +796,7 @@ function reconstructClassExpression(
 
   // ObjectUnionOf: fol:Disjunction of class-expression-shaped disjuncts.
   if (shape["@type"] === "fol:Disjunction") {
-    if (shape.disjuncts.length < 2) return null;
+    if (!Array.isArray(shape.disjuncts) || shape.disjuncts.length < 2) return null;
     const reconstructed: ClassExpression[] = [];
     for (const d of shape.disjuncts) {
       const r = reconstructClassExpression(d, contextVar);
@@ -790,6 +808,7 @@ function reconstructClassExpression(
 
   // ObjectComplementOf: fol:Negation of a class-expression-shaped inner.
   if (shape["@type"] === "fol:Negation") {
+    if (!isShape(shape.inner)) return null;
     const inner = reconstructClassExpression(shape.inner, contextVar);
     if (!inner) return null;
     return { "@type": "ObjectComplementOf", class: inner };
@@ -798,14 +817,15 @@ function reconstructClassExpression(
   // ObjectSomeValuesFrom: fol:Existential { variable: y, body:
   //   fol:Conjunction([P(contextVar, y), filler-on-y]) }
   if (shape["@type"] === "fol:Existential") {
+    if (typeof shape.variable !== "string") return null;
     const innerVar = shape.variable;
     if (innerVar === contextVar) return null;
-    if (shape.body["@type"] !== "fol:Conjunction") return null;
+    if (!isShape(shape.body) || shape.body["@type"] !== "fol:Conjunction") return null;
     const conj = shape.body;
-    if (conj.conjuncts.length !== 2) return null;
+    if (!Array.isArray(conj.conjuncts) || conj.conjuncts.length !== 2) return null;
     const propAtom = conj.conjuncts[0];
     const filler = conj.conjuncts[1];
-    if (propAtom["@type"] !== "fol:Atom") return null;
+    if (!isShape(propAtom) || propAtom["@type"] !== "fol:Atom") return null;
     if (!isBinaryAtomOnVariables(propAtom, contextVar, innerVar)) return null;
     if (!isNamedIRI(propAtom.predicate)) return null;
     const fillerExpr = reconstructClassExpression(filler, innerVar);
@@ -820,11 +840,12 @@ function reconstructClassExpression(
   // ObjectAllValuesFrom: fol:Universal { variable: y, body:
   //   fol:Implication(P(contextVar, y), filler-on-y) }
   if (shape["@type"] === "fol:Universal") {
+    if (typeof shape.variable !== "string") return null;
     const innerVar = shape.variable;
     if (innerVar === contextVar) return null;
-    if (shape.body["@type"] !== "fol:Implication") return null;
+    if (!isShape(shape.body) || shape.body["@type"] !== "fol:Implication") return null;
     const impl = shape.body;
-    if (impl.antecedent["@type"] !== "fol:Atom") return null;
+    if (!isShape(impl.antecedent) || impl.antecedent["@type"] !== "fol:Atom") return null;
     if (!isBinaryAtomOnVariables(impl.antecedent, contextVar, innerVar)) return null;
     if (!isNamedIRI(impl.antecedent.predicate)) return null;
     const fillerExpr = reconstructClassExpression(impl.consequent, innerVar);
@@ -846,14 +867,14 @@ function matchSubObjectPropertyOf(u: FOLUniversal): SubObjectPropertyOfAxiom | n
   // Distinguishes itself from Symmetric (same predicate with swapped args)
   // and from Domain/Range (unary consequent).
   const x = u.variable;
-  if (u.body["@type"] !== "fol:Universal") return null;
+  if (!isShape(u.body) || u.body["@type"] !== "fol:Universal") return null;
   const inner = u.body;
   const y = inner.variable;
   if (x === y) return null;
-  if (inner.body["@type"] !== "fol:Implication") return null;
+  if (!isShape(inner.body) || inner.body["@type"] !== "fol:Implication") return null;
   const impl = inner.body;
-  if (impl.antecedent["@type"] !== "fol:Atom") return null;
-  if (impl.consequent["@type"] !== "fol:Atom") return null;
+  if (!isShape(impl.antecedent) || impl.antecedent["@type"] !== "fol:Atom") return null;
+  if (!isShape(impl.consequent) || impl.consequent["@type"] !== "fol:Atom") return null;
   const ant = impl.antecedent;
   const con = impl.consequent;
   if (!isNamedIRI(ant.predicate) || !isNamedIRI(con.predicate)) return null;
@@ -871,18 +892,19 @@ function matchDisjointObjectProperties(u: FOLUniversal): DisjointObjectPropertie
   // Shape: ∀x. ∀y. (P(x,y) ∧ Q(x,y)) → fol:False, with P and Q distinct
   // named IRIs (the binary analogue of DisjointWith for object properties).
   const x = u.variable;
-  if (u.body["@type"] !== "fol:Universal") return null;
+  if (!isShape(u.body) || u.body["@type"] !== "fol:Universal") return null;
   const inner = u.body;
   const y = inner.variable;
   if (x === y) return null;
-  if (inner.body["@type"] !== "fol:Implication") return null;
+  if (!isShape(inner.body) || inner.body["@type"] !== "fol:Implication") return null;
   const impl = inner.body;
-  if (impl.consequent["@type"] !== "fol:False") return null;
-  if (impl.antecedent["@type"] !== "fol:Conjunction") return null;
+  if (!isShape(impl.consequent) || impl.consequent["@type"] !== "fol:False") return null;
+  if (!isShape(impl.antecedent) || impl.antecedent["@type"] !== "fol:Conjunction") return null;
   const conj = impl.antecedent;
-  if (conj.conjuncts.length !== 2) return null;
+  if (!Array.isArray(conj.conjuncts) || conj.conjuncts.length !== 2) return null;
   const c0 = conj.conjuncts[0];
   const c1 = conj.conjuncts[1];
+  if (!isShape(c0) || !isShape(c1)) return null;
   if (c0["@type"] !== "fol:Atom" || c1["@type"] !== "fol:Atom") return null;
   if (!isNamedIRI(c0.predicate) || !isNamedIRI(c1.predicate)) return null;
   if (c0.predicate === c1.predicate) return null;
@@ -912,12 +934,15 @@ function matchDisjointObjectProperties(u: FOLUniversal): DisjointObjectPropertie
  *   - Per-predicate identity-rewrite rules for unary and binary predicates.
  */
 function isIdentityAxiomatizationAxiom(axiom: FOLAxiom): boolean {
+  if (!isShape(axiom)) return false;
   if (axiom["@type"] !== "fol:Universal") return false;
+  if (!isShape(axiom.body)) return false;
 
   // ∀x. owl:sameAs(x,x) — reflexivity.
   if (
     axiom.body["@type"] === "fol:Atom" &&
     axiom.body.predicate === OWL_SAME_AS_IRI &&
+    Array.isArray(axiom.body.arguments) &&
     axiom.body.arguments.length === 2 &&
     isVariableNamed(axiom.body.arguments[0], axiom.variable) &&
     isVariableNamed(axiom.body.arguments[1], axiom.variable)
@@ -931,11 +956,14 @@ function isIdentityAxiomatizationAxiom(axiom: FOLAxiom): boolean {
     const inner = axiom.body;
     const y = inner.variable;
     if (x === y) return false;
+    if (!isShape(inner.body)) return false;
 
     // ∀x,y. P(x,y) → P(y,x) on a reserved predicate — sameAs OR
     // differentFrom symmetry.
     if (
       inner.body["@type"] === "fol:Implication" &&
+      isShape(inner.body.antecedent) &&
+      isShape(inner.body.consequent) &&
       inner.body.antecedent["@type"] === "fol:Atom" &&
       inner.body.consequent["@type"] === "fol:Atom" &&
       isReservedIdentityPredicate(inner.body.antecedent.predicate) &&
@@ -949,14 +977,18 @@ function isIdentityAxiomatizationAxiom(axiom: FOLAxiom): boolean {
     // ∀x,z. P(x) ∧ owl:sameAs(x,z) → P(z) — unary identity-rewrite.
     if (
       inner.body["@type"] === "fol:Implication" &&
+      isShape(inner.body.antecedent) &&
+      isShape(inner.body.consequent) &&
       inner.body.antecedent["@type"] === "fol:Conjunction" &&
       inner.body.consequent["@type"] === "fol:Atom"
     ) {
       const conj = inner.body.antecedent;
-      if (conj.conjuncts.length === 2) {
+      if (Array.isArray(conj.conjuncts) && conj.conjuncts.length === 2) {
         const c0 = conj.conjuncts[0];
         const c1 = conj.conjuncts[1];
         if (
+          isShape(c0) &&
+          isShape(c1) &&
           c0["@type"] === "fol:Atom" &&
           c1["@type"] === "fol:Atom" &&
           c1.predicate === OWL_SAME_AS_IRI &&
@@ -974,19 +1006,21 @@ function isIdentityAxiomatizationAxiom(axiom: FOLAxiom): boolean {
   // 3-level universals: sameAs transitivity, binary identity-rewrites.
   if (
     axiom.body["@type"] === "fol:Universal" &&
+    isShape(axiom.body.body) &&
     axiom.body.body["@type"] === "fol:Universal"
   ) {
     const x = axiom.variable;
     const y = axiom.body.variable;
     const z = axiom.body.body.variable;
     if (x === y || y === z || x === z) return false;
-    if (axiom.body.body.body["@type"] !== "fol:Implication") return false;
+    if (!isShape(axiom.body.body.body) || axiom.body.body.body["@type"] !== "fol:Implication") return false;
     const impl = axiom.body.body.body;
-    if (impl.antecedent["@type"] !== "fol:Conjunction") return false;
+    if (!isShape(impl.antecedent) || impl.antecedent["@type"] !== "fol:Conjunction") return false;
     const conj = impl.antecedent;
-    if (conj.conjuncts.length !== 2) return false;
+    if (!Array.isArray(conj.conjuncts) || conj.conjuncts.length !== 2) return false;
     const c0 = conj.conjuncts[0];
     const c1 = conj.conjuncts[1];
+    if (!isShape(c0) || !isShape(c1) || !isShape(impl.consequent)) return false;
     if (
       c0["@type"] !== "fol:Atom" ||
       c1["@type"] !== "fol:Atom" ||
@@ -1046,6 +1080,7 @@ function matchEquivalentClassesPair(a: FOLAxiom, b: FOLAxiom): PairMatch | null 
   // Each half is a SubClassOf-shaped axiom: ∀x. C1(x) → C2(x). The pair
   // forms EquivalentClasses(C1, C2) when one half is the converse of the
   // other (C1 → C2 paired with C2 → C1).
+  if (!isShape(a) || !isShape(b)) return null;
   if (a["@type"] !== "fol:Universal" || b["@type"] !== "fol:Universal") return null;
   const aMatch = matchUnaryUniversalImplication(a);
   const bMatch = matchUnaryUniversalImplication(b);
@@ -1073,6 +1108,7 @@ function matchEquivalentObjectPropertiesPair(a: FOLAxiom, b: FOLAxiom): PairMatc
   // Each half is a SubObjectPropertyOf-shaped axiom: ∀x,y. P(x,y) → Q(x,y).
   // The pair forms EquivalentObjectProperties(P, Q) when one half is the
   // converse of the other (P→Q paired with Q→P).
+  if (!isShape(a) || !isShape(b)) return null;
   if (a["@type"] !== "fol:Universal" || b["@type"] !== "fol:Universal") return null;
   const aMatch = matchSubObjectPropertyOf(a);
   const bMatch = matchSubObjectPropertyOf(b);
@@ -1100,6 +1136,7 @@ function matchInverseObjectPropertiesPair(a: FOLAxiom, b: FOLAxiom): PairMatch |
   // Per ADR-007 §4 (fresh-allocator-per-direction): both halves use the
   // (x, y) variable binding; the swap is in the consequent's argument
   // order, not in the universally-bound variables.
+  if (!isShape(a) || !isShape(b)) return null;
   if (a["@type"] !== "fol:Universal" || b["@type"] !== "fol:Universal") return null;
   const aMatch = matchBinaryInverseImplication(a);
   const bMatch = matchBinaryInverseImplication(b);
@@ -1128,14 +1165,14 @@ interface BinaryInverseMatch {
 function matchBinaryInverseImplication(u: FOLUniversal): BinaryInverseMatch | null {
   // Shape: ∀x. ∀y. P(x,y) → Q(y,x)
   const x = u.variable;
-  if (u.body["@type"] !== "fol:Universal") return null;
+  if (!isShape(u.body) || u.body["@type"] !== "fol:Universal") return null;
   const inner = u.body;
   const y = inner.variable;
   if (x === y) return null;
-  if (inner.body["@type"] !== "fol:Implication") return null;
+  if (!isShape(inner.body) || inner.body["@type"] !== "fol:Implication") return null;
   const impl = inner.body;
-  if (impl.antecedent["@type"] !== "fol:Atom") return null;
-  if (impl.consequent["@type"] !== "fol:Atom") return null;
+  if (!isShape(impl.antecedent) || impl.antecedent["@type"] !== "fol:Atom") return null;
+  if (!isShape(impl.consequent) || impl.consequent["@type"] !== "fol:Atom") return null;
   const ant = impl.antecedent;
   const con = impl.consequent;
   if (!isNamedIRI(ant.predicate) || !isNamedIRI(con.predicate)) return null;
@@ -1144,20 +1181,42 @@ function matchBinaryInverseImplication(u: FOLUniversal): BinaryInverseMatch | nu
   return { firstIRI: ant.predicate, secondIRI: con.predicate };
 }
 
+// ---- Defensive shape-object guard (Routing #0.5: robustness on
+//      malformed FOL inputs).
+//
+// The pattern matchers and class-expression reconstructor descend through
+// FOL term-tree property accesses. The TS type system says these are valid,
+// but at runtime a malformed input (fixture typo, fuzzed input, third-party
+// caller passing structurally-invalid FOL) may have missing fields. Without
+// this guard, accesses like `shape.inner["@type"]` crash on `undefined`.
+//
+// The discipline is "matcher returns null on shape mismatch" — defense in
+// depth at multiple boundary points per AUTHORING_DISCIPLINE.md. A null
+// return surfaces as "this matcher doesn't apply" per spec §6.2; the
+// projector falls through to other matchers (or — pending Step 4 —
+// silently drops the axiom).
+function isShape(x: unknown): x is { "@type": string } {
+  return (
+    typeof x === "object" &&
+    x !== null &&
+    typeof (x as { "@type"?: unknown })["@type"] === "string"
+  );
+}
+
 // ---- Term-shape predicates ----
 
 function isUnaryAtomOnVariable(a: FOLAtom, varName: string): boolean {
-  if (a.arguments.length !== 1) return false;
+  if (!Array.isArray(a.arguments) || a.arguments.length !== 1) return false;
   return isVariableNamed(a.arguments[0], varName);
 }
 
 function isBinaryAtomOnVariables(a: FOLAtom, var0: string, var1: string): boolean {
-  if (a.arguments.length !== 2) return false;
+  if (!Array.isArray(a.arguments) || a.arguments.length !== 2) return false;
   return isVariableNamed(a.arguments[0], var0) && isVariableNamed(a.arguments[1], var1);
 }
 
 function isVariableNamed(t: FOLTerm, varName: string): boolean {
-  return t["@type"] === "fol:Variable" && t.name === varName;
+  return isShape(t) && t["@type"] === "fol:Variable" && (t as { name?: unknown }).name === varName;
 }
 
 function isNamedIRI(iri: string): boolean {
