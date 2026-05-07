@@ -182,7 +182,7 @@ export const fixture = {
   },
 
   meta: {
-    verifiedStatus: "Draft",
+    verifiedStatus: "Verified",
     phase: 2,
     authoredAt: "2026-05-07",
     authoredBy: "SME persona, Phase 2 Step 4 spec-binding cycle parallel SME workload",

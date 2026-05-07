@@ -224,7 +224,7 @@ export const fixture = {
   },
 
   meta: {
-    verifiedStatus: "Draft",
+    verifiedStatus: "Verified",
     phase: 2,
     authoredAt: "2026-05-XX",
     authoredBy: "SME persona, Q-Step6 routing cycle SME path-fence-authoring pass",

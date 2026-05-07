@@ -268,7 +268,7 @@ export const fixture = {
   },
 
   meta: {
-    verifiedStatus: "Draft",
+    verifiedStatus: "Verified",
     phase: 2,
     authoredAt: "2026-05-XX",
     authoredBy:
