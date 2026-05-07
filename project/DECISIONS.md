@@ -492,3 +492,243 @@ Adopt five coordinated corrective actions (the five-way-aligned Commit 3 + two a
 - `arc/upstream-canonical/owl-axiomatization.clif.SOURCE` — corrected sidecar with populated `license-verification` block
 - `package.json` `files` field — whitelist excluding `arc/upstream-canonical/` from npm package per Decision section 5
 - Re-confirmation cycle architect ruling (verbatim, 2026-05-06): preserved in entry-packet §9 + this ADR's Decision section.
+
+---
+
+## ADR-011: Audit-artifact `@id` content-addressing scheme — LossSignature + RecoveryPayload
+
+**Status:** Accepted (architect ratification 2026-05-07 — Step 4 spec-binding routing cycle's brief follow-up confirmation cycle; per architect cadence-banking, this completion does not increment the Phase 2 mid-phase counter)
+**Date:** 2026-05-07
+**Predecessors:** ADR-002 (kernel purity allowlist — `crypto.subtle.digest` for SHA-256); ADR-007 §1 (lifter emits classical FOL — determinism precedent); API §6.4 (audit artifact types frozen at v0.1.7); Phase 2 entry packet §6.2 (Q6 three-tier schema-evolution discipline, architect-ratified 2026-05-06).
+**Successor:** None pending. Future audit-artifact types (ProofTrace per API §6.4.3; ConsistencyResult per Phase 3 spec §8) extend this discipline forward; their discriminating-field sets land in successor ADRs or extensions of this one.
+
+### Context
+
+API §6.4.1 + §6.4.2 introduce LossSignature and RecoveryPayload types with `@id` fields specified as content-addressed:
+
+- **LossSignature:** `ofbt:ls/<hash>` (per API §6.4.1)
+- **RecoveryPayload:** `ofbt:rp/<hash>` (per API §6.4.2)
+
+Spec §7.5 names the convention but does NOT formalize:
+
+1. The hash function (assumed SHA-256 per kernel determinism discipline + ADR-002 allowlist)
+2. The exact discriminating-field set per type
+3. The hex-case + string-encoding conventions
+4. The byte-stability contract scope (cross-run / cross-process / cross-installation)
+5. The schema-evolution discipline for changing the discriminating-field set
+
+Step 4 (Annotated Approximation strategy + LossSignature emission per Phase 2 entry packet §3.2 + §6.1.3) cannot ship without these formalized — two implementations differing in canonicalization choice would produce different `@id`s for byte-identical inputs, violating spec §0.1's determinism contract and breaking deduplication across consumers + CI runs.
+
+The Phase 2 Step 4 spec-binding routing cycle (SME-routed 2026-05-07; architect-ratified Q-E / Q-G / ADR-011 / Q-D in the same cycle) named the formalization as ADR-011-tier work. The architect's ruling on ADR-011 scope: "SHA-256 of stableStringify({originalFOL, relationIRI, approximationStrategy}) for RecoveryPayload; corresponding scheme for LossSignature per the existing API §6.4.1 contract; lower-case hex; prefixed `ofbt:rp/` and `ofbt:ls/` respectively."
+
+### Decision
+
+Adopt the following audit-artifact `@id` content-addressing scheme.
+
+#### 1. Hash function: SHA-256, lower-case hex digest
+
+The 64-character lower-case hex string forms the `<hash>` portion of the `@id`. Computed via `crypto.subtle.digest('SHA-256', utf8Bytes)` per the kernel purity allowlist (ADR-002 — `crypto.subtle.digest` permitted for deterministic SHA-256; `crypto.getRandomValues` and `crypto.randomUUID` remain forbidden).
+
+Hex casing: lower-case throughout. The regex `/^[0-9a-f]{64}$/` validates the `<hash>` portion. Mixed-case or upper-case hex is a violation of this ADR.
+
+#### 2. Hash input: `stableStringify` of discriminating-field object
+
+The hash is computed over `stableStringify(<discriminating-fields-object>)` per the existing kernel `canonicalize.ts` discipline. `stableStringify` produces:
+
+- Lexicographically-sorted JSON keys at every nesting level
+- No whitespace variation (no leading/trailing spaces; no newlines; minified separators)
+- Canonical UTF-8 byte encoding
+- Deterministic across runs, processes, OFBT installations at the same library + ARC manifest version
+
+The UTF-8 bytes are passed to `crypto.subtle.digest`; the resulting `ArrayBuffer` is converted to lower-case hex via the standard byte-to-hex conversion.
+
+#### 3. Discriminating-field set per type
+
+##### 3.1 LossSignature (`ofbt:ls/<hash>`)
+
+```typescript
+{
+  lossType: LossType,                    // 8-member discriminator per LOSS_SIGNATURE_SEVERITY_ORDER
+  relationIRI: string,                   // full URI form per API §3.10.3 (not CURIE)
+  reason: string,                        // machine-code reason (e.g., "negation_over_unbound_predicate")
+  provenance: {
+    sourceGraphIRI: string,              // full URI of the source ontology graph
+    arcVersion: string                   // ARC manifest version active at emission time
+    // NOTE: timestamp INTENTIONALLY EXCLUDED — see §7 below
+  }
+}
+```
+
+Rationale per discriminating field:
+
+- **`lossType`** discriminates emissions of different severity / category on the same axiom (e.g., a single axiom could in principle trigger both `naf_residue` and `unknown_relation` if the negated predicate is also unbound; each gets a distinct `@id`).
+- **`relationIRI`** discriminates emissions on different relations sharing the same `lossType` and `reason`.
+- **`reason`** discriminates emissions on the same relation under different trigger conditions (a single relation could trigger `naf_residue` via multiple distinct conditions in future Phase 3+ contexts).
+- **`provenance.sourceGraphIRI`** discriminates emissions on the same relation across different source ontologies. Two consumers emitting from different graphs produce distinct `@id`s.
+- **`provenance.arcVersion`** discriminates emissions across ARC manifest version boundaries. Same FOL + same relation but different ARC manifest versions can produce semantically-different emissions (because the relation's known-relation classification differs); the `@id` reflects this.
+
+##### 3.2 RecoveryPayload (`ofbt:rp/<hash>`)
+
+```typescript
+{
+  originalFOL: <canonicalized FOL axiom>,    // per kernel canonicalize.ts canonicalization
+  relationIRI: string,                       // full URI form per API §3.10.3
+  approximationStrategy: ProjectionStrategy  // "annotated-approximation" | future strategies
+}
+```
+
+Per architect ruling 2026-05-07. Rationale per discriminating field:
+
+- **`originalFOL`** is load-bearing — without it, two RecoveryPayloads with the same relation but different FOL content (e.g., different cardinality counts on the same property under future Phase 3+ contexts) would dedupe to the same `@id`.
+- **`relationIRI`** discriminates payloads on different relations sharing the same FOL shape.
+- **`approximationStrategy`** discriminates payloads where the same FOL+relation could in principle route to different strategies under different config (e.g., a future config flag changing `naf_residue` to bypass Annotated Approximation).
+
+#### 4. Byte-stability contract
+
+Same input → same `@id` across runs, across processes, across OFBT installations at the same library + ARC manifest version. This is a hard contract per spec §0.1's determinism discipline.
+
+Specifically:
+
+- LossSignatures with byte-identical discriminating fields produce byte-identical `@id`s. Deduplication across consumers, across CI runs, across OFBT-bundle environments (browser / Node / edge) is guaranteed.
+- RecoveryPayloads with byte-identical discriminating fields produce byte-identical `@id`s.
+- Across major versions of OFBT that change the discriminating-field set per §5: `@id`s diverge by definition. This is intentional — see §5.
+
+#### 5. Schema-evolution discipline (per Q6 three-tier — discriminating-field-set changes)
+
+Changes to the discriminating-field set per type are governed by Phase 2 entry packet §6.2's Q6 three-tier discipline, with one additional constraint:
+
+> **Discriminating-field-set changes are §0.2.3 evidence-gated — major version bump — REGARDLESS of the type-schema change category.**
+
+Rationale: even an "additive optional field" added to the discriminating set changes `@id` computation for new inputs. Cross-version deduplication breaks. The schema-stability rules from API §6.4.1 (additive = minor; reorder/remove/rename = major) apply to the TYPE schema, but the DISCRIMINATING-FIELD SET is more sensitive — any change is consumer-breaking.
+
+Specifically:
+
+- **Adding a field to the discriminating-field set:** §0.2.3 evidence-gated change. ADR with implementation evidence. Major version bump.
+- **Removing a field from the discriminating-field set:** §0.2.3 evidence-gated change. Major version bump.
+- **Renaming a field in the discriminating-field set:** §0.2.3 evidence-gated change. Major version bump.
+- **Changing the canonicalization rule for a nested object within a discriminating field:** case-by-case, defaulting to §0.2.3 unless provably non-breaking (per Q6 third tier).
+- **Changing the hash function (e.g., SHA-256 → SHA-512):** §0.2.3 evidence-gated change. Major version bump (changes ALL `@id`s).
+
+Per architect Q6 banking 2026-05-06: "default to heavier path." Applies here.
+
+#### 6. Empty-array vs absent-field convention (kernel canonicalize.ts inheritance)
+
+For RecoveryPayload's `originalFOL` field: the FOL axiom is canonicalized per kernel `canonicalize.ts` rules before stableStringify. Empty arrays are `[]` (NOT `null`, NOT absent). Optional fields are absent (NOT `null`, NOT `undefined`).
+
+For nested objects within discriminating fields: stableStringify recursively applies the same key-sorting + no-whitespace + UTF-8 rules at every level.
+
+#### 7. Excluded fields (do NOT participate in `@id` discrimination)
+
+The following fields are INTENTIONALLY EXCLUDED from the discriminating-field set:
+
+- **`provenance.timestamp` (LossSignature):** Timestamps would defeat byte-stability — every emission would produce a unique `@id`. Cross-CI-run deduplication requires byte-identical `@id`s for byte-identical inputs. Consumers needing temporal provenance can index LossSignatures by emission time externally.
+- **`reasonText` (LossSignature):** Free-text human-readable explanation; redundant with `reason` for discrimination. Two emissions with identical `reason` but stylistically-different `reasonText` are semantically the same emission; `@id` should match.
+- **`@type` (both):** Constant per type (`"ofbt:LossSignature"` / `"ofbt:RecoveryPayload"`); excluding it from discriminating fields keeps the hash input compact.
+- **`@id` (both):** Self-referential; trivially excluded.
+- **Future free-text descriptive fields:** Per the precedent set by `reasonText`'s exclusion, future free-text fields added to LossSignature / RecoveryPayload schemas SHOULD NOT enter the discriminating set unless they discriminate semantic content (in which case they're not free-text).
+
+### Consequences
+
+**Positive:**
+
+- Step 4 implementation has a stable `@id` contract; no canonicalization ambiguity. Two implementations of `folToOwl` that follow this ADR will produce byte-identical `@id`s on byte-identical inputs.
+- Cross-consumer deduplication: two consumers emitting LossSignatures from the same FOL input produce identical `@id`s; downstream tools indexing by `@id` (e.g., DP-2 records per spec §15.4) deduplicate cleanly across consumers.
+- Cross-CI-run reproducibility: same fixture inputs produce same `@id`s; CI snapshots are byte-stable; the 100-run determinism harness (per API §6.1.1) extends to audit artifacts cleanly.
+- Phase 3+ audit artifacts (ProofTrace per API §6.4.3, future ConsistencyResult per spec §8) can extend the same discipline forward; the discriminating-field-set discipline + Q6 three-tier evolution rules are reusable.
+- The architect-banked principle "audit-artifact `@id` content-addressing is architectural-commitment-tier" is the same tier as ADR-007 §1's lifter-emits-classical-FOL ruling — non-negotiable, ADR-routed for future evolution.
+
+**Negative:**
+
+- Schema-evolution friction: changing the discriminating-field set is a major version bump per §0.2.3. Future evolutionary pressure (e.g., adding a new severity level requires LOSS_TYPE addition per existing API §6.4.1, but that's a minor bump per the type-schema discipline; if the new type is added to the discriminating set, this ADR's §5 says major bump). This is intentional but increases the routing cost of evolutionary changes.
+- Implementation cost at Step 4: the canonical-stringification + SHA-256 computation must be deterministic across browser-vs-Node bundles. The `crypto.subtle.digest` allowlist (ADR-002) covers both runtimes; verified at Step 4 implementation time.
+- The `provenance.timestamp` exclusion means LossSignatures emitted at different times for the same input deduplicate by `@id`. Consumers wanting temporal provenance must index externally; this is consumer-side cost.
+
+**Neutral:**
+
+- The `@id` is not human-readable; consumers wanting human-readable identifiers use the `reason` field (LossSignature) or the `relationIRI` field (both).
+- Future v0.2 may extend the discriminating-field set per §0.2.3; that's a major version bump per the schema-evolution discipline. Banked: this is the right friction for a load-bearing contract.
+- The `originalFOL` field's canonicalization depends on kernel `canonicalize.ts`; that's a separate component with its own discipline. If `canonicalize.ts` changes its canonicalization rules in a way that affects `originalFOL` byte representation, this ADR's §5 third-tier (case-by-case) applies.
+
+### Banked principles
+
+1. **Audit-artifact `@id` content-addressing is architectural-commitment-tier per spec §0.1.** Same tier as ADR-007 §1's lifter-emits-classical-FOL ruling. Determinism and byte-stability are non-negotiable; deviations require ADR-level routing.
+
+2. **Discriminating-field-set changes are §0.2.3 evidence-gated regardless of type-schema change category.** "Default to heavier path" applies. Q6 three-tier discipline governs, with the additional constraint that ANY discriminating-field-set change is at least §0.2.3-tier.
+
+3. **Timestamp fields are NOT in the discriminating set.** Temporal provenance is consumer-side concern; `@id` determinism takes precedence. Generalizes to any field whose value is non-deterministic relative to the FOL+relation+strategy input triple.
+
+4. **`stableStringify` is the canonical canonicalization for hash-input.** Per kernel `canonicalize.ts`. Lexicographic key sorting; no whitespace variation; UTF-8 byte encoding. Reusable across all audit-artifact types.
+
+5. **Future audit-artifact types extend the same discipline.** ProofTrace per API §6.4.3, ConsistencyResult per Phase 3 spec §8, and any v0.2+ types inherit the `@id` content-addressing pattern. Per-type discriminating-field sets land in successor ADRs or extensions of this one.
+
+6. **Free-text descriptive fields SHOULD NOT enter the discriminating set unless they discriminate semantic content.** Generalization of the `reasonText` exclusion. Future schema additions follow this precedent; if a free-text field is added to the discriminating set, justify in the ratifying ADR.
+
+### Implementation evidence
+
+- Phase 2 Step 4 implementation will instantiate the `@id` generation per this ADR; `tests/projector-phase2.test.ts` will exercise the byte-stability contract via 100-run determinism harness extension (per API §6.1.1) — same input × 100 runs produces 100 byte-identical `@id`s.
+- Phase 2 fixture `tests/corpus/p2_lossy_naf_residue.fixture.js` (corpus commit pending Developer dispatch as of this ADR's Draft authoring) declares its `expected_v0.1_verdict.expectedLossSignatures[0]` with shape-fingerprint regex `/^ofbt:ls\/[0-9a-f]{64}$/` — verifies the `@id` format produced by this ADR.
+- Phase 2 fixture `tests/corpus/p2_unknown_relation_fallback.fixture.js` (forthcoming per architect Q-G ruling 2026-05-07; +1 fixture authorized) will exercise the same `@id` format for the `unknown_relation` LossType.
+- Future Phase 3+ ProofTrace and ConsistencyResult `@id`s extend this discipline.
+
+### Cross-references
+
+- API §6.4.1 (LossSignature schema with content-addressed `@id` specified)
+- API §6.4.2 (RecoveryPayload schema with content-addressed `@id` specified)
+- API §6.4.3 (ProofTrace — successor inheritance candidate)
+- spec §7.5 (content-addressed `@id` discipline framing)
+- spec §0.1 (determinism contract)
+- ADR-002 (kernel purity allowlist — `crypto.subtle.digest` for SHA-256)
+- ADR-007 §1 (lifter emits classical FOL — determinism precedent; same architectural-commitment tier)
+- Phase 2 entry packet §6.2 (Q6 three-tier schema-evolution discipline)
+- Phase 2 entry packet §3.2 (`p2_lossy_naf_residue` fixture spec)
+- `src/kernel/canonicalize.ts` (`stableStringify` implementation)
+- `src/kernel/projector-types.ts` (LossType enum + LossSignature/RecoveryPayload interfaces + frozen `LOSS_SIGNATURE_SEVERITY_ORDER`)
+- Step 4 spec-binding routing cycle architect rulings 2026-05-07 (preserved in ADR commit body + this ADR's Decision section)
+
+### Architect ratification (2026-05-07) — Q-rulings + additional banked principles
+
+Architect-routing 2026-05-07 ratified ADR-011 Draft → Accepted. Five Q-rulings (one per ADR section); three additional banked principles surfaced from the ratification cycle's analysis. Recorded for traceability.
+
+**Q-rulings (verified shape):**
+
+| Q | Topic | Architect ruling |
+|---|---|---|
+| Q-1 | LossSignature 5-field discriminating set | CONCUR — each field's load-bearing role audited and confirmed |
+| Q-2 | RecoveryPayload 3-field discriminating set | CONCUR — preserved from Step 4 spec-binding cycle ratification |
+| Q-3 | Stricter-than-Q6 schema-evolution discipline (§5) | CONCUR — strictening is correct; behavioral-contract evolution is more sensitive than schema-contract evolution |
+| Q-4 | Excluded-fields list + future-free-text generalization (§7) | CONCUR — exclusion criteria sound; generalization principle approved |
+| Q-5 | Commit shape (Option A standalone vs Option B bundled into Step 4a) | Developer-domain; weak architect preference for Option B (bundled) per audit-trail unity; either path accepted |
+
+**Three additional banked principles from this ratification cycle (forward-folding to AUTHORING_DISCIPLINE at Phase 2 exit doc-pass):**
+
+#### Banked principle (architect Q-1 audit) — Hierarchical schema fields enter the discriminating-field set at their hierarchical position
+
+When a discriminating field is itself a structured object (e.g., `provenance: {sourceGraphIRI, arcVersion}` in LossSignature), the discriminating-field-set entry is the **hierarchical reference** (`provenance`), not promoted top-level fields. The `stableStringify` canonicalization preserves the hierarchy, and the byte-stability contract operates on the hierarchical canonicalization. Promotion (e.g., flattening to top-level `sourceGraphIRI` + `arcVersion`) would fragment the discriminator and risk discrepancies if the underlying `provenance` schema gains additional fields (those new fields would be silently outside the discriminator).
+
+Architect's words: "Hierarchical schema fields enter the discriminating-field set at their hierarchical position rather than being promoted; the canonical-stringify output preserves the hierarchy and the byte-stability contract operates on the hierarchical canonicalization."
+
+Generalization: this principle applies to any future discriminating-field-bearing audit artifact. Folding into AUTHORING_DISCIPLINE under "Audit-artifact content-addressing discipline" alongside the §7 exclusion criteria.
+
+#### Banked principle (architect Q-3 strictening) — Behavioral contracts follow stricter evolution discipline than schema contracts
+
+Q6's three-tier discipline (additive-optional / required-or-rename-or-remove / case-by-case) governs **schema contracts** — what fields exist, what required-vs-optional means, what enum members are allowed. The **discriminating-field set** is a **behavioral contract** orthogonal to the schema contract — it specifies how content-addressing is computed. Two distinct contracts; the stricter rule applies to the behavioral contract because the behavioral contract is the load-bearing one for cross-installation byte-stability.
+
+Architect's words: "Behavioral contracts (e.g., content-addressing computation) are governed by stricter evolution discipline than schema contracts (e.g., field shapes), even when the underlying type definition is shared. §0.2.3 evidence-gating applies to behavioral-contract changes regardless of the schema-contract change category."
+
+Generalization beyond audit-artifact `@id`: future cycles touching other behavioral contracts inherit the same stricter discipline. Architect-named candidates: deterministic strategy-selection algorithm (spec §6.2); round-trip parity criterion (spec §8.1); No-Collapse Guarantee Horn-fragment classification (spec §8.5). Folding into AUTHORING_DISCIPLINE at Phase 2 exit doc-pass under "Schema-vs-behavioral-contract evolution discipline."
+
+#### Banked principle (architect Q-4 inclusion criteria) — Audit-artifact discriminating-field sets exclude documentation-polish-tier fields
+
+Documentation-polish-tier fields (free-text explanations, suggestions, hints, timestamps, self-referential identifiers, type discriminators carried by prefix) are excluded from discriminating sets. **Inclusion criteria:** the field's value affects whether two payloads represent the same semantic content; if not, exclude.
+
+Architect's words: "Audit-artifact discriminating-field sets exclude documentation-polish-tier fields. Inclusion criteria: the field's value affects whether two payloads represent the same semantic content; if not, exclude."
+
+Generalization: applies to future audit-artifact types. ProofTrace's `humanReadableExplanation`, `diagnosticHint`, `suggestion` fields (if any) are documentation-polish-tier and excluded. Free-text fields that DO encode semantic content (e.g., `clifGroundTruth.mappingNote` per Phase 1 fixture-corpus convention — semantically tracks how the OWL approximates the CLIF) are NOT documentation-polish-tier and may be included if discrimination is needed. Folding into AUTHORING_DISCIPLINE alongside the §7 exclusion convention.
+
+### Implementation cross-checks (post-ratification)
+
+- LossSignature `@id` regex: `/^ofbt:ls\/[0-9a-f]{64}$/` — ratified.
+- RecoveryPayload `@id` regex: `/^ofbt:rp\/[0-9a-f]{64}$/` — ratified.
+- Phase 2 fixture `p2_lossy_naf_residue.fixture.js`'s `expected_v0.1_verdict.expectedLossSignatures[0]['@id']` regex assertion conforms to the ratified contract.
+- Phase 2 fixture `p2_unknown_relation_fallback.fixture.js` (forthcoming SME path-fence-authoring per architect Q-G ruling 2026-05-07; +1 fixture authorized) will exercise the same `@id` format for the `unknown_relation` LossType.
+- 100-run determinism harness (per API §6.1.1) extends to Step 4's Loss Signature / RecoveryPayload `@id` byte-stability verification.

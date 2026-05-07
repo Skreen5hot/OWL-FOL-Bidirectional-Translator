@@ -1826,6 +1826,251 @@ await report(
 );
 
 // ===========================================================================
+// STEP 4a — Annotated Approximation + LossSignature emission
+// ===========================================================================
+
+const LS_ID_RE = /^ofbt:ls\/[0-9a-f]{64}$/;
+const RP_ID_RE = /^ofbt:rp\/[0-9a-f]{64}$/;
+
+await report(
+  "Step 4a / naf_residue: classical fol:Negation triggers conservative LossSignature + RecoveryPayload",
+  async () => {
+    // Mirrors p2_lossy_naf_residue.fixture.js input: ∀x. Person(x) → ¬KnownDriver(x)
+    const KNOWN_DRIVER = "http://example.org/p2-naf-residue/KnownDriver";
+    const PERSON = "http://example.org/p2-naf-residue/Person";
+    const axioms: FOLAxiom[] = [
+      {
+        "@type": "fol:Universal",
+        variable: "x",
+        body: {
+          "@type": "fol:Implication",
+          antecedent: {
+            "@type": "fol:Atom",
+            predicate: PERSON,
+            arguments: [{ "@type": "fol:Variable", name: "x" }],
+          },
+          consequent: {
+            "@type": "fol:Negation",
+            inner: {
+              "@type": "fol:Atom",
+              predicate: KNOWN_DRIVER,
+              arguments: [{ "@type": "fol:Variable", name: "x" }],
+            },
+          },
+        },
+      },
+    ];
+    const result = await folToOwl(axioms);
+    // Direct Mapping output preserved (SubClassOf with ObjectComplementOf).
+    deepStrictEqual(result.ontology.tbox, [
+      {
+        "@type": "SubClassOf",
+        subClass: { "@type": "Class", iri: PERSON },
+        superClass: {
+          "@type": "ObjectComplementOf",
+          class: { "@type": "Class", iri: KNOWN_DRIVER },
+        },
+      },
+    ]);
+    // Exactly one naf_residue LossSignature emitted.
+    const nafSigs = result.newLossSignatures.filter((s) => s.lossType === "naf_residue");
+    strictEqual(nafSigs.length, 1, "exactly one naf_residue LossSignature");
+    const ls = nafSigs[0];
+    strictEqual(ls["@type"], "ofbt:LossSignature");
+    strictEqual(ls.relationIRI, KNOWN_DRIVER);
+    strictEqual(ls.reason, "negation_over_unbound_predicate");
+    ok(LS_ID_RE.test(ls["@id"]), `@id matches /^ofbt:ls\\/[0-9a-f]{64}$/, got ${ls["@id"]}`);
+    ok(typeof ls.reasonText === "string" && ls.reasonText.length > 0, "non-empty reasonText");
+    // Exactly one RecoveryPayload emitted with the original FOL preserved.
+    strictEqual(result.newRecoveryPayloads.length, 1);
+    const rp = result.newRecoveryPayloads[0];
+    strictEqual(rp.approximationStrategy, "ANNOTATED_APPROXIMATION");
+    strictEqual(rp.relationIRI, KNOWN_DRIVER);
+    deepStrictEqual(rp.originalFOL, axioms[0]);
+    ok(RP_ID_RE.test(rp["@id"]), `RP @id matches /^ofbt:rp\\/[0-9a-f]{64}$/, got ${rp["@id"]}`);
+  },
+);
+
+await report(
+  "Step 4a / unknown_relation: predicate IRI outside permissive namespaces → informational LossSignature; no RecoveryPayload",
+  async () => {
+    // Mirrors p2_unknown_relation_fallback.fixture.js input.
+    const UNCATALOGUED = "http://example.org/p2-uncatalogued/uncatalogedRelation";
+    const ALICE = "http://example.org/p2-uncatalogued/alice";
+    const BOB = "http://example.org/p2-uncatalogued/bob";
+    const axioms: FOLAxiom[] = [
+      {
+        "@type": "fol:Atom",
+        predicate: UNCATALOGUED,
+        arguments: [
+          { "@type": "fol:Constant", iri: ALICE },
+          { "@type": "fol:Constant", iri: BOB },
+        ],
+      },
+    ];
+    const result = await folToOwl(axioms);
+    // Direct Mapping output preserved.
+    deepStrictEqual(result.ontology.abox, [
+      {
+        "@type": "ObjectPropertyAssertion",
+        property: UNCATALOGUED,
+        source: ALICE,
+        target: BOB,
+      },
+    ]);
+    // Exactly one unknown_relation LossSignature emitted.
+    const unkSigs = result.newLossSignatures.filter((s) => s.lossType === "unknown_relation");
+    strictEqual(unkSigs.length, 1, "exactly one unknown_relation LossSignature");
+    const ls = unkSigs[0];
+    strictEqual(ls.relationIRI, UNCATALOGUED);
+    strictEqual(ls.reason, "predicate_iri_not_in_loaded_arc_modules");
+    ok(LS_ID_RE.test(ls["@id"]));
+    // No RecoveryPayload — Direct Mapping output IS the recovery.
+    strictEqual(result.newRecoveryPayloads.length, 0);
+  },
+);
+
+await report(
+  "Step 4a / permissive namespace: predicate IRI under http://example.org/test/ does NOT trigger unknown_relation",
+  async () => {
+    const axioms: FOLAxiom[] = [
+      {
+        "@type": "fol:Atom",
+        predicate: "http://example.org/test/knows",
+        arguments: [
+          { "@type": "fol:Constant", iri: "http://example.org/test/alice" },
+          { "@type": "fol:Constant", iri: "http://example.org/test/bob" },
+        ],
+      },
+    ];
+    const result = await folToOwl(axioms);
+    const unkSigs = result.newLossSignatures.filter((s) => s.lossType === "unknown_relation");
+    strictEqual(unkSigs.length, 0, "no unknown_relation for tolerated namespace");
+  },
+);
+
+await report(
+  "Step 4a / @id determinism: same input produces byte-identical content-addressed @id across 100 runs",
+  async () => {
+    const KNOWN_DRIVER = "http://example.org/p2-naf-residue/KnownDriver";
+    const PERSON = "http://example.org/p2-naf-residue/Person";
+    const axioms: FOLAxiom[] = [
+      {
+        "@type": "fol:Universal",
+        variable: "x",
+        body: {
+          "@type": "fol:Implication",
+          antecedent: {
+            "@type": "fol:Atom",
+            predicate: PERSON,
+            arguments: [{ "@type": "fol:Variable", name: "x" }],
+          },
+          consequent: {
+            "@type": "fol:Negation",
+            inner: {
+              "@type": "fol:Atom",
+              predicate: KNOWN_DRIVER,
+              arguments: [{ "@type": "fol:Variable", name: "x" }],
+            },
+          },
+        },
+      },
+    ];
+    const first = await folToOwl(axioms);
+    const firstLsId = first.newLossSignatures[0]["@id"];
+    const firstRpId = first.newRecoveryPayloads[0]["@id"];
+    for (let i = 0; i < 99; i++) {
+      const next = await folToOwl(axioms);
+      strictEqual(next.newLossSignatures[0]["@id"], firstLsId, `LS @id drift on run ${i + 2}`);
+      strictEqual(next.newRecoveryPayloads[0]["@id"], firstRpId, `RP @id drift on run ${i + 2}`);
+    }
+  },
+);
+
+await report(
+  "Step 4a / @id discrimination: different naf_residue inputs produce different @ids",
+  async () => {
+    const PERSON = "http://example.org/p2-naf-residue/Person";
+    const buildAxiom = (negPredicate: string): FOLAxiom => ({
+      "@type": "fol:Universal",
+      variable: "x",
+      body: {
+        "@type": "fol:Implication",
+        antecedent: {
+          "@type": "fol:Atom",
+          predicate: PERSON,
+          arguments: [{ "@type": "fol:Variable", name: "x" }],
+        },
+        consequent: {
+          "@type": "fol:Negation",
+          inner: {
+            "@type": "fol:Atom",
+            predicate: negPredicate,
+            arguments: [{ "@type": "fol:Variable", name: "x" }],
+          },
+        },
+      },
+    });
+    const a = await folToOwl([buildAxiom("http://example.org/p2-naf/A")]);
+    const b = await folToOwl([buildAxiom("http://example.org/p2-naf/B")]);
+    ok(a.newLossSignatures[0]["@id"] !== b.newLossSignatures[0]["@id"], "distinct LossSignature @ids");
+    ok(a.newRecoveryPayloads[0]["@id"] !== b.newRecoveryPayloads[0]["@id"], "distinct RecoveryPayload @ids");
+  },
+);
+
+await report(
+  "Step 4a / source-provenance threading: config.sourceOntologyIRI populates manifest fields",
+  async () => {
+    const result = await folToOwl([], undefined, {
+      sourceOntologyIRI: "http://example.org/source-onto",
+      sourceVersionIRI: "http://example.org/source-onto/v1",
+      sourceGraphIRI: "http://example.org/source-graph",
+      arcManifestVersion: "0.1.0",
+    });
+    strictEqual(result.manifest.ontologyIRI, "http://example.org/source-onto");
+    strictEqual(result.manifest.versionIRI, "http://example.org/source-onto/v1");
+    strictEqual(result.manifest.projectedFrom, "http://example.org/source-onto");
+    strictEqual(result.manifest.activity.used, "http://example.org/source-onto");
+    strictEqual(result.manifest.arcManifestVersion, "0.1.0");
+  },
+);
+
+await report(
+  "Step 4a / LossSignature provenance: sourceGraphIRI from config flows through emitted signatures",
+  async () => {
+    const KNOWN_DRIVER = "http://example.org/p2-naf-residue/KnownDriver";
+    const axioms: FOLAxiom[] = [
+      {
+        "@type": "fol:Universal",
+        variable: "x",
+        body: {
+          "@type": "fol:Implication",
+          antecedent: {
+            "@type": "fol:Atom",
+            predicate: "http://example.org/p2-naf-residue/Person",
+            arguments: [{ "@type": "fol:Variable", name: "x" }],
+          },
+          consequent: {
+            "@type": "fol:Negation",
+            inner: {
+              "@type": "fol:Atom",
+              predicate: KNOWN_DRIVER,
+              arguments: [{ "@type": "fol:Variable", name: "x" }],
+            },
+          },
+        },
+      },
+    ];
+    const result = await folToOwl(axioms, undefined, {
+      sourceGraphIRI: "http://example.org/test-source",
+      arcManifestVersion: "0.1.0",
+    });
+    strictEqual(result.newLossSignatures[0].provenance.sourceGraphIRI, "http://example.org/test-source");
+    strictEqual(result.newLossSignatures[0].provenance.arcVersion, "0.1.0");
+  },
+);
+
+// ===========================================================================
 // Routing #0.5 — Projector robustness on malformed FOL inputs (defense-in-depth)
 // ===========================================================================
 

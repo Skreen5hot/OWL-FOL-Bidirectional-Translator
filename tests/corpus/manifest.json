@@ -504,6 +504,46 @@
         "expectedOutcome": "evaluate(folInput, query: 'KnownDriver(alice)?', closedPredicates: ['KnownDriver']) returns 'true' (CWA-derived); evaluate(folInput, query: 'KnownDriver(alice)?') under default OWA returns 'undetermined'. The projection's RecoveryPayload preserves the FOL state needed for the CWA evaluation; re-lifting the projected OWL alone (under default OWA) cannot reach the CWA-derived 'true' verdict.",
         "divergenceTrigger": "If real evaluate() under OWA returns 'true' (matching the CWA evaluation) where the stub-equivalent and the spec §6.3 default-OWA contract say 'undetermined', ESCALATE: open-world-preservation broken (a CWA assumption leaked through projection without the Loss Signature flagging it)."
       }
+    },
+    {
+      "fixtureId": "p2_unknown_relation_fallback",
+      "phase": 2,
+      "specSections": [
+        "§3.3",
+        "§6.4",
+        "§6.4.1",
+        "§7.2",
+        "API §6.4"
+      ],
+      "acceptanceCriteria": [
+        "§12 round-trip parity (informational-loss-signature regime)",
+        "Phase 2 entry packet §3.2 + architect Q-G ruling 2026-05-07 (+1 fixture authorized)"
+      ],
+      "arcEntries": [],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "Projector-direct fixture: input is a single FOL binary atom (ObjectPropertyAssertion-shaped). Test runner dispatches via folToOwl(fixture.input). Projection emits Direct Mapping ObjectPropertyAssertion(uncatalogedRelation, alice, bob) AND a single informational LossSignature carrying lossType: 'unknown_relation', relationIRI matching the predicate IRI, reason: 'predicate_iri_not_in_loaded_arc_modules', and a stable content-addressed @id matching /^ofbt:ls\\/[0-9a-f]{64}$/. No RecoveryPayload — Direct Mapping output is the full recovery.",
+        "fixtureType": "projector-direct",
+        "lossEmissionMode": "informational"
+      },
+      "expectedLossSignatureReasons": [
+        "predicate_iri_not_in_loaded_arc_modules"
+      ],
+      "intendedToCatch": "projector silently emitting Direct Mapping output WITHOUT the informational unknown_relation Loss Signature when the predicate IRI has no ARC-content backing; without the Loss Signature, downstream consumers cannot distinguish a predicate with full ARC-content semantic backing from a predicate that round-tripped structurally but has no semantic interpretation machinery available; Phase 4 strict-mode operation per spec §3.3 requires this discrimination as a hard contract; Phase 2's informational emission lays the groundwork",
+      "expected_v0.1_verdict": {
+        "ringStatus": "ring2-passes-with-informational-loss-signature",
+        "phaseAuthored": 2,
+        "phaseActivated": 2,
+        "expectedLossSignatureCount": 1,
+        "expectedRecoveryPayloadCount": 0,
+        "expectedProjectionStrategy": "direct"
+      },
+      "expected_v0.2_elk_verdict": null,
+      "phase4Reactivation": {
+        "gatedOn": "phase4-arc-content-loaded-with-strict-mode-default",
+        "expectedOutcome": "Under Phase 4 strict-mode operation per spec §3.3, the predicate IRI http://example.org/p2-uncatalogued/uncatalogedRelation either (a) is loaded as ARC content (this fixture's namespace promoted to a test ARC module) and round-trips cleanly without unknown_relation emission, OR (b) the projector throws a documented strict-mode rejection error per spec §3.3's rejection contract. Phase 4 entry packet picks (a) or (b).",
+        "divergenceTrigger": "If Phase 4 strict mode silently emits informational unknown_relation (Phase 2 behavior) where the strict-mode contract requires either ARC loading OR rejection, ESCALATE: strict-mode promotion not propagated from spec §3.3 to projector implementation."
+      }
     }
   ]
 }

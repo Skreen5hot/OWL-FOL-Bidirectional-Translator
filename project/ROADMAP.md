@@ -274,7 +274,7 @@ Step 4 promotion (Aaron-led):
 
 **Goal:** Implement `folToOwl` for the same constructs Phase 1 covers, plus audit artifact emission. Closes the bidirectional pipeline for built-in OWL.
 
-**Status:** 🟡 In progress (Steps 1-3 ✅ Complete — 3a + 3b + 3c all landed; entry ratified [`project/reviews/phase-2-entry.md`](reviews/phase-2-entry.md))
+**Status:** 🟡 In progress (Steps 1-3 + 4a ✅ Complete; entry ratified [`project/reviews/phase-2-entry.md`](reviews/phase-2-entry.md))
 
 **Plan reference:** §3.3
 
@@ -288,7 +288,8 @@ Proposed step granularity per [`project/reviews/phase-2-entry.md`](reviews/phase
 | 3a | Pair-matching TBox + remaining single-axiom RBox per spec §6.1.1: `EquivalentClasses` (mutual-implication pair); `DisjointWith` (`∀x. (C1(x) ∧ C2(x)) → ⊥`); `Functional` (equality consequent); `InverseObjectProperties` (bidirectional pair); `ObjectPropertyDomain` / `ObjectPropertyRange` (binary→unary on first/second var). Two-pass matching with source-position-keyed output preserves source order across pair-matched and single-axiom emissions. | ✅ Complete (this commit) |
 | 3b | Class-expression reconstruction (intersection / union / complement / restrictions someValuesFrom / allValuesFrom / hasValue) in SubClassOf consequent. Recursive `reconstructClassExpression(folShape, contextVar)` mirror of Phase 1's `liftClassExpression`. Round-trips green for `p1_restrictions_object_value` + `p1_complement_of` shapes + nested restrictions + intersection-containing-restriction. Cardinality restrictions (non-Horn) defer to Step 4 Annotated Approximation. | ✅ Complete (this commit) |
 | 3c | Reserved-predicate ABox + remaining TBox/RBox forms: `SameIndividual` / `DifferentIndividuals` reconstruction from `owl:sameAs` / `owl:differentFrom` constant atoms; identity-axiomatization SUPPRESSION pre-pass (drops sameAs reflexivity / symmetry / transitivity, differentFrom symmetry, per-predicate identity-rewrite rules per spec §5.5.1-§5.5.2); `SubObjectPropertyOf` (binary→binary same-args universal-implication, distinct predicates); `EquivalentObjectProperties` (pair-matched); `DisjointObjectProperties` (binary version of DisjointWith). `ClassDefinition` with NamedClass body round-trips via existing `EquivalentClasses` pair-matcher; ClassDefinition with class-expression body banked as future-Step gap (left-side class-expression reconstruction; Phase 1 corpus does not exercise). Round-trips green for `p1_owl_same_and_different` + `p1_property_characteristics` fixtures. | ✅ Complete (this commit) |
-| 4 | Annotated Approximation strategy per spec §6.1.3 + `LossSignature` emission | ⏳ Pending |
+| 4a | Annotated Approximation strategy + LossSignature/RecoveryPayload emission machinery + ADR-011 ratified Draft → Accepted: SHA-256 content-addressed `@id` per ADR-011 §1; discriminating-field sets per ADR-011 §3 (5 for LossSignature / 3 for RecoveryPayload); two emission paths (`naf_residue` conservative — classical fol:Negation triggers LossSignature + RecoveryPayload; `unknown_relation` informational — predicate IRI outside permissive-namespace allowlist triggers informational LossSignature, no RecoveryPayload); ProjectionManifest source-provenance threading via `config.sourceOntologyIRI` / `sourceVersionIRI` / `sourceGraphIRI`; `p2_unknown_relation_fallback` Q-G fixture activated. | ✅ Complete (this commit) |
+| 4b | Cardinality routing per architect's α/β ruling (Q-C → architect cycle pending) | ⏳ Pending |
 | 5 | Strategy selection algorithm per spec §6.2 with tiered fallthrough + `RecoveryPayload` content-addressed `@id` | ⏳ Pending |
 | 6 | Property-Chain Realization strategy per spec §6.1.2 (simplified built-in OWL form) | ⏳ Pending |
 | 7 | `roundTripCheck` per API §6.3 + spec §8.1 parity criterion | ⏳ Pending |

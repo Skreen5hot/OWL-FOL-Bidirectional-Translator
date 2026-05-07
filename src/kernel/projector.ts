@@ -1,5 +1,5 @@
 /**
- * FOL → OWL Projector (Phase 2 Steps 1-3c)
+ * FOL → OWL Projector (Phase 2 Steps 1-4a)
  *
  * Per API spec §6.2 + behavioral spec §6.1 (three-strategy router) +
  * §7 (audit artifacts) + §8.1 (round-trip parity).
@@ -24,6 +24,45 @@
  *     (Symmetric).
  *   - RBox universal-implication ∀x,y,z. P(x,y) ∧ P(y,z) → P(x,z) →
  *     ObjectPropertyCharacteristic(Transitive).
+ *
+ * IMPLEMENTED (Step 4a — Annotated Approximation strategy + LossSignature
+ * emission machinery + ADR-011 content-addressed @id):
+ *   - Strategy router architecture: Direct Mapping is attempted first per
+ *     spec §6.2 (existing 3-pass dispatch from Steps 3a/3c). After dispatch,
+ *     a side-channel emission pass scans the input axioms and emits
+ *     informational/conservative LossSignature + RecoveryPayload artifacts
+ *     for naf_residue and unknown_relation patterns. Property-Chain
+ *     Realization is Step 6 (still pending).
+ *
+ *   - naf_residue emission (conservative-emission policy per architect Q-β
+ *     banking 2026-05-06): the projector emits a LossSignature with
+ *     `lossType: "naf_residue"` for every classical fol:Negation in the
+ *     input. The projector cannot prove a given negation was lifter-derived
+ *     classical (vs. hand-authored with NAF intent) — when in doubt, emit.
+ *     Accompanied by a RecoveryPayload preserving the original FOL state
+ *     for downstream re-evaluation (Phase 3 evaluator's CWA path).
+ *
+ *   - unknown_relation emission (informational, Phase 2): the projector
+ *     emits a LossSignature with `lossType: "unknown_relation"` for
+ *     predicate IRIs whose namespace prefix is NOT in
+ *     `config.permissiveNamespaces` (default tolerance includes Phase 1
+ *     `http://example.org/test/`, OWL/RDF/RDFS/XSD, OBO Foundry). The
+ *     Direct Mapping output is preserved (the OWL form is structurally
+ *     valid); the LossSignature is informational. NO RecoveryPayload
+ *     (Direct Mapping output IS the recovery). Phase 4 strict-mode per
+ *     spec §3.3 promotes this to a rejection contract.
+ *
+ *   - Content-addressed @id per ADR-011 §1: SHA-256 lower-case hex of
+ *     stableStringify of the discriminating fields. LossSignature uses 5
+ *     fields (lossType, relationIRI, reason, provenance.sourceGraphIRI,
+ *     provenance.arcVersion); RecoveryPayload uses 3 fields (originalFOL,
+ *     relationIRI, approximationStrategy). The hash function is async
+ *     (crypto.subtle.digest per ADR-002 allowlist).
+ *
+ *   - ProjectionManifest source-provenance threading: `config.sourceOntologyIRI`
+ *     / `config.sourceVersionIRI` populate the manifest's `ontologyIRI` /
+ *     `versionIRI` / `projectedFrom` / `activity.used` fields per spec
+ *     §6.1.0.2. When omitted, manifest fields stay empty placeholders.
  *
  * IMPLEMENTED (Step 3c — reserved-predicate ABox + remaining TBox/RBox forms):
  *   - Identity-axiomatization SUPPRESSION pre-pass: detects the lifter's
@@ -136,7 +175,13 @@
  * Step 9 deliverable) re-exercises this contract across all 26 fixtures.
  */
 
-import { LIBRARY_VERSION } from "./version-constants.js";
+import { stableStringify } from "./canonicalize.js";
+import { LIBRARY_VERSION, ARC_MANIFEST_VERSION } from "./version-constants.js";
+import {
+  APPROXIMATION_STRATEGY_ANNOTATED,
+  LOSS_REASON_NAF_NEGATION_UNBOUND,
+  LOSS_REASON_UNKNOWN_RELATION_FALLBACK,
+} from "./projector-loss-reasons.js";
 import type {
   FOLAtom,
   FOLAxiom,
@@ -180,10 +225,24 @@ function isReservedIdentityPredicate(iri: string): boolean {
 }
 import type {
   FolToOwlConfig,
+  LossSignature,
   OWLConversionResult,
   ProjectionManifest,
   RecoveryPayload,
 } from "./projector-types.js";
+
+// Default permissive-namespace allowlist for unknown_relation emission
+// (Phase 2 Step 4a). Predicate IRIs whose namespace prefix matches any of
+// these are considered "permissively tolerated" and do not trigger
+// unknown_relation. Callers may override via `config.permissiveNamespaces`.
+const DEFAULT_PERMISSIVE_NAMESPACES: ReadonlyArray<string> = Object.freeze([
+  "http://example.org/test/",
+  "http://www.w3.org/2002/07/owl#",
+  "http://www.w3.org/2000/01/rdf-schema#",
+  "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+  "http://www.w3.org/2001/XMLSchema#",
+  "http://purl.obolibrary.org/obo/",
+]);
 
 /**
  * Project FOL axioms back to OWL.
@@ -298,7 +357,7 @@ export async function folToOwl(
   }
 
   const ontology: OWLOntology = {
-    ontologyIRI: "",
+    ontologyIRI: config?.sourceOntologyIRI ?? "",
     prefixes: config?.prefixes,
     tbox,
     abox,
@@ -308,13 +367,43 @@ export async function folToOwl(
     delete ontology.prefixes;
   }
 
+  // Step 4a — emission pass. Walks the input axioms (NOT the projected
+  // output) so the Loss Signature's relationIRI matches the input's
+  // predicate IRI verbatim, and naf_residue triggers off the input
+  // negation regardless of whether Direct Mapping reconstructed the
+  // ObjectComplementOf shape on the OWL side.
+  const newLossSignatures: LossSignature[] = [];
+  const newRecoveryPayloads: RecoveryPayload[] = [];
+  const sourceGraphIRI =
+    config?.sourceGraphIRI ?? config?.sourceOntologyIRI ?? "";
+  const arcVersion = config?.arcManifestVersion ?? ARC_MANIFEST_VERSION;
+  const permissive = config?.permissiveNamespaces ?? DEFAULT_PERMISSIVE_NAMESPACES;
+
+  for (const axiom of axioms) {
+    if (!isShape(axiom)) continue;
+    const naf = await emitNafResidueIfApplicable(axiom, sourceGraphIRI, arcVersion);
+    if (naf) {
+      newLossSignatures.push(naf.signature);
+      newRecoveryPayloads.push(naf.recovery);
+    }
+    const unknownRels = await emitUnknownRelationsIfApplicable(
+      axiom,
+      permissive,
+      sourceGraphIRI,
+      arcVersion,
+    );
+    for (const ls of unknownRels) {
+      newLossSignatures.push(ls);
+    }
+  }
+
   const manifest: ProjectionManifest = buildSkeletonManifest(config);
 
   return {
     ontology,
     manifest,
-    newRecoveryPayloads: [],
-    newLossSignatures: [],
+    newRecoveryPayloads,
+    newLossSignatures,
   };
 }
 
@@ -1228,20 +1317,285 @@ function isNamedIRI(iri: string): boolean {
 // ===========================================================================
 
 function buildSkeletonManifest(config: FolToOwlConfig | undefined): ProjectionManifest {
-  // Per spec §6.1.0.2: ontologyIRI is preserved from source. Step 2 keeps
-  // the placeholder strings from Step 1; source-ontology-IRI threading
-  // (via config or recoveryPayloads-derived provenance) lands in Step 5
-  // alongside the strategy selection algorithm. projectionTimestamp
-  // deliberately omitted — kernel stays impurity-free.
+  // Per spec §6.1.0.2: ontologyIRI is preserved from source. Step 4a wires
+  // source-provenance threading via config.sourceOntologyIRI /
+  // sourceVersionIRI. When omitted, fields stay empty placeholders.
+  // projectionTimestamp deliberately omitted — kernel stays impurity-free
+  // (composition layer wires the timestamp injection per spec §7.5).
+  const sourceIRI = config?.sourceOntologyIRI ?? "";
+  const versionIRI = config?.sourceVersionIRI ?? "";
   return {
-    ontologyIRI: "",
-    versionIRI: "",
-    projectedFrom: "",
+    ontologyIRI: sourceIRI,
+    versionIRI,
+    projectedFrom: sourceIRI,
     projectorVersion: `OFBT-${LIBRARY_VERSION}`,
     arcManifestVersion: config?.arcManifestVersion ?? "",
     operatingMode: config?.arcCoverage === "strict" ? "strict" : "permissive",
     activity: {
-      used: "",
+      used: sourceIRI,
     },
   };
+}
+
+// ===========================================================================
+// Step 4a — Annotated Approximation emission pass
+// ===========================================================================
+
+interface NafResidueEmission {
+  signature: LossSignature;
+  recovery: RecoveryPayload;
+}
+
+/**
+ * Detect a classical-negation pattern at the top level of an axiom and emit
+ * the conservative naf_residue LossSignature + RecoveryPayload pair.
+ *
+ * Trigger: outer fol:Universal whose body is a fol:Implication whose
+ * consequent is a fol:Negation of a unary atom. This is the lifter's
+ * canonical ObjectComplementOf shape AND the projector-direct fixture's
+ * NAF-residue exercise shape — the projector cannot distinguish between
+ * them, so it emits naf_residue on either case (per architect's Q-β
+ * conservative-emission policy 2026-05-06).
+ *
+ * Returns null when the axiom does not contain a classical negation, so
+ * non-negation axioms pass through without emission.
+ */
+async function emitNafResidueIfApplicable(
+  axiom: FOLAxiom,
+  sourceGraphIRI: string,
+  arcVersion: string,
+): Promise<NafResidueEmission | null> {
+  const negPredicate = findClassicalNegationPredicate(axiom);
+  if (!negPredicate) return null;
+
+  const provenance = { sourceGraphIRI, arcVersion };
+  const lsId = await contentAddressedId("ofbt:ls/", {
+    lossType: "naf_residue",
+    relationIRI: negPredicate,
+    reason: LOSS_REASON_NAF_NEGATION_UNBOUND,
+    sourceGraphIRI,
+    arcVersion,
+  });
+  const signature: LossSignature = {
+    "@id": lsId,
+    "@type": "ofbt:LossSignature",
+    lossType: "naf_residue",
+    relationIRI: negPredicate,
+    reason: LOSS_REASON_NAF_NEGATION_UNBOUND,
+    reasonText:
+      "Classical fol:Negation in the FOL state; projector cannot determine " +
+      "whether the source authored this with classical OWL negation intent " +
+      "(round-trip clean) or NAF intent (round-trip lossy under default-OWA). " +
+      "Conservative-emission policy per ADR-007 §1 layer separation: when in " +
+      "doubt, emit naf_residue. Downstream consumers may trust the classical " +
+      "projection or invoke the RecoveryPayload to reconstitute the FOL with " +
+      "negation-context preserved for Phase 3 evaluator's CWA path.",
+    provenance,
+  };
+
+  const rpId = await contentAddressedId("ofbt:rp/", {
+    originalFOL: axiom,
+    relationIRI: negPredicate,
+    approximationStrategy: APPROXIMATION_STRATEGY_ANNOTATED,
+  });
+  const recovery: RecoveryPayload = {
+    "@id": rpId,
+    "@type": "ofbt:RecoveryPayload",
+    approximationStrategy: APPROXIMATION_STRATEGY_ANNOTATED,
+    relationIRI: negPredicate,
+    originalFOL: axiom,
+    projectedForm: "",
+  };
+
+  return { signature, recovery };
+}
+
+/**
+ * Walk an axiom's predicate-IRI surface and emit informational
+ * unknown_relation LossSignatures for any predicate whose namespace prefix
+ * is NOT in the permissive-tolerance set. Phase 2 emission is informational
+ * (Direct Mapping output is preserved); Phase 4 strict mode promotes this
+ * to rejection per spec §3.3.
+ *
+ * Returns one LossSignature per unique uncatalogued predicate encountered
+ * in the axiom (not per occurrence — deduplicated by the content-addressed
+ * @id which derives from the predicate IRI).
+ */
+async function emitUnknownRelationsIfApplicable(
+  axiom: FOLAxiom,
+  permissiveNamespaces: ReadonlyArray<string>,
+  sourceGraphIRI: string,
+  arcVersion: string,
+): Promise<LossSignature[]> {
+  const predicates = collectPredicateIRIs(axiom);
+  const out: LossSignature[] = [];
+  const seen = new Set<string>();
+  // Iterate sorted for deterministic emission order.
+  const sorted = [...predicates].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  for (const predicateIRI of sorted) {
+    if (seen.has(predicateIRI)) continue;
+    seen.add(predicateIRI);
+    if (isPermissivelyToleratedNamespace(predicateIRI, permissiveNamespaces)) continue;
+
+    const lsId = await contentAddressedId("ofbt:ls/", {
+      lossType: "unknown_relation",
+      relationIRI: predicateIRI,
+      reason: LOSS_REASON_UNKNOWN_RELATION_FALLBACK,
+      sourceGraphIRI,
+      arcVersion,
+    });
+    out.push({
+      "@id": lsId,
+      "@type": "ofbt:LossSignature",
+      lossType: "unknown_relation",
+      relationIRI: predicateIRI,
+      reason: LOSS_REASON_UNKNOWN_RELATION_FALLBACK,
+      reasonText:
+        "Predicate IRI not registered in any loaded ARC module at projector " +
+        "emission time; fallback path applied per spec §6.4 unknown_relation " +
+        "contract; downstream consumers may load additional ARC modules or " +
+        "accept the fallback projection. Phase 4 strict-mode operation per " +
+        "spec §3.3 promotes this to a rejection contract.",
+      provenance: { sourceGraphIRI, arcVersion },
+    });
+  }
+  return out;
+}
+
+function isPermissivelyToleratedNamespace(
+  iri: string,
+  allowlist: ReadonlyArray<string>,
+): boolean {
+  for (const prefix of allowlist) {
+    if (iri.startsWith(prefix)) return true;
+  }
+  return false;
+}
+
+/**
+ * Walk a FOLAxiom recursively and collect every predicate IRI mentioned in
+ * any fol:Atom node. Used by unknown_relation emission to discover
+ * uncatalogued predicates.
+ */
+function collectPredicateIRIs(shape: FOLAxiom): Set<string> {
+  const out = new Set<string>();
+  walkPredicates(shape, out);
+  return out;
+}
+
+function walkPredicates(shape: unknown, out: Set<string>): void {
+  if (!isShape(shape)) return;
+  switch (shape["@type"]) {
+    case "fol:Atom": {
+      const predicate = (shape as { predicate?: unknown }).predicate;
+      if (typeof predicate === "string" && predicate.length > 0) {
+        out.add(predicate);
+      }
+      return;
+    }
+    case "fol:Universal":
+    case "fol:Existential":
+      walkPredicates((shape as { body?: unknown }).body, out);
+      return;
+    case "fol:Implication":
+      walkPredicates((shape as { antecedent?: unknown }).antecedent, out);
+      walkPredicates((shape as { consequent?: unknown }).consequent, out);
+      return;
+    case "fol:Conjunction": {
+      const conjuncts = (shape as { conjuncts?: unknown }).conjuncts;
+      if (Array.isArray(conjuncts)) {
+        for (const c of conjuncts) walkPredicates(c, out);
+      }
+      return;
+    }
+    case "fol:Disjunction": {
+      const disjuncts = (shape as { disjuncts?: unknown }).disjuncts;
+      if (Array.isArray(disjuncts)) {
+        for (const d of disjuncts) walkPredicates(d, out);
+      }
+      return;
+    }
+    case "fol:Negation":
+      walkPredicates((shape as { inner?: unknown }).inner, out);
+      return;
+  }
+}
+
+/**
+ * Walk an axiom searching for the canonical naf_residue trigger pattern:
+ * a fol:Negation whose `inner` is a fol:Atom on a unary or binary
+ * predicate. Returns the negated predicate's IRI when found; null
+ * otherwise.
+ *
+ * Only inspects the first negation found; multiple-negation handling is
+ * deferred to a follow-up Step (per Phase 2 entry packet's bounded scope).
+ */
+function findClassicalNegationPredicate(shape: FOLAxiom): string | null {
+  return walkForNegation(shape);
+}
+
+function walkForNegation(shape: unknown): string | null {
+  if (!isShape(shape)) return null;
+  switch (shape["@type"]) {
+    case "fol:Negation": {
+      const inner = (shape as { inner?: unknown }).inner;
+      if (isShape(inner) && inner["@type"] === "fol:Atom") {
+        const predicate = (inner as { predicate?: unknown }).predicate;
+        if (typeof predicate === "string" && predicate.length > 0) {
+          return predicate;
+        }
+      }
+      return null;
+    }
+    case "fol:Universal":
+    case "fol:Existential":
+      return walkForNegation((shape as { body?: unknown }).body);
+    case "fol:Implication": {
+      const ant = walkForNegation((shape as { antecedent?: unknown }).antecedent);
+      if (ant) return ant;
+      return walkForNegation((shape as { consequent?: unknown }).consequent);
+    }
+    case "fol:Conjunction": {
+      const conjuncts = (shape as { conjuncts?: unknown }).conjuncts;
+      if (Array.isArray(conjuncts)) {
+        for (const c of conjuncts) {
+          const found = walkForNegation(c);
+          if (found) return found;
+        }
+      }
+      return null;
+    }
+    case "fol:Disjunction": {
+      const disjuncts = (shape as { disjuncts?: unknown }).disjuncts;
+      if (Array.isArray(disjuncts)) {
+        for (const d of disjuncts) {
+          const found = walkForNegation(d);
+          if (found) return found;
+        }
+      }
+      return null;
+    }
+  }
+  return null;
+}
+
+/**
+ * Compute a content-addressed @id per ADR-011 §1: SHA-256 lower-case hex
+ * of stableStringify(discriminating-fields) prefixed with the artifact
+ * scheme (`ofbt:ls/` for LossSignature, `ofbt:rp/` for RecoveryPayload).
+ *
+ * Uses crypto.subtle.digest per ADR-002 kernel-purity allowlist. Async by
+ * necessity (Web Crypto API is Promise-returning).
+ */
+async function contentAddressedId(
+  scheme: string,
+  discriminatingFields: Record<string, unknown>,
+): Promise<string> {
+  const canonical = stableStringify(discriminatingFields);
+  const bytes = new TextEncoder().encode(canonical);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  const hex = Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  return `${scheme}${hex}`;
 }

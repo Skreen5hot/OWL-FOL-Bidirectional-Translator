@@ -114,6 +114,39 @@ export interface FolToOwlConfig extends LifterConfig {
    * source ontology's `prefixes` field (per the API §6.2 worked example).
    */
   prefixes?: Record<string, string>;
+
+  /**
+   * Source-provenance threading for ProjectionManifest fields per spec
+   * §6.1.0.2. In a typical round trip, the caller passes the source
+   * ontology's `ontologyIRI` here so the projected manifest preserves the
+   * source's logical identity. When omitted, manifest emits empty placeholder
+   * strings for these fields.
+   */
+  sourceOntologyIRI?: string;
+  sourceVersionIRI?: string;
+
+  /**
+   * Source graph IRI used as the `provenance.sourceGraphIRI` field on
+   * emitted LossSignatures (API §6.4.1). Falls back to `sourceOntologyIRI`
+   * when omitted; falls back to the empty string when both are omitted.
+   */
+  sourceGraphIRI?: string;
+
+  /**
+   * Permissive-namespace allowlist for unknown_relation LossSignature
+   * emission (Phase 2 Step 4a). When the projector encounters a predicate
+   * IRI whose namespace prefix is in this set, no unknown_relation is
+   * emitted. When the prefix is NOT in this set, an informational
+   * unknown_relation LossSignature accompanies the Direct Mapping output.
+   *
+   * When omitted, the projector uses a default tolerance set that includes
+   * Phase 1's `http://example.org/test/` test prefix plus the OWL / RDF /
+   * RDFS / XSD vocabularies plus the BFO/OBO Foundry namespace.
+   *
+   * Phase 4 strict-mode (per spec §3.3) promotes this from informational
+   * emission to rejection; Phase 2 ships the informational variant.
+   */
+  permissiveNamespaces?: ReadonlyArray<string>;
 }
 
 export interface OWLConversionResult {
