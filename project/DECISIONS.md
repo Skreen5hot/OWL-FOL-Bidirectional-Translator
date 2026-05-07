@@ -732,3 +732,121 @@ Generalization: applies to future audit-artifact types. ProofTrace's `humanReada
 - Phase 2 fixture `p2_lossy_naf_residue.fixture.js`'s `expected_v0.1_verdict.expectedLossSignatures[0]['@id']` regex assertion conforms to the ratified contract.
 - Phase 2 fixture `p2_unknown_relation_fallback.fixture.js` (forthcoming SME path-fence-authoring per architect Q-G ruling 2026-05-07; +1 fixture authorized) will exercise the same `@id` format for the `unknown_relation` LossType.
 - 100-run determinism harness (per API §6.1.1) extends to Step 4's Loss Signature / RecoveryPayload `@id` byte-stability verification.
+
+---
+
+## ADR-012: Cardinality routing — Direct Mapping with n-tuple matching (Option β)
+
+**Status:** Accepted (architect ratification 2026-05-07 — Step 4 spec-binding routing cycle's Q-E ruling, captured in committed form 2026-05-07)
+**Date:** 2026-05-07 (architect ruling); 2026-05-07 (committed-form capture)
+**Predecessors:** ADR-007 §7 (cardinality lifting convention — Phase 1 Step 7's non-Horn FOL emission); Phase 2 entry packet §3.1 (cardinality fixture's reversible regime); Phase 2 entry packet §6.2 (Q6 three-tier schema-evolution discipline); Step 4 spec-binding routing cycle architect rulings 2026-05-07.
+**Successor:** None pending.
+
+### Context
+
+The Step 4 spec-binding routing cycle (SME-routed 2026-05-07) surfaced two candidate routings for cardinality round-trip:
+
+- **Option α** — emit cardinality via Annotated Approximation with `LossSignature(lossType: "arity_flattening")` and a `RecoveryPayload` carrying the original FOL. `roundTripCheck` returns `equivalent: true` modulo recovery payload.
+- **Option β** — emit cardinality as native OWL `Restriction { onProperty, minCardinality / maxCardinality / cardinality, onClass? }` directly under Direct Mapping. No Loss Signature. Round-trip byte-clean.
+
+Per Aaron's Q-C "direct to architect" disposition at the prior cycle, the SME's Option β recommendation routed direct-to-architect for ratification.
+
+The architect ratified Option β at the Step 4 spec-binding routing cycle 2026-05-07 (verbatim as the architect's Q-E ruling). The ruling's full reasoning is preserved in the cycle transcript + this ADR's Decision section. Step 4a (commit `1278860`) implemented the spec-binding cycle's other deliverables (LossSignature emission machinery + naf_residue + unknown_relation + ADR-011); Step 4b implements the cardinality n-tuple matcher per this ADR.
+
+This ADR captures the Q-E ruling in committed form for traceability, per the architect's banked principle "self-containedness of ADRs over cross-reference dependency when both are available" (ADR-011's banked principle 10.7) and the SME's banked observation "borderline routing decisions default to ADR per architect Q-β banking."
+
+### Decision
+
+Adopt **Option β: Direct Mapping with n-tuple matching for cardinality patterns.**
+
+Cardinality projects as native OWL `Restriction` axioms with the appropriate cardinality field (`minCardinality` / `maxCardinality` / `cardinality`) and qualified `onClass` filler if present. No Loss Signature emitted; the round-trip is byte-clean.
+
+### Implementation contract
+
+The Step 4b implementation adds an n-tuple matcher to the projector recognizing the three cardinality FOL shapes per ADR-007 §7:
+
+#### MinCardinality(P, n, F)
+
+Lifted FOL shape:
+```
+∀x. C(x) → ∃y_0,...,y_{n-1}. (
+  ⋀_i P(x, y_i)            // n binary atoms binding the property
+  ∧ ⋀_i F(y_i)             // n filler atoms (qualified case; absent in unqualified)
+  ∧ ⋀_{i<j} y_i ≠ y_j      // n*(n-1)/2 pairwise distinctness atoms
+)
+```
+
+Projects as:
+```
+SubClassOf(
+  C,
+  ObjectMinCardinality(n, P, F)   // qualified
+  // OR: ObjectMinCardinality(n, P)  // unqualified (no filler)
+)
+```
+
+#### MaxCardinality(P, n, F)
+
+Lifted FOL shape:
+```
+∀x. C(x) → ¬∃y_0,...,y_n. (    // n+1 existentials, then negate
+  ⋀_i P(x, y_i)
+  ∧ ⋀_i F(y_i)
+  ∧ ⋀_{i<j} y_i ≠ y_j
+)
+```
+
+Projects as:
+```
+SubClassOf(C, ObjectMaxCardinality(n, P, F))
+```
+
+#### ExactCardinality(P, n, F)
+
+Conjunction of MinCardinality(P, n, F) AND MaxCardinality(P, n, F). Projector recognizes the pattern AND emits a single `ObjectExactCardinality(n, P, F)` Restriction (not two separate Min + Max axioms).
+
+### Consequences
+
+**Positive:**
+
+- **Spec-aligned per §6.1.3 framing.** Annotated Approximation is "for FOL shapes that don't map to OWL 2 DL." Cardinality DOES map to OWL 2 DL via min/max/exact restrictions. Routing it to Annotated Approximation (Option α) would have been a category error.
+- **Round-trip byte-clean.** `p1_restrictions_cardinality.fixture.js`'s regime flips `reversible` → `equivalent` at Step 4b landing. The fixture's `expectedLossSignatureReasons` becomes `[]`. Manifest entry receives a regime annotation update (NOT corpus expansion) per architect Q-E banking principle 2 ("Fixture regime annotations are provisional during phases pre-shipping the matching pipeline component").
+- **Forward-compatibility to Phase 4+.** ARC content with cardinality constraints (BFO occurs-at-time has cardinality constraints; CCO realizable-holding has cardinality-bearing patterns) round-trips cleanly without per-phase special handling.
+- **Audit-trail unity.** Step 4b's commit references this ADR; future readers reconstruct the architectural commitment without re-litigating the architect ruling from the cycle transcript.
+
+**Negative:**
+
+- **Step 4b implementation cost.** The n-tuple matcher is more complex than Step 3a's pair-matching for `InverseObjectProperties` — it must recognize variable counts (the `n` parameter), pairwise distinctness atoms (n*(n-1)/2 of them), optional filler atoms, and the negation-wrapping discrimination between Min vs Max. Deterministic + well-specified per ADR-007 §7, but materially more work than pair-matching.
+- **Step 4a's Annotated Approximation machinery is not exercised by cardinality** (under Option β, cardinality goes Direct Mapping, not Annotated Approximation). Per architect Q-G ruling 2026-05-07, the Annotated Approximation machinery is exercised by `p2_lossy_naf_residue` (naf_residue) and `p2_unknown_relation_fallback` (unknown_relation); cardinality stays Direct Mapping.
+
+**Neutral:**
+
+- **`p1_restrictions_cardinality` manifest amendment** at Step 4b landing: regime `reversible` → `equivalent`; `expectedLossSignatureReasons: ["unsupported_construct"]` → `[]`. Per architect Q-E banking principle 2, this is annotation-tracking work, not corpus expansion. Lands as part of the Step 4b commit.
+
+### Banked principles (verbatim from architect Q-E ruling 2026-05-07)
+
+1. **Spec interpretation defaults to literal framing, not conservative emission strategy.** Q6's "default to heavier path" applies to corrective-action ratification (ADR vs amendment), NOT to spec interpretation. Spec interpretation defaults to literal framing (spec §6.1.3 says "for FOL shapes that don't map to OWL 2 DL"; cardinality maps; therefore cardinality is not Annotated Approximation territory).
+
+2. **Fixture regime annotations are provisional during phases pre-shipping the matching pipeline component.** Updating regime annotations when the component lands is annotation-tracking work, not corpus expansion. The architect's "no expansion of 26-fixture scope" rule applies to count and substance, not annotations that track pipeline maturity.
+
+3. **Forward-compatibility prioritization for ARC-content phases.** When a Phase 2 routing decision affects how Phase 4-7 ARC content with the same construct will round-trip, the forward-compatibility argument is load-bearing. Routing cardinality to Annotated Approximation in Phase 2 would have forced every cardinality-bearing ARC fixture in Phases 4-7 to either accept reversible-approximation semantics or carry per-fixture special handling. Direct Mapping shipped at Step 4b obviates that.
+
+These three principles bank verbally at the Step 4 spec-binding cycle; formal AUTHORING_DISCIPLINE folding deferred to Phase 2 exit doc-pass alongside the prior cycles' deferred banking.
+
+### Implementation evidence
+
+- **Step 4b implementation commit (forthcoming):** adds n-tuple matcher to `src/kernel/projector.ts`; updates `tests/projector-phase2.test.ts` with cardinality round-trip tests; updates `tests/corpus/manifest.json` with the `p1_restrictions_cardinality` regime annotation flip.
+- **`p1_restrictions_cardinality.fixture.js`:** Phase 1 fixture exercising cardinality lifting per ADR-007 §7. Becomes the canonical Step 4b round-trip exerciser.
+- **100-run determinism harness extension:** Step 4b adds cardinality round-trip to the byte-stability verification suite.
+
+### Cross-references
+
+- ADR-007 §7 (cardinality lifting convention — Phase 1 Step 7's non-Horn FOL emission)
+- ADR-011 (audit-artifact `@id` content-addressing — Step 4 spec-binding cycle's other architectural deliverable)
+- spec §6.1.1 (Direct Mapping table — extended at Step 4b to include cardinality patterns)
+- spec §6.1.3 (Annotated Approximation framing — explicit "for FOL shapes that don't map to OWL 2 DL")
+- spec §6.1.2 (Property-Chain Realization — Step 6 deliverable; not exercised by cardinality)
+- API §6.1 / §6.2 (`owlToFol` / `folToOwl` signatures)
+- Phase 2 entry packet §3.1 (cardinality fixture regime — provisional `reversible` per architect Q-E banking principle 2; flips to `equivalent` at Step 4b)
+- Step 4 spec-binding routing cycle architect rulings 2026-05-07 (preserved verbatim in cycle transcript; Q-E ruling captured here for traceability)
+- `tests/corpus/p1_restrictions_cardinality.fixture.js` (the canonical exerciser)
