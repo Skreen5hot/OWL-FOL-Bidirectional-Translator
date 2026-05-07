@@ -1826,6 +1826,176 @@ await report(
 );
 
 // ===========================================================================
+// STEP 4b — Cardinality n-tuple matcher per ADR-012
+// ===========================================================================
+
+await report(
+  "Step 4b / MinCardinality: SubClassOf(C, ≥2 P) round-trips through Direct Mapping",
+  async () => {
+    const input: OWLOntology = {
+      ontologyIRI: "http://example.org/test/p2_step4b_min",
+      tbox: [
+        {
+          "@type": "SubClassOf",
+          subClass: { "@type": "Class", iri: "http://example.org/test/HasAtLeastTwoChildren" },
+          superClass: {
+            "@type": "Restriction",
+            onProperty: "http://example.org/test/hasChild",
+            minCardinality: 2,
+          },
+        },
+      ],
+      abox: [],
+      rbox: [],
+    };
+    const lifted = await owlToFol(input);
+    const projected = await folToOwl(lifted);
+    deepStrictEqual(projected.ontology.tbox, input.tbox);
+    // Cardinality round-trips clean — no LossSignatures per ADR-012.
+    deepStrictEqual(projected.newLossSignatures, []);
+    deepStrictEqual(projected.newRecoveryPayloads, []);
+  },
+);
+
+await report(
+  "Step 4b / MaxCardinality: SubClassOf(C, ≤3 P) round-trips through Direct Mapping",
+  async () => {
+    const input: OWLOntology = {
+      ontologyIRI: "http://example.org/test/p2_step4b_max",
+      tbox: [
+        {
+          "@type": "SubClassOf",
+          subClass: { "@type": "Class", iri: "http://example.org/test/HasAtMostThreeChildren" },
+          superClass: {
+            "@type": "Restriction",
+            onProperty: "http://example.org/test/hasChild",
+            maxCardinality: 3,
+          },
+        },
+      ],
+      abox: [],
+      rbox: [],
+    };
+    const lifted = await owlToFol(input);
+    const projected = await folToOwl(lifted);
+    deepStrictEqual(projected.ontology.tbox, input.tbox);
+    deepStrictEqual(projected.newLossSignatures, []);
+  },
+);
+
+await report(
+  "Step 4b / ExactCardinality QCR: SubClassOf(C, =2 P onClass D) round-trips through Direct Mapping",
+  async () => {
+    const input: OWLOntology = {
+      ontologyIRI: "http://example.org/test/p2_step4b_exact_qcr",
+      tbox: [
+        {
+          "@type": "SubClassOf",
+          subClass: { "@type": "Class", iri: "http://example.org/test/HasExactlyTwoHumanChildren" },
+          superClass: {
+            "@type": "Restriction",
+            onProperty: "http://example.org/test/hasChild",
+            cardinality: 2,
+            onClass: { "@type": "Class", iri: "http://example.org/test/Person" },
+          },
+        },
+      ],
+      abox: [],
+      rbox: [],
+    };
+    const lifted = await owlToFol(input);
+    const projected = await folToOwl(lifted);
+    deepStrictEqual(projected.ontology.tbox, input.tbox);
+    deepStrictEqual(projected.newLossSignatures, []);
+  },
+);
+
+await report(
+  "Step 4b / Round-trip: full p1_restrictions_cardinality fixture (min + max + exact-with-QCR) survives byte-clean",
+  async () => {
+    // Mirror p1_restrictions_cardinality.fixture.js's input verbatim.
+    const input: OWLOntology = {
+      ontologyIRI: "http://example.org/test/p1_restrictions_cardinality",
+      prefixes: { ex: "http://example.org/test/" },
+      tbox: [
+        {
+          "@type": "SubClassOf",
+          subClass: { "@type": "Class", iri: "http://example.org/test/HasAtLeastTwoChildren" },
+          superClass: {
+            "@type": "Restriction",
+            onProperty: "http://example.org/test/hasChild",
+            minCardinality: 2,
+          },
+        },
+        {
+          "@type": "SubClassOf",
+          subClass: { "@type": "Class", iri: "http://example.org/test/HasAtMostThreeChildren" },
+          superClass: {
+            "@type": "Restriction",
+            onProperty: "http://example.org/test/hasChild",
+            maxCardinality: 3,
+          },
+        },
+        {
+          "@type": "SubClassOf",
+          subClass: { "@type": "Class", iri: "http://example.org/test/HasExactlyTwoHumanChildren" },
+          superClass: {
+            "@type": "Restriction",
+            onProperty: "http://example.org/test/hasChild",
+            cardinality: 2,
+            onClass: { "@type": "Class", iri: "http://example.org/test/Person" },
+          },
+        },
+      ],
+      abox: [],
+      rbox: [],
+    };
+    const lifted = await owlToFol(input);
+    const projected = await folToOwl(lifted, undefined, { prefixes: input.prefixes });
+    deepStrictEqual(projected.ontology.tbox, input.tbox);
+    // ADR-012 banked principle 2: cardinality round-trips clean as Direct
+    // Mapping; regime amendment reversible → equivalent justified.
+    deepStrictEqual(projected.newLossSignatures, []);
+    deepStrictEqual(projected.newRecoveryPayloads, []);
+    // Per Step 5 attribution: each of the 3 axioms reports strategy='direct'.
+    strictEqual(projected.strategySelections.length, 3);
+    for (const sel of projected.strategySelections) {
+      strictEqual(sel.strategy, "direct");
+      strictEqual(sel.lossSignatureCount, 0);
+      strictEqual(sel.recoveryPayloadCount, 0);
+    }
+  },
+);
+
+await report(
+  "Step 4b / Determinism: cardinality round-trips byte-stable across 100 lift→project cycles",
+  async () => {
+    const input: OWLOntology = {
+      ontologyIRI: "http://example.org/test/p2_step4b_determinism",
+      tbox: [
+        {
+          "@type": "SubClassOf",
+          subClass: { "@type": "Class", iri: "http://example.org/test/HasExactlyTwoHumanChildren" },
+          superClass: {
+            "@type": "Restriction",
+            onProperty: "http://example.org/test/hasChild",
+            cardinality: 2,
+            onClass: { "@type": "Class", iri: "http://example.org/test/Person" },
+          },
+        },
+      ],
+      abox: [],
+      rbox: [],
+    };
+    const first = stableStringify(await folToOwl(await owlToFol(input)));
+    for (let i = 0; i < 99; i++) {
+      const next = stableStringify(await folToOwl(await owlToFol(input)));
+      strictEqual(next, first, `determinism drift on run ${i + 2}/100`);
+    }
+  },
+);
+
+// ===========================================================================
 // STEP 5 — Strategy router with explicit per-axiom attribution per spec §6.2
 // ===========================================================================
 

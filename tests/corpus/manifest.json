@@ -86,16 +86,14 @@
         "§12 lifter correctness"
       ],
       "arcEntries": [],
-      "regime": "reversible",
+      "regime": "equivalent",
       "expectedOutcome": {
-        "summary": "cardinality restrictions lift preserving count + property + (for QCR) onClass; counting axioms outside Horn route to Annotated Approximation at projection time"
+        "summary": "cardinality restrictions lift preserving count + property + (for QCR) onClass; per ADR-012 (architect-ratified Step 4 spec-binding cycle 2026-05-07; ratified in committed form at a469371) the projector reconstructs cardinality as native OWL Restriction with minCardinality / maxCardinality / cardinality fields under Direct Mapping. Round-trip is byte-clean; no LossSignature emission. Phase 2 Step 4b ships the n-tuple matcher per ADR-007 §7's lifted shapes."
       },
-      "expectedLossSignatureReasons": [
-        "unsupported_construct"
-      ],
+      "expectedLossSignatureReasons": [],
       "intendedToCatch": "cardinality silently dropped; QCR onClass filter erased; counting semantics lifted via a wrong existentialisation that loses the count",
       "expected_v0.1_verdict": {
-        "ringStatus": "ring1-passes-with-loss-signature",
+        "ringStatus": "ring1-passes",
         "phaseAuthored": 1,
         "phaseActivated": 1
       },

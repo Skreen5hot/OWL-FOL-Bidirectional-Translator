@@ -1,5 +1,5 @@
 /**
- * FOL → OWL Projector (Phase 2 Steps 1-4a + Step 5)
+ * FOL → OWL Projector (Phase 2 Steps 1-5 + Step 4b)
  *
  * Per API spec §6.2 + behavioral spec §6.1 (three-strategy router) +
  * §7 (audit artifacts) + §8.1 (round-trip parity).
@@ -24,6 +24,46 @@
  *     (Symmetric).
  *   - RBox universal-implication ∀x,y,z. P(x,y) ∧ P(y,z) → P(x,z) →
  *     ObjectPropertyCharacteristic(Transitive).
+ *
+ * IMPLEMENTED (Step 4b — cardinality n-tuple matcher per ADR-012):
+ *   - MinCardinality(P, n, onClass?): matches the lifter's
+ *     `∃y₁..yₙ. (⋀ᵢ<ⱼ ¬(yᵢ=yⱼ) ∧ ⋀ᵢ P(x, yᵢ) [∧ C(yᵢ)])` shape (per
+ *     ADR-007 §7). Walks the existential stack, separates distinctness
+ *     conjuncts from witness atoms, validates the n*(n-1)/2 distinctness
+ *     pattern, extracts the property + optional onClass class IRI.
+ *     Reconstructs `Restriction { onProperty, minCardinality: n, onClass? }`.
+ *
+ *   - MaxCardinality(P, n, onClass?): matches the lifter's
+ *     `∀y₁..y_{n+1}. (⋀ᵢ P(x, yᵢ) [∧ C(yᵢ)]) → (⋁ᵢ<ⱼ yᵢ=yⱼ)` shape.
+ *     Walks the universal stack (n+1 deep), validates the implication
+ *     antecedent's witness atoms + the consequent's pairwise-equality
+ *     disjunction (or fol:False for n=0; single fol:Equality for n=1).
+ *     Reconstructs `Restriction { onProperty, maxCardinality: n, onClass? }`.
+ *
+ *   - ExactCardinality(P, n, onClass?): matches the lifter's
+ *     `<MinCardinality(P, n, C)> ∧ <MaxCardinality(P, n, C)>` shape — a
+ *     fol:Conjunction with exactly two conjuncts where matchMinCardinality
+ *     and matchMaxCardinality both succeed AND their parameters match
+ *     (same property, same n, same onClass). Reconstructs
+ *     `Restriction { onProperty, cardinality: n, onClass? }`.
+ *
+ *   - QCR (qualified cardinality) onClass currently restricted to NamedClass
+ *     fillers (the Phase 1 fixture's case). Recursive class-expression
+ *     onClass is a future extension; not exercised by current corpus.
+ *
+ *   - Dispatch ordering (in reconstructClassExpression):
+ *     - fol:Conjunction branch: try matchExactCardinality first; fall
+ *       through to ObjectIntersectionOf if not a matching pair.
+ *     - fol:Existential branch: try matchMinCardinality first; fall
+ *       through to someValuesFrom if not a cardinality shape.
+ *     - fol:Universal branch: try matchMaxCardinality first; fall through
+ *       to allValuesFrom if not a cardinality shape.
+ *
+ *   - p1_restrictions_cardinality regime amendment per ADR-012 banked
+ *     principle 2: manifest entry flips `regime: "reversible" → "equivalent"`
+ *     because cardinality round-trips byte-clean as Direct Mapping under
+ *     the n-tuple matcher (no LossSignature emission needed; OWL 2 DL
+ *     natively expresses min/max/exact cardinality).
  *
  * IMPLEMENTED (Step 5 — strategy router with explicit per-axiom attribution
  * per spec §6.2):
@@ -956,6 +996,18 @@ function reconstructClassExpression(
 
   // ObjectIntersectionOf: fol:Conjunction of class-expression-shaped conjuncts.
   if (shape["@type"] === "fol:Conjunction") {
+    // Step 4b: ExactCardinality is a Conjunction-of-MinCardinality-and-
+    // MaxCardinality with matching parameters. Try this shape first; fall
+    // through to ObjectIntersectionOf if not a matching pair.
+    const exact = matchExactCardinality(shape, contextVar);
+    if (exact) {
+      return {
+        "@type": "Restriction",
+        onProperty: exact.onProperty,
+        cardinality: exact.n,
+        ...(exact.onClass ? { onClass: exact.onClass } : {}),
+      };
+    }
     if (!Array.isArray(shape.conjuncts) || shape.conjuncts.length < 2) return null;
     const reconstructed: ClassExpression[] = [];
     for (const c of shape.conjuncts) {
@@ -989,6 +1041,18 @@ function reconstructClassExpression(
   // ObjectSomeValuesFrom: fol:Existential { variable: y, body:
   //   fol:Conjunction([P(contextVar, y), filler-on-y]) }
   if (shape["@type"] === "fol:Existential") {
+    // Step 4b: MinCardinality is a multi-existential stack with distinctness
+    // + witness atoms. Try this shape first; fall through to someValuesFrom
+    // if not a cardinality shape.
+    const minCard = matchMinCardinality(shape, contextVar);
+    if (minCard) {
+      return {
+        "@type": "Restriction",
+        onProperty: minCard.onProperty,
+        minCardinality: minCard.n,
+        ...(minCard.onClass ? { onClass: minCard.onClass } : {}),
+      };
+    }
     if (typeof shape.variable !== "string") return null;
     const innerVar = shape.variable;
     if (innerVar === contextVar) return null;
@@ -1012,6 +1076,18 @@ function reconstructClassExpression(
   // ObjectAllValuesFrom: fol:Universal { variable: y, body:
   //   fol:Implication(P(contextVar, y), filler-on-y) }
   if (shape["@type"] === "fol:Universal") {
+    // Step 4b: MaxCardinality is a multi-universal stack with implication-
+    // of-conjunction-disjunction body. Try this shape first; fall through
+    // to allValuesFrom if not a cardinality shape.
+    const maxCard = matchMaxCardinality(shape, contextVar);
+    if (maxCard) {
+      return {
+        "@type": "Restriction",
+        onProperty: maxCard.onProperty,
+        maxCardinality: maxCard.n,
+        ...(maxCard.onClass ? { onClass: maxCard.onClass } : {}),
+      };
+    }
     if (typeof shape.variable !== "string") return null;
     const innerVar = shape.variable;
     if (innerVar === contextVar) return null;
@@ -1240,6 +1316,224 @@ function isIdentityAxiomatizationAxiom(axiom: FOLAxiom): boolean {
   }
 
   return false;
+}
+
+// ---- Step 4b: cardinality n-tuple matchers per ADR-012 ----
+
+interface CardinalityMatch {
+  onProperty: string;
+  n: number;
+  onClass?: ClassExpression;
+}
+
+/**
+ * Match the lifter's MinCardinality shape per ADR-007 §7:
+ *   ∃y₁..yₙ. (⋀ᵢ<ⱼ ¬(yᵢ=yⱼ) ∧ ⋀ᵢ P(x, yᵢ) [∧ C(yᵢ)])
+ *
+ * Returns the cardinality parameters when matched; null otherwise. Falls
+ * through to someValuesFrom reconstruction when this matcher returns null.
+ *
+ * MVP scope: n ≥ 2 (n=1 is ambiguous with someValuesFrom). QCR onClass
+ * limited to NamedClass fillers; recursive class-expression fillers fall
+ * through.
+ */
+function matchMinCardinality(shape: FOLAxiom, contextVar: string): CardinalityMatch | null {
+  if (!isShape(shape) || shape["@type"] !== "fol:Existential") return null;
+
+  // Walk the existential stack to collect bound variables.
+  const vars: string[] = [];
+  let current: unknown = shape;
+  while (isShape(current) && current["@type"] === "fol:Existential") {
+    const v = (current as { variable?: unknown }).variable;
+    if (typeof v !== "string") return null;
+    vars.push(v);
+    current = (current as { body?: unknown }).body;
+  }
+  const n = vars.length;
+  if (n < 2) return null;
+
+  // Body must be fol:Conjunction (n ≥ 2 always emits a conjunction).
+  if (!isShape(current) || current["@type"] !== "fol:Conjunction") return null;
+  const conjuncts = (current as { conjuncts?: unknown }).conjuncts;
+  if (!Array.isArray(conjuncts)) return null;
+
+  // Distinctness count = n*(n-1)/2; witness count = n (non-QCR) or 2n (QCR).
+  const expectedDistinctness = (n * (n - 1)) / 2;
+  if (
+    conjuncts.length !== expectedDistinctness + n &&
+    conjuncts.length !== expectedDistinctness + 2 * n
+  ) {
+    return null;
+  }
+
+  // Distinctness conjuncts come first per the lifter's emission order.
+  for (let i = 0; i < expectedDistinctness; i++) {
+    const c = conjuncts[i];
+    if (!isShape(c) || c["@type"] !== "fol:Negation") return null;
+    const inner = (c as { inner?: unknown }).inner;
+    if (!isShape(inner) || inner["@type"] !== "fol:Equality") return null;
+  }
+
+  const witnesses = conjuncts.slice(expectedDistinctness);
+  const isQCR = witnesses.length === 2 * n;
+  const stride = isQCR ? 2 : 1;
+
+  let onProperty: string | null = null;
+  let onClassPredicate: string | null = null;
+  for (let i = 0; i < n; i++) {
+    const propAtom = witnesses[i * stride];
+    if (!isShape(propAtom) || propAtom["@type"] !== "fol:Atom") return null;
+    if (!isBinaryAtomOnVariables(propAtom as FOLAtom, contextVar, vars[i])) return null;
+    const predicate = (propAtom as { predicate?: unknown }).predicate;
+    if (typeof predicate !== "string" || !isNamedIRI(predicate)) return null;
+    if (onProperty === null) onProperty = predicate;
+    else if (onProperty !== predicate) return null;
+
+    if (isQCR) {
+      const classAtom = witnesses[i * stride + 1];
+      if (!isShape(classAtom) || classAtom["@type"] !== "fol:Atom") return null;
+      if (!isUnaryAtomOnVariable(classAtom as FOLAtom, vars[i])) return null;
+      const cPred = (classAtom as { predicate?: unknown }).predicate;
+      if (typeof cPred !== "string" || !isNamedIRI(cPred)) return null;
+      if (onClassPredicate === null) onClassPredicate = cPred;
+      else if (onClassPredicate !== cPred) return null;
+    }
+  }
+  if (onProperty === null) return null;
+
+  return {
+    onProperty,
+    n,
+    ...(onClassPredicate !== null
+      ? { onClass: { "@type": "Class", iri: onClassPredicate } as ClassExpression }
+      : {}),
+  };
+}
+
+/**
+ * Match the lifter's MaxCardinality shape per ADR-007 §7:
+ *   ∀y₁..y_{n+1}. (⋀ᵢ P(x, yᵢ) [∧ C(yᵢ)]) → (⋁ᵢ<ⱼ yᵢ=yⱼ)
+ *
+ * Witness count is n+1 (the canonical "any n+1 must include an equal pair"
+ * formulation). Consequent is fol:False for n=0, single fol:Equality for
+ * n=1, fol:Disjunction of equalities for n ≥ 2.
+ */
+function matchMaxCardinality(shape: FOLAxiom, contextVar: string): CardinalityMatch | null {
+  if (!isShape(shape) || shape["@type"] !== "fol:Universal") return null;
+
+  // Walk the universal stack.
+  const vars: string[] = [];
+  let current: unknown = shape;
+  while (isShape(current) && current["@type"] === "fol:Universal") {
+    const v = (current as { variable?: unknown }).variable;
+    if (typeof v !== "string") return null;
+    vars.push(v);
+    current = (current as { body?: unknown }).body;
+  }
+  const witnessCount = vars.length;
+  if (witnessCount < 1) return null;
+  const n = witnessCount - 1;
+
+  if (!isShape(current) || current["@type"] !== "fol:Implication") return null;
+  const ant = (current as { antecedent?: unknown }).antecedent;
+  const con = (current as { consequent?: unknown }).consequent;
+  if (!isShape(ant) || !isShape(con)) return null;
+
+  // Antecedent: conjunction of witness atoms (witnessCount or 2*witnessCount).
+  let antConjuncts: unknown[];
+  if (ant["@type"] === "fol:Atom") {
+    antConjuncts = [ant];
+  } else if (ant["@type"] === "fol:Conjunction") {
+    const cs = (ant as { conjuncts?: unknown }).conjuncts;
+    if (!Array.isArray(cs)) return null;
+    antConjuncts = cs;
+  } else {
+    return null;
+  }
+
+  if (
+    antConjuncts.length !== witnessCount &&
+    antConjuncts.length !== 2 * witnessCount
+  ) {
+    return null;
+  }
+  const isQCR = antConjuncts.length === 2 * witnessCount;
+  const stride = isQCR ? 2 : 1;
+
+  let onProperty: string | null = null;
+  let onClassPredicate: string | null = null;
+  for (let i = 0; i < witnessCount; i++) {
+    const propAtom = antConjuncts[i * stride];
+    if (!isShape(propAtom) || propAtom["@type"] !== "fol:Atom") return null;
+    if (!isBinaryAtomOnVariables(propAtom as FOLAtom, contextVar, vars[i])) return null;
+    const predicate = (propAtom as { predicate?: unknown }).predicate;
+    if (typeof predicate !== "string" || !isNamedIRI(predicate)) return null;
+    if (onProperty === null) onProperty = predicate;
+    else if (onProperty !== predicate) return null;
+
+    if (isQCR) {
+      const classAtom = antConjuncts[i * stride + 1];
+      if (!isShape(classAtom) || classAtom["@type"] !== "fol:Atom") return null;
+      if (!isUnaryAtomOnVariable(classAtom as FOLAtom, vars[i])) return null;
+      const cPred = (classAtom as { predicate?: unknown }).predicate;
+      if (typeof cPred !== "string" || !isNamedIRI(cPred)) return null;
+      if (onClassPredicate === null) onClassPredicate = cPred;
+      else if (onClassPredicate !== cPred) return null;
+    }
+  }
+  if (onProperty === null) return null;
+
+  // Consequent shape depends on n.
+  const expectedDisjuncts = (witnessCount * (witnessCount - 1)) / 2;
+  if (expectedDisjuncts === 0) {
+    if (con["@type"] !== "fol:False") return null;
+  } else if (expectedDisjuncts === 1) {
+    if (con["@type"] !== "fol:Equality") return null;
+  } else {
+    if (con["@type"] !== "fol:Disjunction") return null;
+    const disjuncts = (con as { disjuncts?: unknown }).disjuncts;
+    if (!Array.isArray(disjuncts) || disjuncts.length !== expectedDisjuncts) return null;
+    for (const d of disjuncts) {
+      if (!isShape(d) || d["@type"] !== "fol:Equality") return null;
+    }
+  }
+
+  return {
+    onProperty,
+    n,
+    ...(onClassPredicate !== null
+      ? { onClass: { "@type": "Class", iri: onClassPredicate } as ClassExpression }
+      : {}),
+  };
+}
+
+/**
+ * Match the lifter's ExactCardinality shape per ADR-007 §7:
+ *   `<MinCardinality(P, n, C)> ∧ <MaxCardinality(P, n, C)>`
+ *
+ * Requires the conjunction to have exactly two conjuncts where the first
+ * matches MinCardinality and the second matches MaxCardinality, with
+ * matching property + n + onClass. Disambiguates from
+ * ObjectIntersectionOf-of-cardinality-restrictions (where the two halves
+ * could have different parameters).
+ */
+function matchExactCardinality(shape: FOLAxiom, contextVar: string): CardinalityMatch | null {
+  if (!isShape(shape) || shape["@type"] !== "fol:Conjunction") return null;
+  const conjuncts = (shape as { conjuncts?: unknown }).conjuncts;
+  if (!Array.isArray(conjuncts) || conjuncts.length !== 2) return null;
+  const minPart = matchMinCardinality(conjuncts[0] as FOLAxiom, contextVar);
+  const maxPart = matchMaxCardinality(conjuncts[1] as FOLAxiom, contextVar);
+  if (!minPart || !maxPart) return null;
+  if (minPart.onProperty !== maxPart.onProperty) return null;
+  if (minPart.n !== maxPart.n) return null;
+  const minClassIRI = minPart.onClass?.["@type"] === "Class" ? minPart.onClass.iri : undefined;
+  const maxClassIRI = maxPart.onClass?.["@type"] === "Class" ? maxPart.onClass.iri : undefined;
+  if (minClassIRI !== maxClassIRI) return null;
+  return {
+    onProperty: minPart.onProperty,
+    n: minPart.n,
+    ...(minPart.onClass ? { onClass: minPart.onClass } : {}),
+  };
 }
 
 // ---- Pair-matchers (Step 3a + 3c) ----
