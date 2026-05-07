@@ -544,6 +544,170 @@
         "expectedOutcome": "Under Phase 4 strict-mode operation per spec §3.3, the predicate IRI http://example.org/p2-uncatalogued/uncatalogedRelation either (a) is loaded as ARC content (this fixture's namespace promoted to a test ARC module) and round-trips cleanly without unknown_relation emission, OR (b) the projector throws a documented strict-mode rejection error per spec §3.3's rejection contract. Phase 4 entry packet picks (a) or (b).",
         "divergenceTrigger": "If Phase 4 strict mode silently emits informational unknown_relation (Phase 2 behavior) where the strict-mode contract requires either ARC loading OR rejection, ESCALATE: strict-mode promotion not propagated from spec §3.3 to projector implementation."
       }
+    },
+    {
+      "fixtureId": "p2_blank_node_class_expression_projection",
+      "phase": 2,
+      "specSections": [
+        "§5.3",
+        "§6.1.1",
+        "API §3.4",
+        "API §3.4.1",
+        "ADR-007 §8"
+      ],
+      "acceptanceCriteria": [
+        "§12 round-trip parity",
+        "Phase 2 entry packet §3.2 (architect-ratified 2026-05-06)"
+      ],
+      "arcEntries": [],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "Lift+project round-trip preserves the ObjectIntersectionOf anonymous class expression with both Restriction sub-expressions (someValuesFrom + allValuesFrom) intact. The projector reconstructs the class-expression hierarchy via Step 3b's recursive descent without inventing fresh b-node IRIs. Projected output is structurally-equivalent to input modulo OWL serialization convention and placeholder manifest fields.",
+        "fixtureType": "lift-and-project-round-trip",
+        "projectionStrategy": "direct"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "the projector silently dropping one of the ObjectIntersectionOf sub-expressions (emitting a single Restriction instead of the full intersection); collapsing the intersection to ObjectUnionOf (semantic shift); inventing a fresh b-node IRI for the anonymous ObjectIntersectionOf when the source ontology used inline nesting; or losing the property+filler structure of either Restriction sub-expression",
+      "expected_v0.1_verdict": {
+        "ringStatus": "ring2-passes",
+        "phaseAuthored": 2,
+        "phaseActivated": 2,
+        "expectedLossSignatureCount": 0,
+        "expectedRecoveryPayloadCount": 0,
+        "expectedProjectionStrategy": "direct"
+      },
+      "expected_v0.2_elk_verdict": null,
+      "phase5Reactivation": {
+        "gatedOn": "step-5-strategy-router-explicit-per-axiom-strategy-reporting",
+        "expectedOutcome": "Once Step 5 ships explicit per-axiom strategy reporting, this fixture's assertion strengthens to: strategy chosen for the SubClassOf axiom = 'direct'. The Annotated Approximation fallback path is NOT triggered (no Loss Signature emitted).",
+        "divergenceTrigger": "If Step 5's strategy router reports strategy != 'direct' (e.g., 'annotated-approximation' would mean Direct Mapping is incorrectly failing for this case), ESCALATE: regression in Step 3b's class-expression reconstruction."
+      }
+    },
+    {
+      "fixtureId": "strategy_routing_direct",
+      "phase": 2,
+      "specSections": [
+        "§6.1.1",
+        "§6.2",
+        "API §6.2",
+        "API §3.2",
+        "API §3.5",
+        "API §3.7"
+      ],
+      "acceptanceCriteria": [
+        "§12 round-trip parity (clean regime)",
+        "Phase 2 entry packet §3.3 (architect-ratified 2026-05-06)",
+        "Phase 2 entry packet §3.7 + §10.8 (cross-section defense-pair refinement)"
+      ],
+      "arcEntries": [],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "Lift+project round-trip across 8 OWL 2 DL constructs (SubClassOf, EquivalentClasses, ClassAssertion, ObjectPropertyAssertion, Symmetric, Transitive, ObjectPropertyDomain, ObjectPropertyRange) preserves all structural shape under Direct Mapping. No Loss Signatures emitted; no Recovery Payloads emitted. Projected ontology contains the same 8 axioms as input modulo OWL serialization convention + placeholder manifest fields.",
+        "fixtureType": "lift-and-project-round-trip",
+        "projectionStrategy": "direct",
+        "role": "positive-half-of-cross-section-defense-pair-with-parity_canary_visual_equivalence_trap"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "the projector silently routing any of the 8 input axioms to Annotated Approximation (would emit at least one Loss Signature when none is expected); OR routing to a non-existent third strategy that produces structurally-similar but semantically-shifted output; OR pair-matching incorrectly collapsing two non-converse SubClassOf axioms into a spurious EquivalentClasses; OR single-axiom Direct Mapping silently dropping one of the 4 ABox / 4 RBox axioms",
+      "expected_v0.1_verdict": {
+        "ringStatus": "ring2-passes",
+        "phaseAuthored": 2,
+        "phaseActivated": 2,
+        "expectedLossSignatureCount": 0,
+        "expectedRecoveryPayloadCount": 0,
+        "expectedProjectionStrategy": "direct"
+      },
+      "expected_v0.2_elk_verdict": null,
+      "phase5Reactivation": {
+        "gatedOn": "step-5-strategy-router-explicit-per-axiom-strategy-reporting",
+        "expectedOutcome": "Once Step 5 ships explicit per-axiom strategy reporting, this fixture's assertion strengthens to: for each of the 8 input axioms, the recorded strategy is 'direct'. Property-Chain Realization (Step 6) and Annotated Approximation (Step 4) MUST NOT be invoked for any of the 8 axioms.",
+        "divergenceTrigger": "If Step 5's strategy router reports strategy != 'direct' for any of the 8 axioms, ESCALATE: strategy-routing correctness regression. The wrong strategy choice is a Ring 2 pass that hides a real bug per Phase 2 entry packet §3.7 + §10.2 banked principles."
+      }
+    },
+    {
+      "fixtureId": "strategy_routing_annotated",
+      "phase": 2,
+      "specSections": [
+        "§6.1.3",
+        "§6.2",
+        "§6.4.1",
+        "§7.2",
+        "API §6.2",
+        "API §6.4"
+      ],
+      "acceptanceCriteria": [
+        "§12 round-trip parity (lossy regime)",
+        "Phase 2 entry packet §3.3 (architect-ratified 2026-05-06)"
+      ],
+      "arcEntries": [],
+      "regime": "reversible",
+      "expectedOutcome": {
+        "summary": "Projector-direct fixture exercising BOTH Annotated-Approximation-routing trigger paths simultaneously (naf_residue + unknown_relation). Expected newLossSignatures.length >= 2 with one naf_residue (severity rank 2) and one unknown_relation (severity rank 5); severity-ordering contract preserved when consumers sort by LOSS_SIGNATURE_SEVERITY_ORDER. All @id fields match /^ofbt:ls\\/[0-9a-f]{64}$/ per ADR-011. Annotated Approximation strategy is the routing destination for both trigger paths.",
+        "fixtureType": "projector-direct",
+        "projectionStrategy": "annotated-approximation",
+        "triggerPaths": ["naf_residue", "unknown_relation"]
+      },
+      "expectedLossSignatureReasons": [
+        "negation_over_unbound_predicate",
+        "predicate_iri_not_in_loaded_arc_modules"
+      ],
+      "intendedToCatch": "the projector emitting only ONE LossSignature when TWO are expected (silent drop of one trigger path); OR conflating naf_residue and unknown_relation into a single LossSignature; OR violating the severity-ordering contract when consumers request ordered Loss Signatures (severity rank 2 must precede rank 5 in LOSS_SIGNATURE_SEVERITY_ORDER); OR routing one trigger path to Annotated Approximation while routing the other through some other strategy",
+      "expected_v0.1_verdict": {
+        "ringStatus": "ring2-passes-with-multiple-loss-signatures",
+        "phaseAuthored": 2,
+        "phaseActivated": 2,
+        "minExpectedLossSignatureCount": 2,
+        "expectedLossSignatureLossTypesPresent": ["naf_residue", "unknown_relation"],
+        "expectedProjectionStrategy": "annotated-approximation",
+        "noteOnEmissionCount": "Step 4a smoke-test 2026-05-07 emits 4 LossSignatures for this fixture (the Person predicate in the same namespace also triggers unknown_relation, plus the negated KnownProfession + the unfamiliarBond predicate). The contract is at-least-2 with both lossType members present; exact count varies with the projector's emission policy for predicate IRIs in the fixture's uncatalogued namespace. Step 5's strategy router formalization may tighten this contract."
+      },
+      "expected_v0.2_elk_verdict": null,
+      "phase5Reactivation": {
+        "gatedOn": "step-5-strategy-router-explicit-per-axiom-strategy-reporting",
+        "expectedOutcome": "Once Step 5 ships explicit per-axiom strategy reporting, this fixture's assertion strengthens to: for both input axioms, the recorded strategy is 'annotated-approximation'.",
+        "divergenceTrigger": "If Step 5's strategy router reports strategy != 'annotated-approximation' for the naf_residue axiom, ESCALATE: strategy-routing correctness regression."
+      }
+    },
+    {
+      "fixtureId": "p2_bfo_clif_layer_a_roundtrip",
+      "phase": 2,
+      "specSections": [
+        "§6.1.1",
+        "§8.1",
+        "API §6.2",
+        "ADR-007 §4",
+        "ADR-007 §10"
+      ],
+      "acceptanceCriteria": [
+        "§12 round-trip parity (Layer A canonical CLIF semantics preserved)",
+        "Phase 2 entry packet §3.5 (architect-ratified 2026-05-06)",
+        "Phase 1 exit forward-track §9 (corpus-side Layer A round-trip)"
+      ],
+      "arcEntries": [],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "Lift+project round-trip across the BFO 2020 standard-OWL subset (8 axioms: 5 SubClassOf + 1 DisjointWith + 1 TransitiveObjectProperty + 1 InverseObjectProperties) preserves all Layer A canonical semantics. Lifted FOL matches p1_bfo_clif_classical verbatim (9 axioms after InverseObjectProperties decomposition); projected OWL structurally-equivalent to input modulo serialization convention. No Loss Signatures emitted; no Recovery Payloads. clifGroundTruth Layer A citations inherited verbatim from p1_bfo_clif_classical (Step 9.2-verified against vendored owl-axiomatization.clif at SHA-256 480193e9…5912).",
+        "fixtureType": "lift-and-project-round-trip",
+        "projectionStrategy": "direct",
+        "layerACitationInheritance": "verbatim from p1_bfo_clif_classical"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "the projector implementing a non-canonical FOL → OWL mapping that round-trips structurally but encodes different OWL semantics than the Layer A canonical form dictates; OR pair-matching incorrectly re-collapsing TransitiveObjectProperty + InverseObjectProperties into a single axiom; OR silently dropping the DisjointWith axiom; OR introducing meta-typing predicates that the elision discipline (ADR-007 §10) explicitly omits",
+      "expected_v0.1_verdict": {
+        "ringStatus": "ring2-passes",
+        "phaseAuthored": 2,
+        "phaseActivated": 2,
+        "expectedLossSignatureCount": 0,
+        "expectedRecoveryPayloadCount": 0,
+        "expectedProjectionStrategy": "direct",
+        "layerACitationInheritance": "p1_bfo_clif_classical.clifGroundTruth verbatim"
+      },
+      "expected_v0.2_elk_verdict": null,
+      "phase5Reactivation": {
+        "gatedOn": "step-5-strategy-router-explicit-per-axiom-strategy-reporting",
+        "expectedOutcome": "Once Step 5 ships explicit per-axiom strategy reporting, this fixture's assertion strengthens to: for each of the 8 input axioms, the recorded strategy is 'direct'. The Layer A canonical form preserves Direct Mapping for all BFO subset constructs.",
+        "divergenceTrigger": "If Step 5's strategy router reports strategy != 'direct' for any of the 8 axioms, ESCALATE: Layer A round-trip parity is broken."
+      }
     }
   ]
 }
