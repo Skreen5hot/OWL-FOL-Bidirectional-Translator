@@ -706,6 +706,95 @@
         "expectedOutcome": "Once Step 5 ships explicit per-axiom strategy reporting, this fixture's assertion strengthens to: for each of the 8 input axioms, the recorded strategy is 'direct'. The Layer A canonical form preserves Direct Mapping for all BFO subset constructs.",
         "divergenceTrigger": "If Step 5's strategy router reports strategy != 'direct' for any of the 8 axioms, ESCALATE: Layer A round-trip parity is broken."
       }
+    },
+    {
+      "fixtureId": "p2_property_chain_realization_simplified",
+      "phase": 2,
+      "specSections": [
+        "§6.1.2",
+        "§6.2",
+        "§6.2.1",
+        "§6.4.2",
+        "§7.3",
+        "API §6.2",
+        "API §6.4"
+      ],
+      "acceptanceCriteria": [
+        "§12 round-trip parity (reversible regime)",
+        "Phase 2 entry packet §3.2 (architect-ratified 2026-05-06)",
+        "Q-Step6-1 ruling (always-emit regularity_scope_warning per spec §6.2.1)",
+        "Q-Step6-2 ruling (projector-direct fixture; regime: reversible)",
+        "Q-Step6-3 ruling (Step 6 projector-only; lifter ObjectPropertyChain support deferred)"
+      ],
+      "arcEntries": [],
+      "regime": "reversible",
+      "expectedOutcome": {
+        "summary": "Projector-direct fixture: input is a single FOL axiom representing the canonical 2-property chain pattern (∀x,y,z. parent(x,y) ∧ parent(y,z) → grandparent(x,z)). Test runner dispatches via folToOwl(fixture.input). Projection emits Property-Chain Realization strategy with one RBox axiom of shape ObjectPropertyChain { chain: [parent, parent], superProperty: grandparent } AND one RecoveryPayload carrying approximationStrategy: 'PROPERTY_CHAIN', originalFOL preserving the input verbatim, and scopeNotes containing 'regularity_scope_warning' per architect Q-Step6-1 ruling. No LossSignatures emitted (chain projection is reversible-regime, not loss).",
+        "fixtureType": "projector-direct",
+        "projectionStrategy": "property-chain",
+        "chainArity": 2
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "the projector silently routing the chain pattern to Annotated Approximation when spec §6.1.2 + §6.2 specifies Property-Chain Realization as Tier-3 BEFORE Annotated Approximation as Tier-default; OR routing to Direct Mapping (would emit a SubObjectPropertyOf without the chain decomposition); OR emitting ObjectPropertyChain WITHOUT the Recovery Payload's regularity_scope_warning (would silently assert regularity the system cannot verify, violating spec §6.2.1's literal framing per architect Q-Step6-1 ruling); OR collapsing the 2-property chain to a single property; OR introducing a phantom property in the chain that the source FOL did not declare",
+      "expected_v0.1_verdict": {
+        "ringStatus": "ring2-passes-with-recovery-payload",
+        "phaseAuthored": 2,
+        "phaseActivated": 2,
+        "expectedRBoxAxiomCount": 1,
+        "expectedLossSignatureCount": 0,
+        "expectedRecoveryPayloadCount": 1,
+        "expectedScopeNotesPattern": "/regularity_scope_warning/",
+        "expectedProjectionStrategy": "property-chain"
+      },
+      "expected_v0.2_elk_verdict": null,
+      "phase4Reactivation": {
+        "gatedOn": "phase4-arc-content-loaded-with-import-closure-machinery",
+        "expectedOutcome": "Under Phase 4 ARC content loaded with regularityCheck(A, importClosure) active, this fixture's chain pattern either (a) emits ObjectPropertyChain WITHOUT regularity_scope_warning if regularity is verified under import closure, OR (b) falls through to Annotated Approximation per spec §6.2 algorithm if regularity fails. The warning's optional-rather-than-mandatory transition is a non-breaking strengthening of the Phase 2 contract per ADR-011's Q-3 banked principle.",
+        "divergenceTrigger": "If Phase 4's regularityCheck(A, importClosure) is active AND emits regularity_scope_warning for THIS fixture (whose chain should be regularity-confirmed under reasonable test ARC configuration), ESCALATE: regularity-check semantics regression between Phase 2 and Phase 4."
+      }
+    },
+    {
+      "fixtureId": "strategy_routing_chain",
+      "phase": 2,
+      "specSections": [
+        "§6.1.2",
+        "§6.2",
+        "§6.2.1",
+        "API §6.2"
+      ],
+      "acceptanceCriteria": [
+        "§12 round-trip parity (reversible regime)",
+        "Phase 2 entry packet §3.3 (architect-ratified 2026-05-06)",
+        "Q-Step6-1 / Q-Step6-2 / Q-Step6-3 rulings 2026-05-XX"
+      ],
+      "arcEntries": [],
+      "regime": "reversible",
+      "expectedOutcome": {
+        "summary": "Strategy-routing canary asserting Tier-3 dispatch per spec §6.2's tiered fallthrough algorithm. Same 2-property chain FOL shape as p2_property_chain_realization_simplified (sibling fixture); discrimination is in assertion focus. Step 5's strategy router records strategy='property-chain' for the chain axiom; Step 6's chain detection emits ObjectPropertyChain { chain: [parent, parent], superProperty: grandparent } with chain array order EXACTLY preserving the FOL binary-atom sequence. Recovery Payload carries regularity_scope_warning per architect Q-Step6-1 ruling.",
+        "fixtureType": "projector-direct",
+        "projectionStrategy": "property-chain",
+        "role": "strategy-routing-canary-tier-3-dispatch",
+        "discriminationFromSibling": "asserts strategy choice + ObjectPropertyChain.chain array exactness; sibling p2_property_chain_realization_simplified asserts round-trip + Recovery Payload preservation"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "strategy router silently routing chain axiom to non-Tier-3 strategy ('direct' would emit SubObjectPropertyOf without chain decomposition; 'annotated-approximation' would emit LossSignatures when the chain is reversible-regime-projectable; 'unmatched' would skip emission); OR Step 6's chain detection emitting ObjectPropertyChain with WRONG chain array order (P_1 ∘ P_2 ≠ P_2 ∘ P_1 in general; order preservation is load-bearing); OR collapsing 2-property chain to single-element [parent]; OR introducing phantom property in chain array",
+      "expected_v0.1_verdict": {
+        "ringStatus": "ring2-passes-with-strategy-router-attribution",
+        "phaseAuthored": 2,
+        "phaseActivated": 2,
+        "expectedRBoxAxiomCount": 1,
+        "expectedChainArrayOrderExactness": "chain array order EXACTLY [parent, parent] (preserving FOL binary-atom sequence)",
+        "expectedLossSignatureCount": 0,
+        "expectedRecoveryPayloadCount": 1,
+        "expectedScopeNotesPattern": "/regularity_scope_warning/",
+        "expectedProjectionStrategy": "property-chain"
+      },
+      "expected_v0.2_elk_verdict": null,
+      "phase4Reactivation": {
+        "gatedOn": "phase4-arc-content-loaded-with-import-closure-machinery",
+        "expectedOutcome": "Under Phase 4's regularityCheck(A, importClosure): (a) regularity-confirmed → strategy stays 'property-chain' AND regularity_scope_warning CLEARED from Recovery Payload; (b) irregular → strategy fallthrough to 'annotated-approximation' per spec §6.2 algorithm.",
+        "divergenceTrigger": "If Phase 4's regularity check is active AND strategy router still reports 'property-chain' WITH regularity_scope_warning preserved for a chain that the import closure verifies as regular, ESCALATE: regularity-check semantics did not propagate from spec §6.2.1 Phase 4 contract to strategy router's emission decision."
+      }
     }
   ]
 }
