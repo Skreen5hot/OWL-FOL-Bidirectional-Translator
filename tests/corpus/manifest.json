@@ -464,6 +464,46 @@
         "smeOriginRef": "B3 from Step 4 SME review (signed off as code-complete; coverage-gap closure deferred to Phase 1 exit Step 9.1)"
       },
       "expected_v0.2_elk_verdict": null
+    },
+    {
+      "fixtureId": "p2_lossy_naf_residue",
+      "phase": 2,
+      "specSections": [
+        "§6.1.3",
+        "§6.4.1",
+        "§7.2",
+        "§7.3",
+        "§7.5",
+        "API §6.4"
+      ],
+      "acceptanceCriteria": [
+        "§12 round-trip parity (lossy regime)",
+        "Phase 2 entry packet §3.2 (architect-ratified 2026-05-06)"
+      ],
+      "arcEntries": [],
+      "regime": "reversible",
+      "expectedOutcome": {
+        "summary": "Projector-direct fixture: input is a FOL axioms array (not OWL ontology). Test runner dispatches via folToOwl(fixture.input), bypassing the lifter. Projection emits Annotated Approximation strategy with at least one LossSignature carrying lossType: 'naf_residue', relationIRI matching the negated-predicate IRI (KnownDriver), reason: 'negation_over_unbound_predicate', and a stable content-addressed @id matching /^ofbt:ls\\/[0-9a-f]{64}$/. Associated RecoveryPayload preserves the FOL state for Phase 3 CWA-evaluator re-assessment.",
+        "fixtureType": "projector-direct"
+      },
+      "expectedLossSignatureReasons": [
+        "negation_over_unbound_predicate"
+      ],
+      "intendedToCatch": "projector silently emitting SubClassOf(Person, ObjectComplementOf(KnownDriver)) as Direct Mapping (structurally valid OWL but loses the precautionary naf_residue discrimination signal); without the Loss Signature, downstream consumers cannot distinguish a lifter-derived classical negation (round-trip clean) from a hand-authored FOL state where NAF/CWA semantics may be intended (round-trip lossy under a CWA-evaluator at Phase 3)",
+      "expected_v0.1_verdict": {
+        "ringStatus": "ring2-passes-with-loss-signature",
+        "phaseAuthored": 2,
+        "phaseActivated": 2,
+        "expectedLossSignatureCount": 1,
+        "expectedRecoveryPayloadCount": 1,
+        "expectedProjectionStrategy": "annotated-approximation"
+      },
+      "expected_v0.2_elk_verdict": null,
+      "phase3Reactivation": {
+        "gatedOn": "real-evaluator-via-API-§7.1-with-closedPredicates-support",
+        "expectedOutcome": "evaluate(folInput, query: 'KnownDriver(alice)?', closedPredicates: ['KnownDriver']) returns 'true' (CWA-derived); evaluate(folInput, query: 'KnownDriver(alice)?') under default OWA returns 'undetermined'. The projection's RecoveryPayload preserves the FOL state needed for the CWA evaluation; re-lifting the projected OWL alone (under default OWA) cannot reach the CWA-derived 'true' verdict.",
+        "divergenceTrigger": "If real evaluate() under OWA returns 'true' (matching the CWA evaluation) where the stub-equivalent and the spec §6.3 default-OWA contract say 'undetermined', ESCALATE: open-world-preservation broken (a CWA assumption leaked through projection without the Loss Signature flagging it)."
+      }
     }
   ]
 }
