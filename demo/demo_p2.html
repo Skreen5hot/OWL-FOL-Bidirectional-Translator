@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OFBT Phase 2 demo &mdash; round-trip parity arguments</title>
+  <link rel="stylesheet" href="demo.css" />
+</head>
+<body>
+  <header>
+    <h1>OFBT Phase 2 Demo</h1>
+    <p class="subtitle">Two correctness arguments: (A) class-expression reconstruction canary, (B) BFO/CLIF Layer A round-trip parity.</p>
+    <p class="back-link"><a href="index.html">&larr; All phase demos</a></p>
+  </header>
+
+  <main>
+    <section class="section">
+      <h2>The case</h2>
+      <p class="lead">Phase 1 shipped the lifter (OWL &rarr; FOL). Phase 2 ships the projector (FOL &rarr; OWL) and closes the round-trip. The Phase 2 demo argues both that the projector reconstructs the right shape on a known-difficult construct (class expressions) AND that the round-trip preserves canonical OWL semantics against a published external ground truth.</p>
+      <ol>
+        <li><strong>Internal canary discipline.</strong> The projector's pattern-match correctly reconstructs the input shape from the lifted FOL. The test suite asserts both the right shape's presence after round-trip <em>and</em> the wrong shape's absence (no conflations between superficially-similar restriction kinds).</li>
+        <li><strong>External CLIF round-trip parity.</strong> A BFO 2020 OWL fragment is lifted to FOL, then projected back to OWL. The projected OWL shape is parity-checked against the input AND each axiom's canonical CLIF semantics from the W3C OWL CLIF axiomatization.</li>
+      </ol>
+      <div class="callout">
+        <strong>Why both matter.</strong> A round-trip that reconstructs surface shape but swaps semantic content (e.g., someValuesFrom &harr; allValuesFrom) passes naive equality but produces wrong inferences downstream. A round-trip that preserves OWL surface but diverges from canonical CLIF passes self-referential checks but doesn't satisfy the standard. Both disciplines together catch failure modes neither catches alone.
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Phase 2 implementation state at this build</h2>
+      <p class="lead">The projector lands in stages. This demo exercises only what is shipped today; deferred constructs are listed in &ldquo;What Phase 2 does NOT yet do.&rdquo;</p>
+      <div class="callout">
+        <strong>Shipped (Steps 1, 2, 3a, 3b, 3c, 4a on <code>origin/main</code>).</strong>
+        <ul>
+          <li><strong>Direct Mapping single-axiom rules</strong> &mdash; ABox (Class / ObjectProperty / DataProperty assertions, plus reserved-predicate ABox <code>SameIndividual</code> / <code>DifferentIndividuals</code> at Step 3c) + TBox SubClassOf + RBox Symmetric / Transitive / Functional / Domain / Range / DisjointWith.</li>
+          <li><strong>Pair-matching</strong> &mdash; EquivalentClasses (from a converse-SubClassOf pair); InverseObjectProperties (from a converse-implication pair).</li>
+          <li><strong>Class-expression reconstruction</strong> &mdash; recursive reconstruction of intersection, union, complement, someValuesFrom, allValuesFrom, hasValue in the SubClassOf consequent (including class expressions in subClass position at Step 3c).</li>
+          <li><strong>Annotated Approximation strategy</strong> at Step 4a &mdash; FOL shapes that don't map to OWL 2 DL Direct Mapping route to Annotated Approximation with structurally-valid Loss Signatures emitted.</li>
+          <li><strong>LossSignature emission machinery</strong> &mdash; content-addressed <code>@id</code> per ADR-011 (<code>ofbt:ls/&lt;sha256-hex&gt;</code>); 2 of 8 LossType triggers shipping today (<code>naf_residue</code> for unmarked-negation contexts; <code>unknown_relation</code> for predicates outside loaded ARC modules); other 6 LossTypes' machinery present but trigger-matchers arrive in their corresponding later phases.</li>
+          <li><strong>RecoveryPayload emission machinery</strong> &mdash; content-addressed <code>@id</code> per ADR-011 (<code>ofbt:rp/&lt;sha256-hex&gt;</code>); preserves original FOL for re-lifting.</li>
+          <li><strong>The <code>prefixes</code> parameter</strong> per API §3.10.4 &mdash; output emits CURIE form when supplied; full URIs when omitted.</li>
+          <li><strong>Frozen <code>LOSS_SIGNATURE_SEVERITY_ORDER</code></strong> exported as a frozen array constant per API §6.4.1; mutation attempts throw.</li>
+        </ul>
+      </div>
+      <div class="callout warn">
+        <strong>Deferred (Steps 4b, 5, 6, 7).</strong> Cardinality round-trip via the n-tuple matcher (Step 4b — <strong>Direct Mapping per ADR-012's architect-ratified Option β</strong>, NOT Annotated Approximation); the strategy router with tiered fallthrough per spec §6.2 (Step 5 &mdash; today's Step 4a hard-routes Direct Mapping &rarr; Annotated Approximation directly, skipping Property-Chain Realization); Property-Chain Realization (Step 6); <code>roundTripCheck</code> per API §6.3 (Step 7 &mdash; today the demo manually composes <code>owlToFol</code> + <code>folToOwl</code>). These are not exercised in this demo's worked examples; the demo's two cases use only constructs covered by Steps 2-4a.
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- CASE A — Class-expression reconstruction canary              -->
+    <!-- ============================================================ -->
+
+    <section class="section">
+      <h2>Case A &mdash; Class-expression reconstruction canary</h2>
+      <p class="lead">Class expressions (<code>SubClassOf(C, ObjectSomeValuesFrom(P, F))</code>, etc.) lift to nested FOL containing existentials, universals, conjunctions, and atom-on-individual patterns that <em>look superficially similar</em>. A naive shape-blind projector might collapse <code>someValuesFrom</code> to <code>allValuesFrom</code>, swap an existential filler for an intersection, or drop a <code>hasValue</code>'s named individual to a class atom. OFBT's projector reconstructs each form correctly. The test suite asserts both the right shape's presence after round-trip <em>and</em> the wrong shape's absence.</p>
+      <div class="callout">
+        <strong>Why this matters for stakeholders.</strong> A round-trip that emits OWL syntactically valid but semantically shifted (e.g., the input said &ldquo;every Parent has at least one Person child&rdquo; and the round-trip output says &ldquo;every Parent's children are all Persons&rdquo;) is a silent-failure bug whose downstream queries return wrong answers. The class-expression canary is the strongest single-construct test for projector correctness because the source FOL shapes for these constructs are pattern-match-distinguishable rather than structurally distinct.
+      </div>
+
+      <h3>A.1. Input ontology</h3>
+      <p class="lead">Three <code>SubClassOf</code> axioms with class-expression consequents: <code>someValuesFrom</code>, <code>allValuesFrom</code>, <code>hasValue</code>. From <code>tests/corpus/p1_restrictions_object_value.fixture.js</code>.</p>
+      <div class="panel">
+        <div class="panel-title">Input OWL ontology (structured JS per API §3.1)</div>
+        <pre id="ce-input-display">Loading fixture&hellip;</pre>
+      </div>
+
+      <h3>A.2. Run the round-trip</h3>
+      <div class="controls">
+        <button type="button" id="ce-run-button" disabled>Run owlToFol &rarr; folToOwl</button>
+        <span id="ce-status" class="badge pending">Loading bundle&hellip;</span>
+      </div>
+
+      <h3>A.3. Lifted FOL (intermediate)</h3>
+      <div class="panel">
+        <div class="panel-title">Lifted FOL (3 universal-implication axioms with class-expression-shaped consequents)</div>
+        <pre id="ce-lifted-display">Press <code>Run owlToFol &rarr; folToOwl</code> to lift and project.</pre>
+      </div>
+
+      <h3>A.4. Projected OWL (round-trip output)</h3>
+      <div class="panel">
+        <div class="panel-title">Projected OWL ontology (structured per API §3.1; should match input shape modulo prefixes / ontologyIRI placeholders)</div>
+        <pre id="ce-projected-display">&hellip;</pre>
+      </div>
+
+      <h3>A.5. Right shape present</h3>
+      <p class="lead">Each input axiom must round-trip to a <code>SubClassOf</code> with a <code>Restriction</code> consequent of the matching kind. The reconstruction recursively rebuilds the class expression from the lifted FOL.</p>
+      <div id="ce-right-shape-results"></div>
+
+      <h3>A.6. Wrong shape absent</h3>
+      <p class="lead">The projected OWL must <em>not</em> exhibit any of the following conflation patterns &mdash; each is a class-expression silent-failure mode that a shape-blind projector would emit.</p>
+      <div id="ce-wrong-shape-results"></div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- CASE B — BFO/CLIF Layer A round-trip parity                  -->
+    <!-- ============================================================ -->
+
+    <section class="section">
+      <h2>Case B &mdash; BFO/CLIF Layer A round-trip parity</h2>
+      <p class="lead">A BFO 2020 OWL fragment is lifted to FOL, then projected back to OWL. The projected OWL is parity-checked against the input <em>and</em> against canonical Layer A CLIF semantics from <code>arc/upstream-canonical/owl-axiomatization.clif</code> (Fabian Neuhaus, 2009; vendored under CC BY 4.0 per <code>owl-axiomatization.clif.SOURCE</code>'s <code>license-verification</code> block).</p>
+
+      <div class="callout">
+        <strong>Layer A vs Layer B &mdash; framing.</strong> Per <code>arc/upstream-canonical/README.md</code>:
+        <ul>
+          <li><strong>Layer A</strong> &mdash; OWL semantics in CLIF (what <code>SubClassOf</code>, <code>Transitive</code>, <code>InverseObjectProperties</code> etc. mean). Phase 2's projector preserves these semantics across the round-trip.</li>
+          <li><strong>Layer B</strong> &mdash; specific ontology content in CLIF (BFO's <code>Continuant</code>, <code>Occurrent</code>, ternary parthood etc.). Phase 4+ ARC content covers this; Layer B is not exercised in Phase 2.</li>
+        </ul>
+        Phase 2's CLIF discipline cites Layer A only. Cumulative Layer A + Layer B coverage extends as ARC content lands.
+      </div>
+
+      <h3>B.1. Input ontology</h3>
+      <p class="lead">BFO 2020 standard-OWL subset: 5 <code>SubClassOf</code> + 1 <code>DisjointWith</code> + 1 <code>Transitive</code> + 1 <code>InverseOf</code> = 8 axioms. From <code>tests/corpus/p1_bfo_clif_classical.fixture.js</code> (the same fixture exercised in the Phase 1 demo's Case B).</p>
+      <div class="panel">
+        <div class="panel-title">Input OWL ontology (structured JS per API §3.1)</div>
+        <pre id="bfo-input-display">Loading fixture&hellip;</pre>
+      </div>
+
+      <h3>B.2. Run the round-trip</h3>
+      <div class="controls">
+        <button type="button" id="bfo-run-button" disabled>Run owlToFol &rarr; folToOwl</button>
+        <span id="bfo-status" class="badge pending">Loading bundle&hellip;</span>
+      </div>
+
+      <h3>B.3. Lifted FOL (intermediate &mdash; 9 axioms)</h3>
+      <p class="lead">The 8 input OWL axioms lift to 9 FOL axioms because <code>InverseObjectProperties</code> decomposes into a bidirectional implication pair per ADR-007 §4. The projector's pair-matching re-collapses them in B.4.</p>
+      <div class="panel">
+        <div class="panel-title">Lifted FOL (9 axioms)</div>
+        <pre id="bfo-lifted-display">Press <code>Run owlToFol &rarr; folToOwl</code> to lift and project.</pre>
+      </div>
+
+      <h3>B.4. Projected OWL (round-trip output &mdash; back to 8 axioms)</h3>
+      <p class="lead">Pair-matching identifies the bidirectional <code>part_of</code> &harr; <code>has_part</code> implication pair and emits a single <code>InverseObjectProperties</code> axiom. The TBox SubClassOf and DisjointWith axioms project as Direct Mapping single-axiom rules.</p>
+      <div class="panel">
+        <div class="panel-title">Projected OWL ontology (structured per API §3.1)</div>
+        <pre id="bfo-projected-display">&hellip;</pre>
+      </div>
+
+      <h3>B.5. Round-trip parity panel</h3>
+      <p class="lead">For each input axiom: the projected OWL must contain a structurally-equivalent axiom. The check is shape-equivalence modulo the projector's emission of empty-array fields and source-provenance placeholders (Step 5 wires source-provenance threading; today's manifest carries <code>projectorVersion: "OFBT-0.1.0"</code> and <code>operatingMode: "permissive"</code>).</p>
+      <div id="bfo-roundtrip-results"></div>
+
+      <h3>B.6. Layer A CLIF parity panel</h3>
+      <p class="lead">For each fixture-input axiom: the canonical CLIF axiom block from <code>owl-axiomatization.clif</code> paired with OFBT's lifted FOL. Multiple inputs that exercise the same OWL construct cite the SAME canonical block. Each badge reflects the verification state recorded in the fixture's <code>clifGroundTruth</code> array; badges are rendered at runtime from the fixture file's <code>verificationStatus</code> field, not hardcoded into this HTML.</p>
+      <div id="bfo-clif-parity-results"></div>
+
+      <p class="lead spaced"><strong>How to verify these badges reflect reality.</strong> Same protocol as the Phase 1 demo: badges render at runtime from <code>tests/corpus/p1_bfo_clif_classical.fixture.js</code>'s <code>clifGroundTruth[i].verificationStatus</code> field; the fixture's flip from <code>[VERIFY]</code> to <code>Verified</code> happened at Step 9.2 close (commit <code>209a531</code>). The vendored CLIF file's SHA-256 (<code>480193e9&hellip;5912</code>) is pinned in the SOURCE sidecar; the LICENSE file's SHA-256 (<code>f5b745ef&hellip;cc3f</code>) and verified canonical commit (<code>294fa416&hellip;b0cd</code>) are pinned in the same sidecar's <code>license-verification</code> block per ADR-010 (Phase 2 entry verification ritual surfaced and corrected an unverified BSD-3-Clause assertion to the actual CC BY 4.0 license). See <code>arc/AUTHORING_DISCIPLINE.md</code> "SME-Persona Verification of Vendored Canonical Sources" + <code>project/GOVERNANCE.md</code> + <code>project/DECISIONS.md</code> ADR-010.</p>
+
+      <p class="lead spaced">Per the architect-ratified meta-typing-predicate elision (ADR-007 §10): canonical CLIF includes <code>(Class X)</code> and <code>(OWLObjectProperty R)</code> typing predicates. OFBT's lifted FOL omits these per the encoding choice; the projector reconstructs without them. Round-trip is sound w.r.t. OWL semantics for v0.1.</p>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- WHAT'S DEFERRED                                              -->
+    <!-- ============================================================ -->
+
+    <section class="section">
+      <h2>What Phase 2 does NOT yet do</h2>
+      <p class="lead">The Phase 2 demo verifies round-trip <em>structural</em> correctness on what's shipped through Step 4a. The remaining Step 4b-7 work closes the gaps below.</p>
+      <ul>
+        <li><strong>Cardinality round-trip via the n-tuple matcher</strong> &mdash; <strong>Step 4b</strong>. Per ADR-012 (architect-ratified Option β at the Step 4 spec-binding cycle 2026-05-07), cardinality projects as native OWL <code>Restriction</code> with <code>minCardinality</code> / <code>maxCardinality</code> / <code>cardinality</code> fields under Direct Mapping (NOT Annotated Approximation). Step 4b adds the n-tuple matcher recognizing the Phase 1 Step 7 lifted shapes (∃-binding + pairwise distinctness per ADR-007 §7). At Step 4b landing, the cardinality fixture's regime flips <code>reversible</code> &rarr; <code>equivalent</code>. Excluded from this demo.</li>
+        <li><strong>Strategy router with tiered fallthrough</strong> per spec §6.2 &mdash; <strong>Step 5</strong>. Today's Step 4a hard-routes Direct Mapping &rarr; Annotated Approximation directly (Property-Chain Realization slot deferred to Step 6); Step 5 formalizes the tiered fallthrough contract with explicit diagnostic-throw on no-match-applies.</li>
+        <li><strong>Property-Chain Realization</strong> &mdash; <strong>Step 6</strong>. Required for axioms whose derived implication is a property chain (e.g., <code>owl:propertyChainAxiom</code>).</li>
+        <li><strong><code>roundTripCheck()</code></strong> per API §6.3 &mdash; <strong>Step 7</strong>. Today the demo manually composes <code>owlToFol</code> + <code>folToOwl</code>; <code>roundTripCheck</code> wraps the composition with the spec §8.1 parity-criterion contract + diff/equivalence verdict.</li>
+        <li><strong>Source-provenance threading</strong> in the <code>ProjectionManifest</code> &mdash; <strong>Step 5</strong>. Today's manifest ships placeholder <code>ontologyIRI</code> / <code>versionIRI</code> / <code>projectedFrom</code> strings; only <code>projectorVersion</code> + <code>operatingMode</code> are populated.</li>
+        <li><strong>Six remaining LossType trigger-matchers</strong> &mdash; the Step 4a machinery supports all 8 LossTypes (per ADR-011), but only <code>naf_residue</code> + <code>unknown_relation</code> have trigger-matchers shipping today. <code>arity_flattening</code> arrives at Phase 4 (BFO ternary parthood); <code>closure_truncated</code> + <code>una_residue</code> arrive at Phase 3 (evaluator-time concerns); <code>coherence_violation</code> arrives at Phase 3 No-Collapse adversarial corpus; <code>bnode_introduced</code> at Phase 3 evaluator-derived Skolem introduction; <code>lexical_distinct_value_equal</code> at Phase 4 datatype handling.</li>
+        <li><strong>Phase 3 entry re-exercise of parity canaries</strong> against the real <code>evaluate()</code> &mdash; per Phase 2 entry packet §3.4 (Q3 phase3Reactivation discipline). The class-expression canary above asserts structural shape; full semantic round-trip parity (lift &rarr; project &rarr; re-lift &rarr; query-evaluation match) requires Phase 3.</li>
+      </ul>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- PROVENANCE                                                   -->
+    <!-- ============================================================ -->
+
+    <section class="section">
+      <h2>Provenance</h2>
+      <dl class="provenance">
+        <dt>Spec sections</dt>
+        <dd>Behavioral spec §6.1 (three-strategy projection); §6.2 (strategy selection algorithm); §7 (audit artifacts); §8.1 (round-trip parity criterion). API spec §6.2 (<code>folToOwl</code>); §6.3 (<code>roundTripCheck</code> &mdash; deferred to Step 7); §6.4 (LossSignature / RecoveryPayload / ProjectionManifest); §3.10.4 (<code>prefixes</code> parameter).</dd>
+        <dt>Case A round-trip fixture</dt>
+        <dd><code>tests/corpus/p1_restrictions_object_value.fixture.js</code> &mdash; the input ontology and expected lifted FOL (Phase 1 verified-status fixture exercised through Phase 2's projector for round-trip).</dd>
+        <dt>Case B Layer A fixture</dt>
+        <dd><code>tests/corpus/p1_bfo_clif_classical.fixture.js</code> &mdash; BFO 2020 standard-OWL subset with <code>clifGroundTruth</code> citations against the vendored Layer A source.</dd>
+        <dt>Vendored Layer A canonical source</dt>
+        <dd><code>arc/upstream-canonical/owl-axiomatization.clif</code> &mdash; W3C OWL CLIF axiomatization (Fabian Neuhaus, 2009; BFO repository, CC BY 4.0); 1660 lines, SHA-256 <code>480193e9&hellip;5912</code>. Provenance + <code>license-verification</code> block at <code>owl-axiomatization.clif.SOURCE</code>; verified canonical LICENSE commit <code>294fa416&hellip;b0cd</code>, LICENSE SHA-256 <code>f5b745ef&hellip;cc3f</code>, master HEAD at verification <code>857be9f1&hellip;f3a7</code>.</dd>
+        <dt>Implementation</dt>
+        <dd><code>src/kernel/projector.ts</code> &mdash; <code>folToOwl</code> + <code>matchSubClassOfWithExpression</code> (Step 3b: class-expression reconstruction in SubClassOf consequent); reserved-predicate ABox + remaining TBox/RBox forms (Step 3c); Annotated Approximation strategy + LossSignature emission machinery + content-addressed <code>@id</code> generation per ADR-011 (Step 4a); <code>matchInverseObjectPropertiesPair</code> (Step 3a: pair-matching); single-axiom Direct Mapping pattern matchers (Steps 2 + 3a). <code>src/kernel/projector-types.ts</code> &mdash; audit artifact type definitions + frozen <code>LOSS_SIGNATURE_SEVERITY_ORDER</code>. <code>src/kernel/canonicalize.ts</code> &mdash; <code>stableStringify</code> implementation supporting ADR-011 <code>@id</code> hash-input canonicalization.</dd>
+        <dt>Test runner</dt>
+        <dd><code>tests/projector-phase2.test.ts</code> &mdash; Phase 2 round-trip tests against Phase 1 corpus + Phase 2 projection-specific fixtures (138+ tests passing through Step 4a).</dd>
+        <dt>Vendoring discipline</dt>
+        <dd><code>arc/upstream-canonical/README.md</code> &mdash; Layer A vs Layer B framing. <code>arc/AUTHORING_DISCIPLINE.md</code> "SME-Persona Verification of Vendored Canonical Sources" subsection &mdash; verification ritual + license-verification-at-vendoring-time discipline (tightened per ADR-010, applies to all vendored canonical sources regardless of format).</dd>
+        <dt>ADR references</dt>
+        <dd>ADR-007 §1 (cycle-guard layer translation: lifter emits classical FOL), §4 (fresh-allocator-per-direction in <code>liftBidirectionalSubsumption</code> &mdash; load-bearing for the <code>InverseObjectProperties</code> two-axiom decomposition that Phase 2's pair-matching re-collapses), §7 (cardinality-witness Skolem convention &mdash; load-bearing for Step 4b's n-tuple matcher), §10 (banked: meta-vocabulary encoding choice). ADR-010 (vendored canonical source license-verification corrective action; CC BY 4.0). <strong>ADR-011</strong> (audit-artifact <code>@id</code> content-addressing scheme &mdash; SHA-256 of <code>stableStringify</code> of discriminating fields; LossSignature 5-field set + RecoveryPayload 3-field set; lower-case hex; <code>ofbt:ls/</code> + <code>ofbt:rp/</code> prefixes; behavioral-contract evolution stricter than schema-contract evolution per Q-3 architect banking 2026-05-07). <strong>ADR-012</strong> (cardinality routing &mdash; Direct Mapping with n-tuple matching per architect-ratified Option β at Step 4 spec-binding cycle 2026-05-07; Step 4b implementation per ADR-007 §7 lifted shapes).</dd>
+        <dt>Phase 2 entry packet</dt>
+        <dd><code>project/reviews/phase-2-entry.md</code> &mdash; AMENDED + RE-CONFIRMED entry packet (architect 2026-05-06); §3.4 stub-evaluator harness contract; §3.7 + §10.8 cross-section defense-pair refinement; §6.1 license-verification gate item.</dd>
+        <dt>Step ledger context</dt>
+        <dd>Phase 2 progress through Step 4a: Steps 1 (skeleton), 2 (Direct Mapping single-axiom), 3a (pair-matching TBox + RBox), 3b (class-expression reconstruction), 3c (reserved-predicate ABox + remaining forms), 4a (Annotated Approximation + LossSignature emission + ADR-011 + Q-G fixture). Steps 4b (cardinality), 5 (strategy router), 6 (Property-Chain Realization), 7 (<code>roundTripCheck</code>) sequence next per the Phase 2 entry packet's Step ledger.</dd>
+      </dl>
+    </section>
+  </main>
+
+  <footer>
+    OFBT v0.1 build &mdash; Phase 2 demo. Disposable per the architect's per-phase demo-file convention. Replaced by <code>demo_p3.html</code> at Phase 3 exit. Two-case structure (round-trip canary + Layer A CLIF parity) per the banked template at <code>demo/README.md</code>.
+  </footer>
+
+  <script type="module">
+    // Demo runner. Pure ES module; no framework. Imports owlToFol + folToOwl
+    // from the browser bundle and two fixtures (Phase 1's class-expression
+    // fixture for Case A round-trip canary; Phase 1's BFO/CLIF fixture for
+    // Case B Layer A round-trip parity) from the corpus deploy directory.
+    // SME-role discipline: corpus-driven. Demo outputs match what the test
+    // suite asserts; no parallel demo logic.
+
+    const ceInputDisplay = document.getElementById('ce-input-display');
+    const ceRunButton = document.getElementById('ce-run-button');
+    const ceStatusEl = document.getElementById('ce-status');
+    const ceLiftedDisplay = document.getElementById('ce-lifted-display');
+    const ceProjectedDisplay = document.getElementById('ce-projected-display');
+    const ceRightShapeResults = document.getElementById('ce-right-shape-results');
+    const ceWrongShapeResults = document.getElementById('ce-wrong-shape-results');
+
+    const bfoInputDisplay = document.getElementById('bfo-input-display');
+    const bfoRunButton = document.getElementById('bfo-run-button');
+    const bfoStatusEl = document.getElementById('bfo-status');
+    const bfoLiftedDisplay = document.getElementById('bfo-lifted-display');
+    const bfoProjectedDisplay = document.getElementById('bfo-projected-display');
+    const bfoRoundtripResults = document.getElementById('bfo-roundtrip-results');
+    const bfoClifParityResults = document.getElementById('bfo-clif-parity-results');
+
+    function setStatus(el, text, kind) {
+      el.textContent = text;
+      el.className = 'badge ' + (kind || 'pending');
+    }
+
+    function pretty(obj) {
+      return JSON.stringify(obj, null, 2);
+    }
+
+    /**
+     * Tiny structural pattern matcher. Mirrors the same helper from
+     * demo_p1.html (which mirrors `assertForbiddenPatterns` /
+     * `assertRequiredPattern` from `tests/lifter-phase1.test.ts`).
+     * Demo-side replication is deliberate per per-phase disposability.
+     */
+    function matchesShape(node, pattern) {
+      if (pattern === undefined) return true;
+      if (pattern === null) return node === null;
+      if (typeof pattern !== 'object') return node === pattern;
+      if (Array.isArray(pattern)) {
+        if (!Array.isArray(node)) return false;
+        if (node.length < pattern.length) return false;
+        return pattern.every((p, i) => matchesShape(node[i], p));
+      }
+      if (node === null || typeof node !== 'object') return false;
+      return Object.keys(pattern).every((k) =>
+        matchesShape(node[k], pattern[k])
+      );
+    }
+
+    function subtreeMatchesAnywhere(node, pattern) {
+      if (matchesShape(node, pattern)) return true;
+      if (Array.isArray(node)) {
+        return node.some((child) => subtreeMatchesAnywhere(child, pattern));
+      }
+      if (node !== null && typeof node === 'object') {
+        return Object.values(node).some((child) =>
+          subtreeMatchesAnywhere(child, pattern)
+        );
+      }
+      return false;
+    }
+
+    function renderAssertion(container, description, ok) {
+      const row = document.createElement('div');
+      row.className = 'assertion-row';
+      const badge = document.createElement('span');
+      badge.className = 'badge ' + (ok ? 'good' : 'bad');
+      badge.textContent = ok ? '✓ pass' : '✗ FAIL';
+      const desc = document.createElement('span');
+      desc.className = 'desc';
+      desc.textContent = description;
+      row.appendChild(badge);
+      row.appendChild(desc);
+      container.appendChild(row);
+    }
+
+    /**
+     * Render the BFO/CLIF Layer A parity panel. Same logic as demo_p1.html:
+     * groups consecutive clifGroundTruth entries that cite the same canonical
+     * block. Demo-side replication per per-phase disposability.
+     */
+    function renderLayerAParity(container, clifGroundTruth) {
+      const groups = [];
+      let currentGroup = null;
+      for (const cgt of clifGroundTruth) {
+        const refKey = cgt.clifAxiomRef.split(' — ')[0];
+        if (currentGroup && currentGroup.refKey === refKey) {
+          currentGroup.entries.push(cgt);
+        } else {
+          currentGroup = { refKey, clifText: cgt.clifText, entries: [cgt] };
+          groups.push(currentGroup);
+        }
+      }
+
+      for (const group of groups) {
+        const groupDiv = document.createElement('div');
+        groupDiv.className = 'panel';
+        groupDiv.style.marginBottom = '1rem';
+
+        const title = document.createElement('div');
+        title.className = 'panel-title';
+        title.textContent =
+          'Canonical CLIF — ' + group.refKey +
+          (group.entries.length > 1 ? '  (' + group.entries.length + ' fixture inputs cite this block)' : '');
+        groupDiv.appendChild(title);
+
+        const clifPre = document.createElement('pre');
+        clifPre.style.padding = '0.75rem';
+        clifPre.style.margin = '0';
+        clifPre.style.background = 'var(--code-bg)';
+        clifPre.style.fontSize = '0.85rem';
+        clifPre.textContent = group.clifText;
+        groupDiv.appendChild(clifPre);
+
+        const inputsList = document.createElement('div');
+        inputsList.style.padding = '0.75rem';
+        inputsList.style.borderTop = '1px solid var(--border)';
+        inputsList.style.background = 'var(--bg-panel)';
+        inputsList.innerHTML = '<strong style="font-size: 0.85rem; color: var(--fg-muted);">Fixture-input axioms exercising this canonical block:</strong>';
+        for (const entry of group.entries) {
+          const row = document.createElement('div');
+          row.className = 'assertion-row';
+          row.style.fontSize = '0.9rem';
+
+          const badge = document.createElement('span');
+          const isVerify = entry.verificationStatus === '[VERIFY]';
+          badge.className = 'badge ' + (isVerify ? 'pending' : 'good');
+          badge.textContent = isVerify ? '[VERIFY]' : '✓ Verified';
+
+          const desc = document.createElement('span');
+          desc.className = 'desc';
+          desc.innerHTML =
+            '<code>' + (entry.owlAxiomLabel || 'unnamed') + '</code>' +
+            ' &rarr; lifted to FOL axiom #' +
+            (Array.isArray(entry.expectedFOLIndex)
+              ? entry.expectedFOLIndex.map(i => i + 1).join(', #')
+              : (entry.expectedFOLIndex + 1));
+
+          row.appendChild(badge);
+          row.appendChild(desc);
+          inputsList.appendChild(row);
+        }
+        groupDiv.appendChild(inputsList);
+
+        if (group.entries[0].mappingNote) {
+          const note = document.createElement('div');
+          note.className = 'callout';
+          note.style.margin = '0';
+          note.style.borderRadius = '0';
+          note.style.borderLeft = '0';
+          note.style.borderTop = '1px solid var(--border)';
+          note.style.fontSize = '0.85rem';
+          note.innerHTML = '<strong>Mapping note.</strong> ' + group.entries[0].mappingNote;
+          groupDiv.appendChild(note);
+        }
+
+        container.appendChild(groupDiv);
+      }
+    }
+
+    let owlToFol;
+    let folToOwl;
+    let ceFixture;
+    let bfoFixture;
+
+    try {
+      const bundle = await import('./bundles/ofbt-core.browser.min.js');
+      owlToFol = bundle.owlToFol;
+      folToOwl = bundle.folToOwl;
+      if (typeof owlToFol !== 'function') {
+        throw new Error('owlToFol is not exported from the bundle');
+      }
+      if (typeof folToOwl !== 'function') {
+        throw new Error('folToOwl is not exported from the bundle');
+      }
+
+      const ceModule = await import('./fixtures/p1_restrictions_object_value.fixture.js');
+      ceFixture = ceModule.fixture;
+      const bfoModule = await import('./fixtures/p1_bfo_clif_classical.fixture.js');
+      bfoFixture = bfoModule.fixture;
+
+      ceInputDisplay.textContent = pretty(ceFixture.input);
+      bfoInputDisplay.textContent = pretty(bfoFixture.input);
+
+      setStatus(ceStatusEl, 'Ready', 'good');
+      setStatus(bfoStatusEl, 'Ready', 'good');
+      ceRunButton.disabled = false;
+      bfoRunButton.disabled = false;
+    } catch (err) {
+      const msg = 'Failed to load: ' + err.message;
+      setStatus(ceStatusEl, msg, 'bad');
+      setStatus(bfoStatusEl, msg, 'bad');
+      ceInputDisplay.textContent = 'Could not load demo assets. Check the browser console for details.';
+      bfoInputDisplay.textContent = 'Could not load demo assets. Check the browser console for details.';
+      console.error('OFBT demo load error:', err);
+    }
+
+    // Helper: extract the axioms array from an owlToFol return value.
+    // Phase 1's owlToFol may return either a bare array or an object with
+    // an `axioms` field; demo accommodates both shapes.
+    function liftedAxioms(lifted) {
+      if (Array.isArray(lifted)) return lifted;
+      if (lifted && Array.isArray(lifted.axioms)) return lifted.axioms;
+      return [];
+    }
+
+    // Helper: extract the projected ontology's combined-axiom array.
+    function projectedAxioms(projected) {
+      const o = projected.ontology || {};
+      return [...(o.tbox || []), ...(o.abox || []), ...(o.rbox || [])];
+    }
+
+    // ===== Case A run handler =====
+    ceRunButton.addEventListener('click', async () => {
+      setStatus(ceStatusEl, 'Lifting and projecting...', 'pending');
+      ceRunButton.disabled = true;
+      ceRightShapeResults.innerHTML = '';
+      ceWrongShapeResults.innerHTML = '';
+
+      try {
+        const lifted = await owlToFol(ceFixture.input);
+        ceLiftedDisplay.textContent = pretty(lifted);
+
+        const projected = await folToOwl(liftedAxioms(lifted));
+        ceProjectedDisplay.textContent = pretty(projected);
+
+        // ===== Right shape present =====
+        // Each input SubClassOf must round-trip with its restriction kind preserved.
+        const inputAxioms = ceFixture.input.tbox || [];
+        const projAxioms = projectedAxioms(projected);
+
+        for (const inAx of inputAxioms) {
+          const inSubIRI = inAx.subClass && inAx.subClass.iri;
+          const inRestriction = inAx.superClass || {};
+          const restrictionKind = inRestriction.someValuesFrom
+            ? 'someValuesFrom'
+            : inRestriction.allValuesFrom
+              ? 'allValuesFrom'
+              : (Object.prototype.hasOwnProperty.call(inRestriction, 'hasValue') ? 'hasValue' : '<unknown>');
+
+          const expectedPattern = {
+            '@type': 'SubClassOf',
+            subClass: { iri: inSubIRI },
+            superClass: {
+              '@type': 'Restriction',
+              onProperty: inRestriction.onProperty,
+              [restrictionKind]: restrictionKind === 'hasValue'
+                ? inRestriction.hasValue
+                : { iri: inRestriction[restrictionKind].iri },
+            },
+          };
+
+          const ok = projAxioms.some((p) => matchesShape(p, expectedPattern));
+          renderAssertion(
+            ceRightShapeResults,
+            inSubIRI.split('/').pop() + ' ⊑ Restriction(' + (inRestriction.onProperty || '?').split('/').pop() + ', ' + restrictionKind + ', …) — ' + (ok ? 'reconstructed correctly' : 'NOT FOUND in projected output'),
+            ok
+          );
+        }
+
+        // ===== Wrong shape absent =====
+        // Forbidden conflation patterns:
+        //   (a) someValuesFrom ↔ allValuesFrom swap on Parent's hasChild Person
+        //   (b) Restriction collapsed to ObjectIntersectionOf
+        //   (c) hasValue's named individual dropped to a Class atom
+        const forbiddenPatterns = [
+          {
+            description: 'Parent\'s someValuesFrom restriction emitted as allValuesFrom (the kind-swap silent-failure)',
+            pattern: {
+              '@type': 'SubClassOf',
+              subClass: { iri: 'http://example.org/test/Parent' },
+              superClass: { '@type': 'Restriction', allValuesFrom: { iri: 'http://example.org/test/Person' } },
+            },
+          },
+          {
+            description: 'HappyParent\'s allValuesFrom restriction emitted as someValuesFrom (the converse kind-swap)',
+            pattern: {
+              '@type': 'SubClassOf',
+              subClass: { iri: 'http://example.org/test/HappyParent' },
+              superClass: { '@type': 'Restriction', someValuesFrom: { iri: 'http://example.org/test/Happy' } },
+            },
+          },
+          {
+            description: 'Any SubClassOf with ObjectIntersectionOf consequent (no input axiom uses intersection — appearance would be a spurious-conjunction silent-failure)',
+            pattern: {
+              '@type': 'SubClassOf',
+              superClass: { '@type': 'ObjectIntersectionOf' },
+            },
+          },
+          {
+            description: 'CitizenOfFrance\'s hasValue collapsed to a Class atom (named individual France dropped)',
+            pattern: {
+              '@type': 'SubClassOf',
+              subClass: { iri: 'http://example.org/test/CitizenOfFrance' },
+              superClass: { '@type': 'Class', iri: 'http://example.org/test/France' },
+            },
+          },
+        ];
+
+        for (const fp of forbiddenPatterns) {
+          const present = projAxioms.some((p) => subtreeMatchesAnywhere(p, fp.pattern));
+          renderAssertion(
+            ceWrongShapeResults,
+            fp.description + ' — ' + (present ? 'PRESENT (regression!)' : 'absent'),
+            !present
+          );
+        }
+
+        setStatus(ceStatusEl, 'Round-trip complete', 'good');
+      } catch (err) {
+        ceLiftedDisplay.textContent = 'Lifter or projector threw: ' + (err.message || String(err));
+        setStatus(ceStatusEl, 'Round-trip error', 'bad');
+        console.error('OFBT round-trip error (Case A):', err);
+      } finally {
+        ceRunButton.disabled = false;
+      }
+    });
+
+    // ===== Case B run handler =====
+    bfoRunButton.addEventListener('click', async () => {
+      setStatus(bfoStatusEl, 'Lifting and projecting...', 'pending');
+      bfoRunButton.disabled = true;
+      bfoRoundtripResults.innerHTML = '';
+      bfoClifParityResults.innerHTML = '';
+
+      try {
+        const lifted = await owlToFol(bfoFixture.input);
+        bfoLiftedDisplay.textContent = pretty(lifted);
+
+        const projected = await folToOwl(liftedAxioms(lifted));
+        bfoProjectedDisplay.textContent = pretty(projected);
+
+        // ===== Round-trip parity: input axiom counts vs projected axiom counts =====
+        const inputAll = [
+          ...(bfoFixture.input.tbox || []),
+          ...(bfoFixture.input.abox || []),
+          ...(bfoFixture.input.rbox || []),
+        ];
+        const projAll = projectedAxioms(projected);
+
+        renderAssertion(
+          bfoRoundtripResults,
+          'Input axiom count (' + inputAll.length + ') equals projected axiom count (' + projAll.length + ') — pair-matching re-collapses the InverseObjectProperties decomposition',
+          inputAll.length === projAll.length
+        );
+
+        // For each input TBox axiom, the projected output must contain a structurally-equivalent axiom.
+        for (const inAx of (bfoFixture.input.tbox || [])) {
+          const found = projAll.some((p) => matchesShape(p, inAx));
+          const label = inAx['@type'] === 'SubClassOf'
+            ? 'SubClassOf(' + (inAx.subClass.iri.split('/').pop()) + ', ' + (inAx.superClass.iri ? inAx.superClass.iri.split('/').pop() : '?') + ')'
+            : inAx['@type'] === 'DisjointWith'
+              ? 'DisjointWith(' + inAx.classes.map(c => c.iri.split('/').pop()).join(', ') + ')'
+              : inAx['@type'];
+          renderAssertion(
+            bfoRoundtripResults,
+            'TBox axiom ' + label + ' present in projected ontology',
+            found
+          );
+        }
+        // RBox: Transitive(part_of) + InverseObjectProperties(part_of, has_part)
+        for (const inAx of (bfoFixture.input.rbox || [])) {
+          const found = projAll.some((p) => matchesShape(p, inAx));
+          const label = inAx['@type'] === 'ObjectPropertyCharacteristic'
+            ? inAx.characteristic + '(' + inAx.property.split('/').pop() + ')'
+            : inAx['@type'] === 'InverseObjectProperties'
+              ? 'InverseObjectProperties(' + inAx.first.split('/').pop() + ', ' + inAx.second.split('/').pop() + ')'
+              : inAx['@type'];
+          renderAssertion(
+            bfoRoundtripResults,
+            'RBox axiom ' + label + ' present in projected ontology',
+            found
+          );
+        }
+
+        // ===== Layer A CLIF parity panel =====
+        const cgt = bfoFixture.clifGroundTruth || [];
+        if (cgt.length === 0) {
+          const empty = document.createElement('p');
+          empty.textContent = 'No clifGroundTruth entries declared in the BFO fixture.';
+          bfoClifParityResults.appendChild(empty);
+        } else {
+          renderLayerAParity(bfoClifParityResults, cgt);
+        }
+
+        setStatus(bfoStatusEl, 'Round-trip complete', 'good');
+      } catch (err) {
+        bfoLiftedDisplay.textContent = 'Lifter or projector threw: ' + (err.message || String(err));
+        setStatus(bfoStatusEl, 'Round-trip error', 'bad');
+        console.error('OFBT round-trip error (Case B):', err);
+      } finally {
+        bfoRunButton.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
