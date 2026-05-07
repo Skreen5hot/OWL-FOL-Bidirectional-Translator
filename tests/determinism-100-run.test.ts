@@ -23,6 +23,22 @@
  *     each case 100x; assert the same error class + `construct` field every
  *     time.
  *
+ * Phase 2 close (Step 9.2) coverage floor: the harness asserts at the end
+ * of main() that totalLifts >= manifest.fixtures.length * RUNS. This
+ * catches the silent-no-op failure mode where a future cycle's harness
+ * regression skips fixtures without raising any per-fixture exception
+ * (e.g., the dispatcher bypasses a new fixtureType variant). Per spec
+ * §12.determinism + API §6.1.1's 100-run contract, every manifest entry
+ * MUST contribute at least RUNS invocations to the determinism check;
+ * the floor assertion is a defense-in-depth check on top of the
+ * per-fixture pass/fail signal.
+ *
+ * Phase 2 close baseline (27 manifest entries, RUNS=100): 27 single-input
+ * fixtures contribute 100 each; canary_iri_canonicalization (3 inputs)
+ * contributes 300; canary_punned_construct_rejection (5 throw cases)
+ * contributes 500; total ≥ 2,700 (floor) and observed 3,300 (actual).
+ * Future fixtures append; the floor scales with manifest.fixtures.length.
+ *
  * Spec context:
  *   - spec §5.7 + API §6.1.1 mandate RDFC-1.0 b-node canonicalization;
  *     p1_blank_node_anonymous_restriction's expectedOutcome explicitly says
@@ -267,6 +283,16 @@ async function main(): Promise<void> {
 
   console.log("");
   console.log(`  Summary: ${passed} passed, ${failed} failed, ${totalLifts} total lift invocations`);
+
+  const expectedMinimumInvocations = manifest.fixtures.length * RUNS;
+  if (totalLifts < expectedMinimumInvocations) {
+    console.error(
+      `  ✗ FAIL: totalLifts ${totalLifts} below coverage floor ${expectedMinimumInvocations} ` +
+        `(${manifest.fixtures.length} manifest entries × ${RUNS} runs). ` +
+        `Some fixtures may have been silently skipped — check the dispatcher for new fixtureType variants.`
+    );
+    process.exit(1);
+  }
 
   if (failed > 0) {
     process.exit(1);
