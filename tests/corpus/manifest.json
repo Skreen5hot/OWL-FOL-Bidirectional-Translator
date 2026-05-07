@@ -795,6 +795,138 @@
         "expectedOutcome": "Under Phase 4's regularityCheck(A, importClosure): (a) regularity-confirmed → strategy stays 'property-chain' AND regularity_scope_warning CLEARED from Recovery Payload; (b) irregular → strategy fallthrough to 'annotated-approximation' per spec §6.2 algorithm.",
         "divergenceTrigger": "If Phase 4's regularity check is active AND strategy router still reports 'property-chain' WITH regularity_scope_warning preserved for a chain that the import closure verifies as regular, ESCALATE: regularity-check semantics did not propagate from spec §6.2.1 Phase 4 contract to strategy router's emission decision."
       }
+    },
+    {
+      "fixtureId": "parity_canary_query_preservation",
+      "phase": 2,
+      "specSections": [
+        "§6.3",
+        "§8.1",
+        "API §6.2",
+        "API §6.3",
+        "API §7.1"
+      ],
+      "acceptanceCriteria": [
+        "§12 round-trip parity (query-preservation positive case)",
+        "Phase 2 entry packet §3.4 (architect-ratified 2026-05-06)",
+        "Architect Q3 ruling — stub-evaluator harness contract + Phase 3 re-exercise gate"
+      ],
+      "arcEntries": [],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "Round-trip preservation of an entailed query. Lift+project+re-lift of the OWL input (3 axioms: 2 SubClassOf chain + 1 ClassAssertion) produces F_3 byte-equivalent to F_1. Stub-evaluator on the discriminating query Person(alice)? returns 'true' on both F_1 and F_3 via backward-chain through the SubClassOf-derived rules (Mother → Female → Person) terminating at Mother(alice). Failure mode: projector silently drops one of the SubClassOf rules → F_3 lacks the entailment chain → stub returns 'undetermined' on F_3 instead of 'true' → canary fires.",
+        "fixtureType": "round-trip-with-stub-evaluator-query",
+        "discriminatingQueryStubResult": "true",
+        "canaryRole": "query-preservation-positive-case"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "the projector producing a round-tripped OWL surface where a previously-entailed query Q silently degrades to 'undetermined' (lost-entailment failure mode); specifically: silently dropping SubClassOf axioms via buggy pair-matching that mis-collapses two unrelated SubClassOf into a spurious EquivalentClasses, OR dropping one SubClassOf during class-expression reconstruction recursion, OR similar entailment-chain-breaking projector bugs",
+      "expected_v0.1_verdict": {
+        "ringStatus": "ring2-passes-with-stub-evaluator-query-preservation",
+        "phaseAuthored": 2,
+        "phaseActivated": 2,
+        "stubQueryOnF1": "true",
+        "stubQueryOnF3": "true",
+        "expectedLossSignatureCount": 0,
+        "expectedRecoveryPayloadCount": 0,
+        "expectedProjectionStrategy": "direct"
+      },
+      "expected_v0.2_elk_verdict": null,
+      "phase3Reactivation": {
+        "gatedOn": "real-evaluator-via-API-§7.1",
+        "expectedOutcome": "evaluate(F_3, query: 'Person(alice)?') returns 'true' (must match stub) — real evaluator's Horn-resolution chain through the two SubClassOf-derived rules terminating at Mother(alice) is identical to the stub's backward-chain trace.",
+        "divergenceTrigger": "If real evaluate() returns 'undetermined' where the stub returned 'true', ESCALATE: round-trip lost the SubClassOf-chain entailment between Phase 2 and Phase 3. If real returns 'true' (matching stub), NORMAL — Phase 3's evaluator handles this case at least as well as the stub did."
+      }
+    },
+    {
+      "fixtureId": "parity_canary_negative_query",
+      "phase": 2,
+      "specSections": [
+        "§6.3",
+        "§8.1",
+        "§8.5",
+        "API §6.2",
+        "API §7.1"
+      ],
+      "acceptanceCriteria": [
+        "§12 round-trip parity (OWA preservation)",
+        "Phase 2 entry packet §3.4 (architect-ratified 2026-05-06)",
+        "Spec §6.3 default OWA framing",
+        "Architect Q3 ruling — stub-evaluator harness contract + Phase 3 re-exercise gate"
+      ],
+      "arcEntries": [],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "Round-trip preservation of an OWA-undetermined query. Lift+project+re-lift of the minimal OWL input (2 ClassAssertions, no rules, no Knows facts) produces F_3 byte-equivalent to F_1. Stub-evaluator on the discriminating query Knows(alice, bob)? returns 'undetermined' on both F_1 and F_3 (default OWA per spec §6.3 — no proof of Knows(alice, bob), no proof of its negation). Failure mode: projector silently introduces a closure annotation OR a fabricated negative atom → F_3 derives ¬Knows under CWA semantics → stub returns 'false' on F_3 instead of 'undetermined' → canary fires (open-world preservation broken).",
+        "fixtureType": "round-trip-with-stub-evaluator-query",
+        "discriminatingQueryStubResult": "undetermined",
+        "canaryRole": "owa-preservation-against-cwa-collapse"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "the projector silently introducing a closure annotation OR a fabricated negative atom in the OWL surface that re-lifts to a CWA-derivable negation, collapsing the discriminating query Knows(alice, bob)? from 'undetermined' (default OWA per spec §6.3) to 'false' (CWA-derived); specific failure modes: spurious rdfs:isDefinedBy or similar closure annotation; phantom NegativeObjectPropertyAssertion not in the input; mis-lifted punted construct that should reject but instead silently emits classical negation",
+      "expected_v0.1_verdict": {
+        "ringStatus": "ring2-passes-with-stub-evaluator-owa-preservation",
+        "phaseAuthored": 2,
+        "phaseActivated": 2,
+        "stubQueryOnF1": "undetermined",
+        "stubQueryOnF3": "undetermined",
+        "expectedLossSignatureCount": 0,
+        "expectedRecoveryPayloadCount": 0,
+        "expectedProjectionStrategy": "direct"
+      },
+      "expected_v0.2_elk_verdict": null,
+      "phase3Reactivation": {
+        "gatedOn": "real-evaluator-via-API-§7.1-default-OWA-no-closedPredicates",
+        "expectedOutcome": "evaluate(F_3, query: 'Knows(alice, bob)?') under default OWA (NO closedPredicates) returns 'undetermined' (must match stub; CWA-collapse forbidden). If a Phase 3 consumer explicitly passes closedPredicates: ['knows'], the real evaluator MAY return 'false' — but that is consumer-opt-in CWA, NOT a round-trip-introduced CWA leak.",
+        "divergenceTrigger": "If real evaluate() under default OWA (no closedPredicates) returns 'false' where the stub returned 'undetermined', ESCALATE: open-world-preservation broken — a CWA assumption leaked through the round-trip without consumer-side opt-in. This is the load-bearing canary failure the discipline exists to catch."
+      }
+    },
+    {
+      "fixtureId": "parity_canary_visual_equivalence_trap",
+      "phase": 2,
+      "specSections": [
+        "§6.1.1",
+        "§6.2",
+        "§6.3",
+        "§8.1",
+        "API §3.4",
+        "API §6.2",
+        "API §6.3",
+        "API §7.1"
+      ],
+      "acceptanceCriteria": [
+        "§12 round-trip parity (visual-equivalence-trap canary)",
+        "Phase 2 entry packet §3.4 (architect-ratified 2026-05-06)",
+        "Phase 2 entry packet §3.7 + §10.8 (cross-section defense-pair refinement architect-banked 2026-05-06)",
+        "Architect Q3 ruling — stub-evaluator harness contract + Phase 3 re-exercise gate"
+      ],
+      "arcEntries": [],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "Cross-section defense-in-depth canary half (sibling: strategy_routing_direct in §3.3). Engineered such that the round-trip's graph-shape comparison reports clean (auxiliary facts about bob ground the entailment witnesses regardless of class-expression quantifier kind). At Phase 2 stub-fidelity, the canary asserts baseline preservation: round-trip OWL surface byte-equivalent, no spurious Loss Signatures (mis-routing-to-Annotated-Approximation detection), no spurious Recovery Payloads, stub queries return 'true' on both F_1 and F_3. Phase 3 reactivation surfaces the engineered kind-swap detection via closedPredicates: ['hasChild'] discriminating query.",
+        "fixtureType": "round-trip-with-stub-evaluator-query-and-audit-artifact-checks",
+        "canaryRole": "cross-section-defense-pair-canary-half",
+        "siblingPositiveFixture": "strategy_routing_direct (Phase 2 entry packet §3.3 + §3.7)"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "the projector silently mis-routing the Direct-Mapping-eligible SubClassOf-with-someValuesFrom-Restriction axiom to Annotated Approximation (would emit Loss Signature + Recovery Payload when the round-trip is structurally clean and Direct Mapping is the correct strategy); OR mis-routing to Property-Chain Realization (would emit ObjectPropertyChain + Recovery Payload + change RBox axiom count); OR mis-routing to a non-existent third strategy that produces structurally-similar-but-semantically-shifted output. The audit-artifact assertions catch (1) and (2). The kind-swap detection is Phase 3 territory (phase3Reactivation field documents that re-exercise).",
+      "expected_v0.1_verdict": {
+        "ringStatus": "ring2-passes-with-stub-evaluator-and-audit-artifact-baseline",
+        "phaseAuthored": 2,
+        "phaseActivated": 2,
+        "stubQuery_PersonBob": "true",
+        "stubQuery_hasChildAliceBob": "true",
+        "expectedLossSignatureCount": 0,
+        "expectedRecoveryPayloadCount": 0,
+        "expectedProjectionStrategy": "direct",
+        "crossSectionDefensePairAssertion": "paired with strategy_routing_direct (positive half) per architect-banked §10.8 cross-section pattern"
+      },
+      "expected_v0.2_elk_verdict": null,
+      "phase3Reactivation": {
+        "gatedOn": "real-evaluator-via-API-§7.1-with-closedPredicates-support",
+        "expectedOutcome": "Discriminating Phase 3 query under closedPredicates: ['hasChild', 'Person']: evaluate(F_3, query: '∃y. hasChild(alice, y) ∧ ¬Person(y)?', closedPredicates: ['hasChild', 'Person']) — under correct someValuesFrom round-trip, evaluates to 'false' (the only y with hasChild(alice, y) is bob; Person(bob) is closed and asserted; ¬Person(bob) is 'false' under CWA). Under buggy allValuesFrom mis-routing, F_3 has different structural semantics; Phase 3's evaluator surfaces the kind-swap.",
+        "divergenceTrigger": "If real evaluate() divergence in EITHER direction on the discriminating query, ESCALATE: the engineered semantic shift is now visible to the real evaluator and the round-trip's wrongness is confirmed (round-trip is buggy — projector mis-routed the class-expression's quantifier kind). Alternatively, if Phase 3's evaluator gives the same answer regardless of kind-swap, the canary needs STRENGTHENING — the engineered case wasn't actually detectable at Phase 3 fidelity either, and the canary's design needs revision before Phase 4 ARC content lands."
+      }
     }
   ]
 }

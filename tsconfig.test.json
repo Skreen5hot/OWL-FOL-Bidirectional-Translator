@@ -4,7 +4,8 @@
     "rootDir": ".",
     "outDir": "./dist-tests",
     "declaration": false,
-    "declarationMap": false
+    "declarationMap": false,
+    "allowJs": true
   },
   "include": ["src/**/*", "tests/**/*", "scripts/**/*", "examples/**/*"],
   "exclude": ["node_modules", "dist", "dist-tests"]

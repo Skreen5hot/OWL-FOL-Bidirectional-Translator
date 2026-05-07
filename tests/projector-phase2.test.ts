@@ -15,6 +15,7 @@ import { strictEqual, deepStrictEqual, ok } from "node:assert";
 import { folToOwl } from "../src/kernel/projector.js";
 import { owlToFol } from "../src/kernel/lifter.js";
 import { roundTripCheck } from "../src/kernel/round-trip.js";
+import { evaluateStub, UnsupportedHarnessFeatureError } from "./corpus/_stub-evaluator.js";
 import {
   LOSS_SIGNATURE_SEVERITY_ORDER,
 } from "../src/kernel/projector-types.js";
@@ -1823,6 +1824,249 @@ await report(
         ],
       },
     ]);
+  },
+);
+
+// ===========================================================================
+// STEP 8 — Stub-evaluator harness + 3 parity canaries per Phase 2 entry §3.4
+// ===========================================================================
+
+await report(
+  "Step 8 / stub-evaluator: closedPredicates option throws UnsupportedHarnessFeatureError per the contract",
+  async () => {
+    let thrown: unknown = null;
+    try {
+      evaluateStub([], { "@type": "fol:Atom", predicate: "x", arguments: [] }, {
+        closedPredicates: ["x"],
+      });
+    } catch (e) {
+      thrown = e;
+    }
+    ok(thrown instanceof UnsupportedHarnessFeatureError);
+    strictEqual((thrown as UnsupportedHarnessFeatureError & { feature?: string }).feature, "closedPredicates");
+  },
+);
+
+await report(
+  "Step 8 / parity_canary_query_preservation: round-trip preserves entailed query (stub returns 'true' on F_1 + F_3)",
+  async () => {
+    const PREFIX = "http://example.org/test/parity_canary_query_preservation/";
+    const input: OWLOntology = {
+      ontologyIRI: "http://example.org/test/parity_canary_query_preservation",
+      prefixes: { ex: PREFIX },
+      tbox: [
+        {
+          "@type": "SubClassOf",
+          subClass: { "@type": "Class", iri: PREFIX + "Mother" },
+          superClass: { "@type": "Class", iri: PREFIX + "Female" },
+        },
+        {
+          "@type": "SubClassOf",
+          subClass: { "@type": "Class", iri: PREFIX + "Female" },
+          superClass: { "@type": "Class", iri: PREFIX + "Person" },
+        },
+      ],
+      abox: [
+        {
+          "@type": "ClassAssertion",
+          class: { "@type": "Class", iri: PREFIX + "Mother" },
+          individual: PREFIX + "alice",
+        },
+      ],
+      rbox: [],
+    };
+    const Q = {
+      "@type": "fol:Atom",
+      predicate: PREFIX + "Person",
+      arguments: [{ "@type": "fol:Constant", iri: PREFIX + "alice" }],
+    };
+
+    // Lift, project, re-lift.
+    const F1 = await owlToFol(input);
+    const projected = await folToOwl(F1, undefined, { prefixes: input.prefixes });
+    const F3 = await owlToFol(projected.ontology);
+
+    // Round-trip parity (modulo canonicalization).
+    const rt = await roundTripCheck(input);
+    strictEqual(rt.equivalent, true, "round-trip equivalent");
+
+    // Stub-evaluator query preservation.
+    strictEqual(evaluateStub(F1, Q), "true", "stub on F_1 returns 'true'");
+    strictEqual(evaluateStub(F3, Q), "true", "stub on F_3 returns 'true'");
+
+    // Audit-artifact assertions: clean Direct Mapping → no Loss Signatures /
+    // Recovery Payloads.
+    strictEqual(projected.newLossSignatures.length, 0);
+    strictEqual(projected.newRecoveryPayloads.length, 0);
+  },
+);
+
+await report(
+  "Step 8 / parity_canary_negative_query: round-trip preserves OWA-undetermined query (stub returns 'undetermined' on F_1 + F_3; CWA-collapse forbidden)",
+  async () => {
+    const PREFIX = "http://example.org/test/parity_canary_negative_query/";
+    const input: OWLOntology = {
+      ontologyIRI: "http://example.org/test/parity_canary_negative_query",
+      prefixes: { ex: PREFIX },
+      tbox: [],
+      abox: [
+        {
+          "@type": "ClassAssertion",
+          class: { "@type": "Class", iri: PREFIX + "Person" },
+          individual: PREFIX + "alice",
+        },
+        {
+          "@type": "ClassAssertion",
+          class: { "@type": "Class", iri: PREFIX + "Person" },
+          individual: PREFIX + "bob",
+        },
+      ],
+      rbox: [],
+    };
+    const Q = {
+      "@type": "fol:Atom",
+      predicate: PREFIX + "knows",
+      arguments: [
+        { "@type": "fol:Constant", iri: PREFIX + "alice" },
+        { "@type": "fol:Constant", iri: PREFIX + "bob" },
+      ],
+    };
+
+    const F1 = await owlToFol(input);
+    const projected = await folToOwl(F1, undefined, { prefixes: input.prefixes });
+    const F3 = await owlToFol(projected.ontology);
+
+    const rt = await roundTripCheck(input);
+    strictEqual(rt.equivalent, true);
+
+    // No Knows facts, no Knows-deriving rules → default OWA → 'undetermined'
+    // on both F_1 and F_3. CWA-collapse to 'false' would fire the canary.
+    strictEqual(evaluateStub(F1, Q), "undetermined");
+    strictEqual(evaluateStub(F3, Q), "undetermined");
+
+    strictEqual(projected.newLossSignatures.length, 0);
+    strictEqual(projected.newRecoveryPayloads.length, 0);
+  },
+);
+
+await report(
+  "Step 8 / parity_canary_visual_equivalence_trap: both discriminating queries return 'true' on F_1 + F_3 (Phase 2 stub-fidelity baseline; kind-swap detection is Phase 3)",
+  async () => {
+    const PREFIX = "http://example.org/test/parity_canary_visual_equivalence_trap/";
+    const PARENT_OF_PERSON = PREFIX + "ParentOfPerson";
+    const HAS_CHILD = PREFIX + "hasChild";
+    const PERSON = PREFIX + "Person";
+    const ALICE = PREFIX + "alice";
+    const BOB = PREFIX + "bob";
+    const input: OWLOntology = {
+      ontologyIRI: "http://example.org/test/parity_canary_visual_equivalence_trap",
+      prefixes: { ex: PREFIX },
+      tbox: [
+        {
+          "@type": "SubClassOf",
+          subClass: { "@type": "Class", iri: PARENT_OF_PERSON },
+          superClass: {
+            "@type": "Restriction",
+            onProperty: HAS_CHILD,
+            someValuesFrom: { "@type": "Class", iri: PERSON },
+          },
+        },
+      ],
+      abox: [
+        {
+          "@type": "ClassAssertion",
+          class: { "@type": "Class", iri: PARENT_OF_PERSON },
+          individual: ALICE,
+        },
+        {
+          "@type": "ObjectPropertyAssertion",
+          property: HAS_CHILD,
+          source: ALICE,
+          target: BOB,
+        },
+        {
+          "@type": "ClassAssertion",
+          class: { "@type": "Class", iri: PERSON },
+          individual: BOB,
+        },
+      ],
+      rbox: [],
+    };
+    const Q1 = {
+      "@type": "fol:Atom",
+      predicate: PERSON,
+      arguments: [{ "@type": "fol:Constant", iri: BOB }],
+    };
+    const Q2 = {
+      "@type": "fol:Atom",
+      predicate: HAS_CHILD,
+      arguments: [
+        { "@type": "fol:Constant", iri: ALICE },
+        { "@type": "fol:Constant", iri: BOB },
+      ],
+    };
+
+    const F1 = await owlToFol(input);
+    const projected = await folToOwl(F1, undefined, { prefixes: input.prefixes });
+    const F3 = await owlToFol(projected.ontology);
+
+    const rt = await roundTripCheck(input);
+    strictEqual(rt.equivalent, true);
+
+    // Both discriminating queries grounded in asserted facts; both return
+    // 'true' on F_1 and F_3 regardless of class-expression kind (kind-swap
+    // detection is Phase 3 territory per the canary's phase3Reactivation).
+    strictEqual(evaluateStub(F1, Q1), "true");
+    strictEqual(evaluateStub(F3, Q1), "true");
+    strictEqual(evaluateStub(F1, Q2), "true");
+    strictEqual(evaluateStub(F3, Q2), "true");
+
+    // Mis-routing-to-Annotated-Approximation detection: the
+    // someValuesFrom Restriction has Direct Mapping coverage (Step 3b);
+    // no Loss Signatures expected for clean DM.
+    strictEqual(projected.newLossSignatures.length, 0);
+    strictEqual(projected.newRecoveryPayloads.length, 0);
+  },
+);
+
+await report(
+  "Step 8 / stub-evaluator determinism: same input + query → byte-stable result across 100 runs",
+  async () => {
+    const PREFIX = "http://example.org/test/p2_step8_stub_determinism/";
+    const folState: FOLAxiom[] = [
+      {
+        "@type": "fol:Universal",
+        variable: "x",
+        body: {
+          "@type": "fol:Implication",
+          antecedent: {
+            "@type": "fol:Atom",
+            predicate: PREFIX + "Mother",
+            arguments: [{ "@type": "fol:Variable", name: "x" }],
+          },
+          consequent: {
+            "@type": "fol:Atom",
+            predicate: PREFIX + "Person",
+            arguments: [{ "@type": "fol:Variable", name: "x" }],
+          },
+        },
+      },
+      {
+        "@type": "fol:Atom",
+        predicate: PREFIX + "Mother",
+        arguments: [{ "@type": "fol:Constant", iri: PREFIX + "alice" }],
+      },
+    ];
+    const Q = {
+      "@type": "fol:Atom",
+      predicate: PREFIX + "Person",
+      arguments: [{ "@type": "fol:Constant", iri: PREFIX + "alice" }],
+    };
+    const first = evaluateStub(folState, Q);
+    strictEqual(first, "true");
+    for (let i = 0; i < 99; i++) {
+      strictEqual(evaluateStub(folState, Q), first, `stub determinism drift on run ${i + 2}/100`);
+    }
   },
 );
 
