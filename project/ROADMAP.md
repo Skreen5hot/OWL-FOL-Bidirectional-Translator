@@ -274,7 +274,7 @@ Step 4 promotion (Aaron-led):
 
 **Goal:** Implement `folToOwl` for the same constructs Phase 1 covers, plus audit artifact emission. Closes the bidirectional pipeline for built-in OWL.
 
-**Status:** 🟡 In progress (Steps 1-3 + 4a + 4b + 5 + 6 + 7 + 8 ✅ Complete; entry ratified [`project/reviews/phase-2-entry.md`](reviews/phase-2-entry.md))
+**Status:** ✅ **PHASE 2 CLOSED** — see [`project/reviews/phase-2-exit.md`](reviews/phase-2-exit.md) for the full exit summary, acceptance-criteria coverage matrix, and risk retrospective. Steps 1-3 + 4a + 4b + 5 + 6 + 7 + 8 + 9 ✅ Complete; entry ratified [`project/reviews/phase-2-entry.md`](reviews/phase-2-entry.md); 3 ADRs landed (ADR-010 license-verification corrective action; ADR-011 audit-artifact `@id` content-addressing; ADR-012 cardinality routing Option β); 12 Phase 2 corpus fixtures (11 architect-ratified + 1 Q-G) at `verifiedStatus: "Verified"`; 15+ verbally-banked principles formalized into AUTHORING_DISCIPLINE.md "Phase 2 Banked Principles" section at Step 9.5.
 
 **Plan reference:** §3.3
 
@@ -294,58 +294,78 @@ Proposed step granularity per [`project/reviews/phase-2-entry.md`](reviews/phase
 | 6 | Property-Chain Realization per spec §6.1.2 + architect Q-Step6 rulings (always-emit `regularity_scope_warning` per Q-Step6-1; projector-only scope per Q-Step6-3): `matchPropertyChain` detects the lifter's `∀x,y₁,...,yₙ₋₁,z. P₁(x,y₁) ∧ ... ∧ Pₙ(yₙ₋₁,z) → Q(x,z)` shape for n ≥ 2 properties; reconstructs as `ObjectPropertyChain { chain: [...], superProperty: Q }`. Strategy router Tier-3 dispatch wired (`'property-chain'` attribution); chain Recovery Payload emission per ADR-011 §1 content-addressed `@id` with `scopeNotes: ["regularity_scope_warning: ..."]` per spec §6.2.1. Same-predicate 2-chain still routes to Transitive (Step 2 takes priority); SubObjectPropertyOf still routes to Step 3c (n=1 is single-property). Lifter `ObjectPropertyChain` support deferred to Phase 3 OR Phase 4 entry packet per Q-Step6-3. | ✅ Complete (this commit) |
 | 7 | `roundTripCheck(ontology, config?)` per API §6.3 + spec §8.1 parity criterion + spec §8.2 bidirectional check. Composes `owlToFol → folToOwl → owlToFol` (re-lift), computes set diff via `stableStringify` canonicalization, applies "modulo L" coverage from Recovery Payload `originalFOL` fields, returns `RoundTripResult { equivalent, diff?, intermediateForm: FOLConversionResult, finalForm: OWLConversionResult }`. Coarse FOL-shape classification (`tbox`/`abox`/`rbox`/`mixed`) on diff entries. Phase 1 lifter's `FOLAxiom[]` output wrapped into `FOLConversionResult` shape per API §6.1 + §6.3 contracts (lifter refactor to native `FOLConversionResult` deferred to a future cycle). Phase 4 forward-tracks: ARC closure (`F₂ = closure(F₁ ∪ ARC_axioms)`); fault-isolation bisection per spec §8.4; coherence guard per spec §8.5 (gated on Phase 3 evaluator). | ✅ Complete (this commit) |
 | 8 | 11 new fixtures landed (3 projection edge cases ✅ + 4 strategy routing — 3 of 4 ✅ + `strategy_routing_no_match` deferred + 3 parity canaries ✅ + 1 BFO/CLIF Layer A round-trip ✅) + Q-G `p2_unknown_relation_fallback` ✅ + stub-evaluator harness `tests/corpus/_stub-evaluator.js` per entry packet §3.4 + architect Q3 ratified contract ✅. Developer implements `evaluateStub` body (Horn-shape backward-chain + variable unification + bounded `stepCap=100`); SME authored leading JSDoc contract verbatim from architect ratification. Integration tests in `tests/projector-phase2.test.ts` exercise all 3 canaries end-to-end (lift → project → re-lift round-trip parity + stub-evaluator query preservation). `allowJs: true` added to `tsconfig.test.json` so TS pipeline picks up the SME-authored `.js` file. `strategy_routing_no_match` fixture deferred to Step 9 cleanup or Phase 2 exit. | ✅ Complete (this commit) |
-| 9 | Phase 2 exit deliverables (100-run determinism extension to 26 fixtures, demo `demo_p2.html`, exit summary) | ⏳ Pending |
+| 9.1 | `strategy_routing_no_match` fixture (deferred from Step 8 close) | ✅ Complete |
+| 9.2 | Extended determinism harness — 27 fixtures × 100 runs = 2,700 invocations | ✅ Complete |
+| 9.3 | All 12 Phase 2 fixtures `verifiedStatus: "Draft"` → `"Verified"` | ✅ Complete |
+| 9.4 | `demo_p2.html` refresh for Step 4b/5/6/7/8 features + ADR-011/012 cross-references | ✅ Complete |
+| 9.5 | AUTHORING_DISCIPLINE.md folding-in — Phase 2 Banked Principles section (15+ named subsections) | ✅ Complete |
+| 9.6 | Phase 2 exit summary + ROADMAP Phase 2 close grounding (this commit) | ✅ Complete |
 
 ### Deliverables Checklist
-- [~] `folToOwl()` per API spec §6.2 (including `prefixes` parameter per C1 closure) — Step 1 skeleton ✅; strategy router and audit-artifact emission ⏳ Steps 2-6
-- [~] Audit artifacts: `LossSignature`, `RecoveryPayload`, `ProjectionManifest` per API spec §6.4 with content-addressing and severity ordering per §6.4.1 — type definitions + frozen severity ordering ✅ Step 1; emission ⏳ Steps 4-5
-- [ ] Three projection strategies per spec §6.1: Direct Mapping, Property-Chain Realization, Annotated Approximation
-- [ ] `roundTripCheck()` per API spec §6.3 implementing the spec §8.1 parity criterion
-- [ ] Default OWA negation handling per spec §6.3 (no `closedPredicates` yet — that ships with evaluation in Phase 3)
+- [x] `folToOwl()` per API spec §6.2 (including `prefixes` parameter per C1 closure) — Step 1 skeleton + Steps 2-6 strategy router + audit-artifact emission ✅
+- [x] Audit artifacts: `LossSignature`, `RecoveryPayload`, `ProjectionManifest` per API spec §6.4 with content-addressing per ADR-011 (SHA-256 of `stableStringify` of discriminating fields; LossSignature 5-field set + RecoveryPayload 3-field set; lower-case hex; `ofbt:ls/` + `ofbt:rp/` prefixes) and severity ordering per §6.4.1 (frozen `LOSS_SIGNATURE_SEVERITY_ORDER` exported) ✅
+- [x] Three projection strategies per spec §6.1: Direct Mapping (Steps 2 + 3a + 3b + 3c + 4b cardinality), Property-Chain Realization (Step 6 — projector-only per architect Q-Step6-3; lifter chain support deferred to Phase 3 OR Phase 4), Annotated Approximation (Step 4a) ✅
+- [x] `roundTripCheck()` per API spec §6.3 implementing the spec §8.1 parity criterion (Step 7) ✅
+- [x] Default OWA negation handling per spec §6.3 (no `closedPredicates` yet — that ships with evaluation in Phase 3 per architect Q3 stub-evaluator + re-exercise gate ruling) ✅
 
 ### Phase 2 Test Corpus
 Every fixture below MUST be registered in `tests/corpus/manifest.json` per Phase 0.8.
 
-- [ ] Phase 1 corpus exercised through `roundTripCheck`
-- [ ] Blank-node class-expression projection edge cases
-- [ ] Property-chain realization fixtures (simplified built-in OWL form; full RDM chain in Phase 7)
-- [ ] Lossy fixtures with non-empty Loss Signatures (NAF residues against open predicates, true arity flattenings)
+- [x] Phase 1 corpus exercised through `roundTripCheck` ✅ (Steps 7 + 8)
+- [x] Blank-node class-expression projection edge cases ✅ (`p2_blank_node_class_expression_projection`)
+- [x] Property-chain realization fixtures (simplified built-in OWL form; full RDM chain in Phase 7) ✅ (`p2_property_chain_realization_simplified`)
+- [x] Lossy fixtures with non-empty Loss Signatures ✅ (`p2_lossy_naf_residue` NAF-residue + `p2_unknown_relation_fallback` Q-G informational)
 
 #### Phase 2 Strategy-Routing Fixtures
 A correct emission of the **wrong** projection strategy is a Ring 2 pass that hides a real bug. These fixtures hand-label each axiom with its expected strategy and assert the projector chose it.
 
-- [ ] `strategy_routing_direct.fixture.js` — axioms expressible in OWL 2 DL (subClassOf, equivalentClass, property characteristics); asserts strategy chosen is `'direct'`
-- [ ] `strategy_routing_chain.fixture.js` — axioms whose derived implication is a property chain; asserts strategy chosen is `'property-chain'` and the emitted `owl:propertyChainAxiom` matches the expected chain
-- [ ] `strategy_routing_annotated.fixture.js` — axioms exceeding OWL 2 DL expressivity; asserts strategy chosen is `'annotated-approximation'` and the structural annotation + machine-readable FOL string + round-trip identifier are all present per spec §6.1
-- [ ] `strategy_routing_no_match.fixture.js` — pathological axiom for which no strategy applies; asserts the projector raises a documented diagnostic per spec §6.1 rather than silently picking a strategy
+- [x] `strategy_routing_direct.fixture.js` ✅
+- [x] `strategy_routing_chain.fixture.js` ✅
+- [x] `strategy_routing_annotated.fixture.js` ✅
+- [x] `strategy_routing_no_match.fixture.js` ✅ (Step 9.1 — deferred from Step 8 close)
 
 #### Phase 2 Parity Canaries (query-based, not graph-shape-based)
-Lift, project, re-lift, then evaluate a query whose answer must match before/after. Catches lifter/projector composition bugs that aren't visible to either function in isolation.
+Lift, project, re-lift, then evaluate a query (via Phase 2 stub-evaluator harness `tests/corpus/_stub-evaluator.js` per architect Q3 ruling 2026-05-06) whose answer must match before/after. Phase 3 entry packet's gate item re-exercises every Phase 2 stub-evaluated canary against the real `evaluate()` per API §7.1 BEFORE Phase 3 implementation work proceeds past its Step 1.
 
-- [ ] `parity_canary_query_preservation.fixture.js` — base KB has entailment `Q`; after lift→project→re-lift, query `Q` MUST still evaluate to `true` (not `'undetermined'`)
-- [ ] `parity_canary_negative_query.fixture.js` — base KB has `Q` evaluating to `'undetermined'`; after round-trip, query `Q` MUST still evaluate to `'undetermined'` — NOT silently `false` (open-world preservation)
-- [ ] `parity_canary_visual_equivalence_trap.fixture.js` — engineered such that a naive graph-shape comparison reports equivalence but the semantic content has shifted; query MUST detect the shift
+- [x] `parity_canary_query_preservation.fixture.js` ✅
+- [x] `parity_canary_negative_query.fixture.js` ✅
+- [x] `parity_canary_visual_equivalence_trap.fixture.js` ✅ (cross-section defense-pair canary half; sibling positive `strategy_routing_direct`)
 
 ### Exit Criteria — Rings 1 and 2
-- [ ] Ring 1 still passes (Phase 1 exit criteria continue to hold)
-- [ ] `roundTripCheck` returns `equivalent: true` for clean fixtures
-- [ ] `roundTripCheck` returns `equivalent: true` modulo Recovery Payloads for reversible fixtures (spec §7.3)
-- [ ] `roundTripCheck` returns `equivalent: false` with documented `diff` for lossy fixtures
-- [ ] Audit artifact `@id` content-addressing produces stable identifiers across runs
-- [ ] Loss Signature severity ordering honored
-- [ ] `prefixes` parameter produces CURIE output when supplied; full-URI output when omitted
+- [x] Ring 1 still passes (Phase 1 exit criteria continue to hold) ✅
+- [x] `roundTripCheck` returns `equivalent: true` for clean fixtures ✅ (Step 7)
+- [x] `roundTripCheck` returns `equivalent: true` modulo Recovery Payloads for reversible fixtures (spec §7.3) ✅ (Step 7)
+- [x] `roundTripCheck` returns `equivalent: false` with documented `diff` for lossy fixtures ✅ (Step 7)
+- [x] Audit artifact `@id` content-addressing produces stable identifiers across runs ✅ (Step 4a + ADR-011 + 100-run determinism harness extended at Step 9.2)
+- [x] Loss Signature severity ordering honored ✅ (Step 4a + frozen `LOSS_SIGNATURE_SEVERITY_ORDER`)
+- [x] `prefixes` parameter produces CURIE output when supplied; full-URI output when omitted ✅ (Step 1 + verified through Steps 2-7)
 
-**Ring 3:** deferred.
+**Ring 3:** deferred to Phase 3 per ratified plan §2.
 
 ### Phase 2 Entry Review
-- [ ] Entry criteria confirmed met (Phase 1 exited with Ring 1 passing on built-in OWL corpus)
-- [ ] Audit artifact type definitions stable (frozen in API spec §6.4)
-- [ ] Entry summary committed to repo
+- [x] Entry criteria confirmed met (Phase 1 exited with Ring 1 passing on built-in OWL corpus) ✅
+- [x] Audit artifact type definitions stable (frozen in API spec §6.4) ✅
+- [x] Entry summary committed to repo ✅ ([`project/reviews/phase-2-entry.md`](reviews/phase-2-entry.md) — AMENDED + RE-CONFIRMED 2026-05-06)
 
 ### Phase 2 Exit Review
-- [ ] All listed exit criteria pass in CI
-- [ ] Risk retrospective recorded (per plan §6.3)
-- [ ] Exit summary committed to repo
+
+✅ **PHASE 2 CLOSED 2026-05-07** — see [`project/reviews/phase-2-exit.md`](reviews/phase-2-exit.md) for the full exit summary, acceptance-criteria coverage matrix, and risk retrospective.
+
+- [x] All listed exit criteria pass in CI ✅
+- [x] Ring 1 (Conversion Correctness) continues green throughout Phase 2 ✅
+- [x] Ring 2 (Round-Trip Parity + Audit Artifacts) closed at Step 8 ✅ — 12 Phase 2 corpus fixtures × `roundTripCheck` + parity-canary harness
+- [x] **Three new ADRs landed:** ADR-010 (license-verification corrective action; CC BY 4.0 correction), ADR-011 (audit-artifact `@id` content-addressing; SHA-256 of `stableStringify`), ADR-012 (cardinality routing Option β; Direct Mapping with n-tuple matching)
+- [x] **15+ verbally-banked principles formalized** into AUTHORING_DISCIPLINE.md "Phase 2 Banked Principles" section at Step 9.5 doc-pass
+- [x] All 12 Phase 2 fixtures' `verifiedStatus` flipped Draft → Verified at Step 9.3
+- [x] 100-run determinism harness extended to 27 fixtures × 100 runs = 2,700 invocations at Step 9.2
+- [x] Risk retrospective recorded (per plan §6.3) — `phase-2-exit.md` Section 7 (9 banked items including Item 8 Step 9.1 micro-cycle's spec §0.1 / §6.1 conformance gap forward-tracked to Phase 3 entry packet)
+- [x] Exit summary committed to repo — [`project/reviews/phase-2-exit.md`](reviews/phase-2-exit.md) (this commit)
+
+**Forward-tracks for Phase 3 entry, Phase 4 entry, and v0.2 surfaced post-Phase-2 (after exit):**
+- [x] **Phase 3 entry gate item:** re-exercise every Phase 2 stub-evaluated canary against real `evaluate()` BEFORE Phase 3 implementation Step 1 — per architect Q3 ruling 2026-05-06; per-canary `phase3Reactivation` field on each of 3 parity canaries documents the discriminating query / expected result / divergence trigger
+- [x] **Phase 3 OR Phase 4 entry packet (whichever surfaces demand first):** lifter `ObjectPropertyChain` support per architect Q-Step6-3 ruling
+- [x] **Phase 4 entry packet:** activate `regularityCheck(A, importClosure)` against loaded ARC modules per architect Q-Step6-1 ruling; clear `regularity_scope_warning` for regularity-confirmed chains; license-verification gate item for `bfo-2020.clif` Layer B vendoring sidecar per ADR-010 (architect Q-γ ruling 2026-05-06)
+- [x] **v0.2:** formal legal review trigger if distribution model changes per ADR-010 Q-α banking
 
 ---
 
