@@ -927,6 +927,49 @@
         "expectedOutcome": "Discriminating Phase 3 query under closedPredicates: ['hasChild', 'Person']: evaluate(F_3, query: '∃y. hasChild(alice, y) ∧ ¬Person(y)?', closedPredicates: ['hasChild', 'Person']) — under correct someValuesFrom round-trip, evaluates to 'false' (the only y with hasChild(alice, y) is bob; Person(bob) is closed and asserted; ¬Person(bob) is 'false' under CWA). Under buggy allValuesFrom mis-routing, F_3 has different structural semantics; Phase 3's evaluator surfaces the kind-swap.",
         "divergenceTrigger": "If real evaluate() divergence in EITHER direction on the discriminating query, ESCALATE: the engineered semantic shift is now visible to the real evaluator and the round-trip's wrongness is confirmed (round-trip is buggy — projector mis-routed the class-expression's quantifier kind). Alternatively, if Phase 3's evaluator gives the same answer regardless of kind-swap, the canary needs STRENGTHENING — the engineered case wasn't actually detectable at Phase 3 fidelity either, and the canary's design needs revision before Phase 4 ARC content lands."
       }
+    },
+    {
+      "fixtureId": "strategy_routing_no_match",
+      "phase": 2,
+      "specSections": [
+        "§0.1",
+        "§6.1",
+        "§6.2"
+      ],
+      "acceptanceCriteria": [
+        "§12 round-trip parity (no-strategy-applies Phase 2 baseline canary)",
+        "Phase 2 entry packet §3.3 (architect-ratified 2026-05-06 — 4th of 4 strategy-routing fixtures)",
+        "ADR-012 banked principle 2 (fixture regime annotations are provisional; SME annotation-tracking amendment 2026-05-XX)"
+      ],
+      "arcEntries": [],
+      "regime": "true_loss",
+      "expectedOutcome": {
+        "summary": "Projector-direct fixture documenting Phase 2 no-strategy-applicable BASELINE behavior. Input is a bare top-level fol:False axiom — no Direct Mapping pattern matches, no Property-Chain Realization pattern matches; strategy router falls through to Tier-default Annotated Approximation per Step 5's tiered-fallthrough algorithm. Phase 2 projector treats this as silent-fallthrough with EMPTY OUTPUT (no axioms emitted; no LossSignature; no RecoveryPayload). Spec §0.1 conformance gap documented; closure deferred to Phase 3 entry packet ratification (throw discipline OR always-emit-LossSignature — see phase3Reactivation field).",
+        "fixtureType": "projector-direct",
+        "role": "no-strategy-applies-canary-phase2-baseline",
+        "phase2BaselineBehavior": "silent-fallthrough-to-annotated-approximation-with-empty-output",
+        "phase2SpecConformanceGap": "spec §0.1 'every axiom emits a LossSignature' contract violated; closure forward-tracked to Phase 3 entry packet"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "REGRESSION from Phase 2's documented silent-fallthrough baseline. The canary's role at Phase 2 is regression-detection: the silent-fallthrough is the BASELINE; any DEVIATION (toward stricter throw, toward LossSignature emission, toward mis-routed structurally-invalid output) signals a Phase 2 implementation change that requires architect re-routing per ADR-012's behavioral-contract evolution discipline.",
+      "expected_v0.1_verdict": {
+        "ringStatus": "ring2-passes-with-phase2-silent-fallthrough-baseline",
+        "phaseAuthored": 2,
+        "phaseActivated": 2,
+        "expectedReturn": true,
+        "expectedTBoxAxiomCount": 0,
+        "expectedABoxAxiomCount": 0,
+        "expectedRBoxAxiomCount": 0,
+        "expectedLossSignatureCount": 0,
+        "expectedRecoveryPayloadCount": 0,
+        "note": "test runner asserts folToOwl(fixture.input) RETURNS a value (does NOT throw). Returned value's ontology axiom counts all 0; newLossSignatures + newRecoveryPayloads also empty per Phase 2 baseline. If projector throws at Phase 2, test FAILS — diagnostic-throw is forward-tracked to Phase 3, not Phase 2 implementation."
+      },
+      "expected_v0.2_elk_verdict": null,
+      "phase3Reactivation": {
+        "gatedOn": "phase-3-entry-packet-ratifies-no-strategy-applies-closure",
+        "expectedOutcome": "Architect ratifies one of two candidate closures: (a) throw-discipline per spec §6.1 literal framing — folToOwl throws documented diagnostic error; OR (b) always-emit-LossSignature per spec §0.1 framing — folToOwl returns empty ontology + non-empty newLossSignatures with synthetic-or-omitted relationIRI. Fixture's contract amends to match ratified closure at Phase 3 reactivation.",
+        "divergenceTrigger": "If Phase 3 implementation diverges from BOTH ratified closures (still silent-fallthrough with empty output AND no LossSignature), ESCALATE: spec §0.1 + §6.1 conformance gap not resolved. If Phase 3 implementation matches whichever closure architect ratified, NORMAL — fixture's contract amends to match."
+      }
     }
   ]
 }
