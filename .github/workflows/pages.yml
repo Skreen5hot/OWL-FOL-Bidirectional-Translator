@@ -65,10 +65,15 @@ jobs:
           # Phase 1 demo imports:
           #   - PROV-O fixture + its wrong-shape canary (Case A: defense-in-depth)
           #   - BFO Layer A fixture (Case B: external CLIF ground truth)
+          # Phase 2 demo imports (demo_p2.html):
+          #   - p1_restrictions_object_value (Case A: class-expression consequent
+          #     round-trip through Phase 2 projector)
+          #   - p1_bfo_clif_classical (Case B: re-uses Phase 1 BFO fixture)
           # Future phases extend this list as their demos ship.
           cp tests/corpus/p1_prov_domain_range.fixture.js \
              tests/corpus/canary_domain_range_existential.fixture.js \
              tests/corpus/p1_bfo_clif_classical.fixture.js \
+             tests/corpus/p1_restrictions_object_value.fixture.js \
              gh-pages-deploy/fixtures/
           # Vendored upstream canonical sources.
           # Phase 1 vendoring includes the W3C OWL CLIF axiomatization
