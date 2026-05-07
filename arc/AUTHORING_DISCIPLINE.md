@@ -406,3 +406,306 @@ Specifically, the SME-persona reads the upstream repo's LICENSE file at the vend
 2. **Vendor commit body documents the verification ritual.** Per Section 0 Item 5 commit-prefix discipline (`chore: vendor`), the commit body enumerates the verified canonical values + cites the SME-persona ritual + cross-references the vendoring-discipline subsection of this document.
 3. **No layperson reading of upstream preamble notes.** A note like "the repo-level LICENSE governs" inside the vendored file is a hint, not a verified fact. Verification ritual MUST fetch the actual LICENSE file at the target commit and confirm its bytes.
 4. **No asserted-but-unverified commit SHA references.** All commit SHAs in the sidecar (`upstream-version-*`, `<repo>-license-commit-sha`, `<repo>-master-head-at-verification`) MUST be confirmed-existent in the upstream repo (via GitHub Search Commits API or direct repo fetch). Asserting a SHA without confirming its existence is the failure mode `783a3f7` exemplifies.
+
+---
+
+## Phase 2 Banked Principles (folded in at Phase 2 exit doc-pass)
+
+[Folded in at Phase 2 Step 9.5 doc pass. Captures architect-banked principles + SME-banked observations from Phase 2's six cycles: Phase 2 entry confirmation (2026-05-06), license-verification corrective action (2026-05-06), Step 4 spec-binding + ADR-011 ratification (2026-05-07), Step 6 routing (2026-05-XX), and Step 8 stub-evaluator + parity-canary cycle. Per architect cadence-banking 2026-05-07: phase-mid-cycle counts are weighted by phase substantive scope; Phase 2's six cycles reflect its load-bearing architectural surface (projector + audit artifacts + strategy router + cardinality + chain realization + parity-canary harness), not cycle-density growth.]
+
+### Spec interpretation defaults to literal framing
+
+[Architect-banked at Step 4 spec-binding cycle 2026-05-07 (ADR-012 banked principle 1) + reinforced at Q-Step6-1 ruling 2026-05-XX.]
+
+When the SME / Developer reads the spec to choose between implementation options, the default is **literal framing of the spec text**, not a conservative emission strategy that goes beyond what the spec requires. Q6's "default to heavier path" applies to corrective-action ratification (ADR vs amendment), NOT to spec interpretation.
+
+Two manifestations from Phase 2:
+
+1. **Q-E ruling (cardinality routing Option β).** Spec §6.1.3 says Annotated Approximation is "for FOL shapes that don't map to OWL 2 DL." Cardinality DOES map to OWL 2 DL (via `minCardinality` / `maxCardinality` / `cardinality` Restrictions). Routing cardinality to Annotated Approximation would have been a category error — emitting Loss Signatures on axioms that round-trip cleanly. The literal framing wins.
+
+2. **Q-Step6-1 ruling (always-emit `regularity_scope_warning`).** Spec §6.2.1 says: "If regularity holds in the loaded graph but the loaded graph is incomplete relative to the source's owl:imports, the projector emits the chain with a `regularity_scope_warning` annotation in the Recovery Payload." Phase 2 has no import closure → loaded graph is bounding-case incomplete → emit the warning per literal spec framing. NOT "assume regularity at Phase 2" (more permissive than spec) and NOT "defer chain emission entirely" (more conservative than spec). The literal framing's "conservative-emission policy" is the spec's load-bearing framing, not architect-imposed conservatism.
+
+The principle generalizes in the **strengthening direction** — literal framing applies even when literal framing is more conservative than other options. Future spec-interpretation questions default here.
+
+### Behavioral contracts follow stricter evolution discipline than schema contracts
+
+[Architect-banked at ADR-011 ratification cycle 2026-05-07 (Q-3 banking).]
+
+Q6's three-tier discipline (additive-optional / required-or-rename-or-remove / case-by-case) governs **schema contracts** — what fields exist, what required-vs-optional means, what enum members are allowed. The **discriminating-field set** of an audit artifact's content-addressing scheme is a **behavioral contract** orthogonal to the schema contract — it specifies how content-addressing is computed.
+
+Two distinct contracts; the stricter rule applies to the behavioral contract because the behavioral contract is the load-bearing one for cross-installation byte-stability.
+
+Specifically (per ADR-011 §5):
+
+- **Adding a field to the discriminating-field set:** §0.2.3 evidence-gated change. Major version bump.
+- **Removing a field from the discriminating-field set:** §0.2.3 evidence-gated. Major version bump.
+- **Renaming a field in the discriminating-field set:** §0.2.3 evidence-gated. Major version bump.
+- **Changing canonicalization rules for a nested object within a discriminating field:** case-by-case, defaulting to §0.2.3.
+- **Changing the hash function (e.g., SHA-256 → SHA-512):** §0.2.3 evidence-gated. Major version bump (changes ALL `@id`s).
+
+Generalizes beyond audit-artifact `@id`: future cycles touching other behavioral contracts inherit the same stricter discipline. Architect-named candidates: deterministic strategy-selection algorithm (spec §6.2); round-trip parity criterion (spec §8.1); No-Collapse Guarantee Horn-fragment classification (spec §8.5). When an evolution proposal touches a behavioral contract, default to §0.2.3 regardless of the schema-contract change category.
+
+### Hierarchical schema fields enter discriminating sets at hierarchical position
+
+[Architect-banked at ADR-011 ratification cycle 2026-05-07 (Q-1 banking).]
+
+When a discriminating field is itself a structured object (e.g., LossSignature's `provenance: {sourceGraphIRI, arcVersion}`), the discriminating-field-set entry is the **hierarchical reference** (`provenance`), not promoted top-level fields. The `stableStringify` canonicalization preserves the hierarchy, and the byte-stability contract operates on the hierarchical canonicalization.
+
+Promotion (e.g., flattening to top-level `sourceGraphIRI` + `arcVersion`) would fragment the discriminator and risk discrepancies if the underlying `provenance` schema gains additional fields — those new fields would be silently outside the discriminator.
+
+This principle applies to any future discriminating-field-bearing audit artifact (ProofTrace per API §6.4.3, ConsistencyResult per Phase 3 spec §8, etc.).
+
+### Audit-artifact discriminating-field sets exclude documentation-polish-tier fields
+
+[Architect-banked at ADR-011 ratification cycle 2026-05-07 (Q-4 banking).]
+
+Documentation-polish-tier fields (free-text explanations, suggestions, hints, timestamps, self-referential identifiers, type discriminators carried by prefix) are **excluded** from discriminating sets.
+
+**Inclusion criteria:** the field's value affects whether two payloads represent the same semantic content; if not, exclude.
+
+Per ADR-011 §7's worked-example exclusions:
+
+- `provenance.timestamp` — non-deterministic; including it defeats byte-stability
+- `reasonText` — human-readable explanation that may evolve with documentation polish
+- `@type` — discriminator-by-type-existence not by-value; implicit in the prefix
+- `@id` — self-referential
+
+Future free-text fields added to schemas SHOULD NOT enter the discriminating set unless they discriminate semantic content (e.g., `clifGroundTruth.mappingNote` per Phase 1 fixture-corpus convention IS semantic discrimination — included where applicable).
+
+### Stub-harness ↔ real-implementation re-exercise discipline
+
+[Architect-banked at Phase 2 entry packet §10.1 (architect Q3 ruling 2026-05-06) + reinforced at Step 8 close.]
+
+Stub harnesses validate behavior at one fidelity level; the real implementation re-exercises at full fidelity at the next phase. The cross-phase reactivation discipline (`phaseNReactivation` field per ADR-011 schema-aligned Q5 ruling) makes this transition auditable.
+
+Manifestations:
+- Phase 2 stub-evaluator at `tests/corpus/_stub-evaluator.js` (bounded SLD resolution; binding-level entailment only; no closedPredicates) → Phase 3's real `evaluate()` per API §7.1 (full-fidelity Horn resolution + closed-world semantics + non-Horn fallback)
+- Phase 2 chain-projection's `regularity_scope_warning` (always-emit) → Phase 4's `regularityCheck(A, importClosure)` (clears warning for regularity-confirmed chains)
+
+When a fixture's assertion mechanism is gated on later-phase implementation, the fixture's `phaseNReactivation` field documents the re-exercise contract: which query / behavior is re-exercised, expected result against the real implementation, divergence-from-stub trigger condition. Phase entry packets inherit the obligation to re-exercise BEFORE implementation work proceeds past Step 1.
+
+### Cross-phase reactivation discipline (`phaseNReactivation` field naming)
+
+[Architect-banked at Phase 2 entry packet §10.3 (architect Q5 ruling 2026-05-06).]
+
+Field-name generalization patterns apply forward to all subsequent phases without re-routing. The `phaseNReactivation` regex pattern `^phase[1-9][0-9]*Reactivation$` is recognized by `tests/corpus/manifest.schema.json` + `scripts/check-corpus-manifest.ts`; subsequent phases use the generalized field without further architect routing for naming.
+
+Field structure per the schema:
+
+- `gatedOn` — short identifier of what the reactivation depends on (e.g., `real-evaluator-via-API-§7.1`, `phase4-arc-content-loaded-with-import-closure-machinery`)
+- `expectedOutcome` — the result the fixture EXPECTS once the gating phase activates
+- `divergenceTrigger` — OPTIONAL; the condition that, if observed at reactivation, escalates as a phase-entry escalation
+
+### Schema-evolution four-way alignment (extended at ADR-011 ratification)
+
+[Architect-banked at BFO/CLIF parity cycle 2026-05-03 + Q5 schema-evolution discipline + extended at ADR-011 ratification 2026-05-07.]
+
+When a manifest discipline changes, schema + gate + manifest entries + fixtures all four-way align in **one commit**. The Q5 confirmation-cycle commit was the canonical example for Phase 2: schema regex update + CI gate update + grandfathered Phase 1 entries + new Phase 2 entries with `phaseNReactivation` content all landed together.
+
+**Architect-banked extension at ADR-011 ratification (2026-05-07):** the SME naturally extended "four-way-aligned" to include the license-verification block (a fifth artifact riding the same cycle). The artifact-shape consistency principle generalizes when more artifacts share the cycle — "four-way" is the canonical shorthand, but the principle is "all artifacts whose discipline-level coherence binds them together align in one commit." Future cycles MAY ride more or fewer artifacts as the discipline-level coherence dictates; the alignment-in-one-commit rule scales with them.
+
+### Cross-section defense-in-depth pair pattern
+
+[Architect-banked at Phase 2 entry packet §10.8 (architect refinement 2026-05-06; first instantiation: `strategy_routing_direct` ↔ `parity_canary_visual_equivalence_trap`).]
+
+Defense-in-depth pairs MAY cross corpus sections when the canary's natural home is a different section than the positive fixture's. The pairing is named explicitly in the entry packet so the cross-section relationship is auditable.
+
+Phase 1's pair (`p1_prov_domain_range` standard corpus + `canary_domain_range_existential` canary set) was cross-section by accident because the canary set is a structural sibling of the standard corpus. Phase 2's pair (`strategy_routing_direct` from §3.3 strategy-routing positive + `parity_canary_visual_equivalence_trap` from §3.4 parity canary) is cross-section by design — strategy-routing correctness is defended by both a positive routing assertion AND a negative semantic-shift assertion; the canary's natural home is §3.4 because it asserts a parity-side concern (round-trip preservation of query semantics).
+
+Future phases MAY pair fixtures across different sections when the assertion mechanisms naturally live in different categories. The pairing must be NAMED EXPLICITLY in both fixtures' leading comments + manifest entries so the cross-section relationship is auditable.
+
+### Two-fixture defense-in-depth pattern portability
+
+[Architect-banked at Phase 2 entry packet §10.2 (architect Q4 ruling 2026-05-06).]
+
+Two-fixture defense-in-depth applies to any high-risk requirement where the wrong behavior produces output that would otherwise pass the corpus's structural assertions. Per-phase corpus authoring includes one such pair per high-risk requirement: one positive fixture establishing what the right behavior looks like, plus one canary asserting the wrong behavior's symptoms are absent.
+
+Manifestations:
+- Phase 1: domain/range correctness — `p1_prov_domain_range` (right shape) + `canary_domain_range_existential` (wrong shape's absence)
+- Phase 2: strategy-routing correctness — `strategy_routing_direct` (right strategy) + `parity_canary_visual_equivalence_trap` (wrong strategy's symptoms detectable via query)
+
+The pair MAY span fixture categories (Phase 2's pair spans §3.3 + §3.4) when the assertion mechanism for each half lives more naturally in different categories.
+
+### Cycle-cadence categorization
+
+[Architect-banked across multiple Phase 2 cycles + reinforced at Q-Step6 cycle ruling 2026-05-XX.]
+
+Three distinct cadence categories:
+
+1. **Phase entry cycles** — corpus sign-off + Q-rulings + amendment cycles. Bounded by the corpus contract; resolves before any implementation code is cut. Phase entry cycles are NOT in the same cadence category as mid-phase escalations or between-phase architectural cycles. They do NOT increment cycle-density counters.
+
+2. **Mid-phase escalations** — architectural questions surfacing during phase implementation. Phase 1's mid-phase count: 4 (Step 4 fixture amendment, Step 5 ADR-007 + reserved-predicate, BFO/CLIF parity initial, BFO/CLIF Layer A correction; the fourth was completion-of-prior-surface, not new-surface). Phase 2's mid-phase count: 6 (Phase 2 entry confirmation; license-verification corrective action; Step 4 spec-binding + ADR-011; Q-Step6 routing cycle; ADR-011 ratification follow-up; Step 8 stub-evaluator routing).
+
+3. **Between-phase architectural cycles** — work between phase exits + entries that touches multiple phases' content (e.g., the bundled ADR-008 + ADR-009 cycle).
+
+**Substantive-scope-weighting:** phase mid-cycle counts are weighted by the phase's substantive scope. Phase 1 (lifter-only) absorbs ~3-4 mid-phase cycles before density-pressure flags. Phase 2 (projector + audit artifacts + strategy router + cardinality + chain realization + parity-canary harness) absorbs higher counts (~6) without indicating density growth in the concerning sense. Per the architect's banking 2026-05-07: "phases shipping multiple coordinated architectural surfaces absorb correspondingly higher mid-phase cycle counts without indicating cycle-density growth."
+
+**Per-phase entry-cycle corrective sub-cycles** stay in the entry-cycle bucket. Phase 2 entry's license-verification corrective action was a sub-cycle of the entry-cycle, not a new mid-phase escalation.
+
+**Path-fence-author → architect-ratify cycles for prior-cycle-shape-ratified artifacts** do not increment cycle-cadence counters. They are completion of the prior cycle, not new cycles.
+
+### Step scope is bounded by entry packet ratification + corpus-demanded surface
+
+[Architect-banked at Q-Step6-3 ruling 2026-05-XX.]
+
+Step scope is bounded by:
+1. The Phase entry packet's ratification (which Steps are named; which deliverables they cover)
+2. The corpus-demanded surface (what the architect-ratified fixtures actually exercise)
+
+Round-trip symmetry is a fixture-regime concern, NOT a Step-scope expansion criterion. If a Step's entry-packet-ratified scope is "projector-only," expanding it to "bidirectional" because of round-trip-symmetry aesthetics violates the discipline.
+
+Manifestation: Step 6 (Property-Chain Realization) shipped projector-only per Q-Step6-3 Option (α). Lifter `ObjectPropertyChain` support deferred to Phase 3 OR Phase 4 entry packet (whichever surfaces the demand first). The asymmetry between projector and lifter is expected under the regime taxonomy (chain fixtures classified as `regime: "reversible"` projector-direct); forcing symmetry by expanding Step 6 scope would be doing work for an unbounded reason.
+
+### Borderline corrective actions default to ADR
+
+[Architect-banked at ADR-010 (Q-β banking) + ADR-011 (Q6 generalization).]
+
+Q6's "default to heavier path" applies to corrective-action ratification: when a corrective action straddles "amendment vs ADR" routing, default to ADR.
+
+Discipline first-production-catches are architecturally significant and warrant ADR-level documentation. Generalization: when the SME-Persona Verification of Vendored Canonical Sources discipline (or similar) catches its first production defect, the originating-example-with-defect-caught is more pedagogically useful than the discipline framing alone for future phases inheriting the discipline.
+
+### License-verification at vendoring time, format-agnostic
+
+[Architect-banked at ADR-010 (license-verification corrective action 2026-05-06; Q-β refinement broadening to all formats).]
+
+Vendoring discipline requires SME-persona verification of upstream license + commit SHA + LICENSE file SHA-256 BEFORE the first commit landing the vendored source. The verified `license-verification` block ships in the first commit.
+
+**Format-agnostic application:** CLIF, KIF, OWL, TTL, RDF/XML, JSON-LD, etc. — the verification ritual is uniform; the license-verification fields' shape adapts to the license type. Phase 4 BFO 2020 CLIF Layer B vendoring + Phase 5 IAO + Phase 6 CCO 2.0 + all subsequent phase vendoring inherit this discipline regardless of source format.
+
+**Discipline tightening principles** (per ADR-010 banked principles 1-5):
+1. License-verification at vendoring time, not first-use time
+2. Layperson reading of upstream license preambles is unverified-against-canonical (a note like "the repo-level LICENSE governs" inside the vendored file is a hint, not a verified fact)
+3. Commit SHA references in sidecars require verified existence (asserting a SHA without confirming its existence is the failure mode the `783a3f7` defect exemplifies)
+4. The verification gate's first production catch is banking-worthy (3-day latency between defect introduction and discipline-driven catch is the gap the discipline closes)
+5. Closed phase exit retrospectives are not reopened for forward-discovered events (forward discoveries land in their natural target location — typically AUTHORING_DISCIPLINE for discipline-level events, ADRs for architectural-level events — and reference the closed retrospective, not the reverse)
+
+### v0.2 distribution-model change is the legal-review trigger
+
+[Architect-banked at ADR-010 Q-α banking 2026-05-06.]
+
+If v0.2 introduces a runtime ARC manifest loaded directly from `arc/upstream-canonical/` paths (currently the manifest is bundled as JSON-LD modules per spec §3.6), the distribution model changes and CC BY 4.0 obligations may extend into the runtime artifact. That is the natural trigger for a formal legal review pass.
+
+v0.1's moderate compatibility analysis in the SOURCE sidecar suffices until then. v0.1 ships with `package.json`'s `files` field excluding `arc/upstream-canonical/` from the npm package, bounding the CC BY 4.0 compliance scope to the GitHub repo.
+
+### Self-containedness of ADRs over cross-reference dependency
+
+[Architect-banked at ADR-011 banked principle 10.7 (2026-05-07).]
+
+When an ADR captures corrective action plus discipline-level lessons, consolidating banked principles from the cycle into the ADR's banked-principles section makes the ADR self-contained for future readers rather than requiring cross-reference to multiple architect rulings.
+
+Manifestation: ADR-011's banked-principles expansion (4 principles in the prior cycle's banking → 9 principles in the SME-drafted ADR-011) consolidated principles scattered across prior architect rulings into the ADR itself. Self-containedness over cross-reference dependency, when both are available.
+
+This generalizes: ADR-008 (OFI deferral), ADR-009 (CCO module expansion), ADR-010 (license-verification), ADR-011 (audit-artifact `@id`), ADR-012 (cardinality routing) all follow the self-containedness pattern.
+
+### Post-exit demo cadence applies to all phases
+
+[Architect-banked at Phase 2 entry packet §10.5 (architect Q7 ruling 2026-05-06).]
+
+The post-exit demo cadence applies to all phases, not just Phase 1. Each phase carries an optional demo deliverable scheduled within the phase but not gating its exit. Stakeholder visibility is real engineering work, but it lives parallel to the build's discipline, not inside it.
+
+For Phase 2: `demo/demo_p2.html` shipped at commit `adcee39` (un-pocketed during Step 4a integration); refreshed at Step 9.4 doc pass to reflect Steps 4b/5/6/7/8 features + ADR-011/012 cross-references.
+
+### SME pre-handoff verification ritual for FOL-input fixtures
+
+[SME-banked at Concern B fixture-amendment cycle 2026-05-06 (`p2_lossy_naf_residue` `body` → `inner` typo correction).]
+
+When the SME authors a FOL-input fixture for projector-direct exercise (mirrors `p2_lossy_naf_residue`, `strategy_routing_annotated`, `p2_property_chain_realization_simplified`, etc.), the SME's pre-handoff verification ritual:
+
+1. **Cross-reference `src/kernel/fol-types.ts`** for the exact field-name convention per FOL term type. **Asymmetric field-name conventions across structurally-similar types are a known typo-vector:**
+   - `fol:Negation` uses `inner: FOLAxiom`
+   - `fol:Universal` and `fol:Existential` use `body: FOLAxiom`
+   - `fol:Implication` uses `antecedent` + `consequent`
+   - `fol:Atom` uses `predicate` + `arguments`
+   - `fol:Variable` uses `name`
+   - `fol:Constant` uses `iri`
+
+2. **Smoke-test the fixture against the projector** (`folToOwl(fixture.input)`) before handing to Developer. A clean smoke-test catches structural validity errors that would otherwise surface as Developer-side test failures.
+
+3. **For OWL-input fixtures (lift+project round-trip):** cross-reference `src/kernel/owl-types.ts` for the exact OWL axiom field-name convention. ABox `ObjectPropertyAssertion` uses `source` + `target` (NOT `subject` + `object`).
+
+This ritual closes the gap surfaced at Concern B routing (the SME-typo `body: <inner>` for `fol:Negation` that the Developer caught via projector crash). Banking the routing-discipline principle: when SME-authored content diverges from a frozen-spec field name, the Developer routes back to SME with both options framed (typo vs deliberate amendment); SME confirms which. Prevents silent override of architect-ratified content.
+
+### Stub-harness contract inline-in-JSDoc
+
+[SME-banked at Step 8 stub-evaluator cycle 2026-05-XX.]
+
+When authoring a test-corpus utility whose contract is architect-ratified at a routing cycle (e.g., `_stub-evaluator.js` per Phase 2 entry packet §3.4), the SME-authored leading JSDoc IS the audit-trail. Developer implements the function body per the leading JSDoc.
+
+This pattern preserves audit-trail unity: the contract + the implementation live in the same file; future readers don't have to chase the contract across multiple documents (entry packet vs ADR vs source). Combined with the self-containedness-of-ADRs principle, the file's leading JSDoc is the load-bearing audit artifact for the harness's behavior.
+
+### Deferral language has cycle-binding semantics
+
+[Architect-banked at Step 9.1 conformance-gap routing cycle 2026-05-XX.]
+
+When a phase or step's commit body or routing artifact uses deferral language naming a triggering condition (e.g., "diagnostic-throw deferred until SME-authored `strategy_routing_no_match` fixture surfaces a concrete pathological-axiom case"), the deferral language means: **ratification cycle starts when the condition is met, NOT that ratification is automatic on condition satisfaction.**
+
+The triggering condition is the cycle-start signal; the architectural ratification still requires explicit architect routing in the appropriate cycle context. Holding that deferral language has cycle-binding semantics preserves its discipline-integrity. If "deferred until X" meant "ratify whenever after X," the deferral language would carry no cycle-binding semantics and the architect's deferral cadence could be unilaterally retracted by ratification timing.
+
+Manifestation: Step 5's "diagnostic-throw deferred until SME fixture surfaces concrete case" — the SME's surfacing of the concrete case at Step 9.1 was the trigger; the architect's ratification (this cycle ruling (c)) is the appropriate-cycle response. The trigger does not pre-determine the closure substance.
+
+### Architectural composition deferral
+
+[Architect-banked at Step 9.1 conformance-gap routing cycle 2026-05-XX.]
+
+**Architectural decisions with material composition surface in adjacent unimplemented phases defer to those phases' ratification cycles, not because deferral is conservative, but because composition reveals constraints that isolated ratification cannot.**
+
+When ruling on a substantive architectural question at a current-phase micro-cycle would pre-commit a decision that interacts with a future-phase implementation context (typed-error class hierarchy in evaluator at Phase 3; honest-admission surfaces like `unverifiedAxioms` at Phase 3; ARC content with bridge axioms at Phase 4; etc.), the architect's correct posture is to defer ratification to the natural cycle context — even when the substantive question is well-formed at the current micro-cycle.
+
+The discipline distinguishes:
+- **Ruling-now is wrong because the decision composes badly across phases** (this principle's territory)
+- **Ruling-now is wrong because cycle budget is tight** (corrupt cycle-discipline; not architect's reasoning)
+
+The cycle-density framing (Phase 2 mid-phase count at 6 within substantive-scope-weighted bound) is a confirming observation, not the load-bearing argument. The load-bearing argument is composition.
+
+### Honest-admission documentation of non-compliant baseline
+
+[Architect-banked at Step 9.1 conformance-gap routing cycle 2026-05-XX.]
+
+**Honest-admission documentation of non-compliant baseline is a valid regression-detection artifact when paired with explicit forward-tracking to the compliance ratification cycle.**
+
+When a phase ships with a documented spec-non-compliance (e.g., Phase 2's `strategy_routing_no_match` silent-fallthrough on bare `fol:False` violating both spec §0.1 and §6.1), the corresponding fixture's expected-baseline contract:
+
+- Documents the actual current behavior (NOT the spec-target behavior)
+- Asserts the actual behavior via test-runner integration (regression-detection)
+- Captures the spec-target behavior via `phaseNReactivation` forward-track (machine-checkable)
+- Carries cross-references to the human-readable forward-track in the phase exit summary
+
+The fixture's role pivots from "assertion of target contract" to "regression-detection on baseline + forward-track for target." This pivot is valid AS LONG AS the documentation is honest about the non-compliance — euphemism corrupts the discipline (see "Documented spec-non-compliance framing requirement" below).
+
+### Multiple-architectural-item bundling at Phase entry packet ratification is efficiency-positive
+
+[Architect-banked at Step 9.1 conformance-gap routing cycle 2026-05-XX.]
+
+**When multiple architectural items naturally bundle at a Phase entry packet's ratification, the bundling is efficiency-positive, not competition-negative.**
+
+The architect's per-cycle bandwidth absorbs bundled architectural items as a single cycle, not N parallel cycles. Phase entry packet authoring naturally surfaces multiple architectural items at once (Phase 3 entry will surface: `evaluate()` API surface; `checkConsistency()` surface; `unverifiedAxioms` field; cycle detection; per-predicate CWA; structural annotation mismatch; ARC manifest version mismatch; session-aggregate step cap; plus the no-strategy-applies closure inherited from Phase 2 Item 8). Routing them as a single ratification cycle is the canonical pattern; routing each as a separate parallel cycle would compound architect bandwidth without composition benefit.
+
+Manifestations from prior cycles: Step 4 spec-binding cycle (3 architectural items in one cycle); Q-Step6 cycle (3 architectural items in one cycle); Phase 2 entry confirmation cycle (7 Q-rulings in one cycle). The pattern is canonical.
+
+### Documented spec-non-compliance framing requirement
+
+[Architect-banked at Step 9.1 conformance-gap routing cycle 2026-05-XX.]
+
+**When phases close with deferred architectural closures that ship non-spec-compliant baselines, the deferral language must explicitly use "documented spec-non-compliance" framing in exit summaries. Euphemistic deferral framing ("implementation pending," "future work," "TODO," "deferred to a later phase") corrupts the honest-admission discipline.**
+
+The framing requirement applies to:
+- Phase exit summary risk-retrospective items
+- Forward-track tables
+- Fixture leading-comment documentation
+- ADR-class architectural commitment text
+
+The discipline costs the SME nothing (the framing is accurate) and pays consumer-trust dividends (downstream readers see the gap clearly, not buried in deferral language). Manifestation: Phase 2 exit Item 8 explicitly names the spec §0.1 + §6.1 non-compliance under the "documented spec-non-compliance" framing; alternative framings (e.g., "implementation gap" or "TODO at Phase 3") are refused.
+
+This framing requirement composes with the honest-admission baseline documentation principle above: the fixture documents non-compliance as baseline; the exit summary names the non-compliance directly; both align via the framing convention.
+
+### Exit-cycle and pre-exit micro-cycles for deferral-with-structural-requirements stay in the corrective-sub-cycle bucket
+
+[Architect-banked at Step 9.1 conformance-gap routing cycle 2026-05-XX. Extends the cycle-cadence categorization principle.]
+
+Exit-cycle and pre-exit micro-cycles for resolving documented gaps via **deferral-with-structural-requirements** (NOT substance ratification) stay in the corrective-sub-cycle bucket per the prior 2026-05-07 cadence-banking. They do NOT increment phase mid-phase counters.
+
+Manifestation: Phase 2 Step 9.1 micro-cycle (this cycle) resolves the conformance gap via deferral-with-three-structural-requirements. This cycle does not increment Phase 2's mid-phase counter (which stays at 6 per the substantive-scope-weighted Phase 2 cycle reading); it is resolution work for an existing implementation gap, with the resolution being deferral rather than substance.
+
+The bucket logic for entry-cycle corrective sub-cycles (banked at the license-verification corrective action 2026-05-06) generalizes to exit-cycle resolution work. Future cycles touching the same shape inherit the bucket-bounded cadence treatment.
+
+**Distinction from substance-ratifying cycles:** if a future micro-cycle ratifies the substantive closure of a documented gap (e.g., Phase 3 entry packet ratifies Option (a) or Option (b) for the no-strategy-applies closure), THAT cycle is an entry-cycle architectural item (substantive ratification), not a corrective sub-cycle. The bucket distinction tracks substance-ratification vs deferral-with-structural-requirements.
