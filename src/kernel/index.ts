@@ -28,7 +28,11 @@ export {
   ARCManifestError,
   TauPrologVersionMismatchError,
 } from "./errors.js";
-export type { ParsePosition, RoundTripDiff } from "./errors.js";
+export type { ParsePosition } from "./errors.js";
+// RoundTripDiff is exported from projector-types.js (Phase 2 Step 7's
+// canonical definition). errors.ts retains a placeholder type for Phase 0
+// forward-compatibility; consumers import the refined type from the kernel
+// barrel which re-exports from projector-types.
 
 // --- Phase 0.3: frozen reason-code enum (API spec §11) ---
 export { REASON_CODES, REASON_CODES_LIST, isReasonCode } from "./reason-codes.js";
@@ -48,6 +52,7 @@ export type { LifterConfig } from "./lifter.js";
 //     (API §6.4) + frozen LOSS_SIGNATURE_SEVERITY_ORDER. Strategy routing
 //     and audit-artifact emission land in later Steps. ---
 export { folToOwl } from "./projector.js";
+export { roundTripCheck } from "./round-trip.js";
 export {
   LOSS_SIGNATURE_SEVERITY_ORDER,
 } from "./projector-types.js";
@@ -60,8 +65,14 @@ export type {
   OperatingMode,
   ProjectionActivity,
   ProjectionManifest,
+  ProjectionStrategy,
+  StrategySelection,
   FolToOwlConfig,
   OWLConversionResult,
+  ConversionMetadata,
+  FOLConversionResult,
+  RoundTripResult,
+  RoundTripDiff,
 } from "./projector-types.js";
 
 export { canonicalizeIRI, canonicalizeWithOntology } from "./iri.js";

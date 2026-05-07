@@ -186,6 +186,74 @@ export interface StrategySelection {
   recoveryPayloadCount: number;
 }
 
+/**
+ * FOL-side conversion result per API §6.1's `FOLConversionResult` interface.
+ *
+ * Phase 1's `owlToFol` returns `FOLAxiom[]` directly; `roundTripCheck`
+ * (Step 7) wraps that output into this shape per API §6.3's
+ * `intermediateForm` contract. When Phase 1's lifter is later refactored
+ * to return `FOLConversionResult` directly per API §6.1, this type can be
+ * shared.
+ */
+export interface ConversionMetadata {
+  sourceOntologyIRI: string;
+  /**
+   * Source bnode → canonical Skolem mapping. Phase 1 lifter doesn't expose
+   * this surface (the bnode registry is internal); Step 7 ships an empty
+   * Map here pending the lifter refactor.
+   */
+  bnodeRegistry: Map<string, string>;
+  arcCoverage: "strict" | "permissive";
+  arcManifestVersion: string;
+}
+
+export interface FOLConversionResult {
+  axioms: FOLAxiom[];
+  recoveryPayloads: RecoveryPayload[];
+  lossSignatures: LossSignature[];
+  metadata: ConversionMetadata;
+}
+
+/**
+ * Round-trip diff per API §6.3 + spec §8.1 parity criterion. Populated on
+ * `RoundTripResult` only when `equivalent === false`.
+ */
+export interface RoundTripDiff {
+  /**
+   * FOL axioms present in source FOL (F₂ in spec §8.1's notation) but
+   * absent from re-lifted output (F₃). Recovered axioms (those whose
+   * `originalFOL` appears in a Recovery Payload) are subtracted from this
+   * set per the "modulo L" qualifier of spec §8.1.
+   */
+  missingFromOutput: FOLAxiom[];
+  /**
+   * FOL axioms present in re-lifted output (F₃) but absent from source
+   * FOL (F₂). The "no-fabrication" half of the bidirectional check per
+   * spec §8.2.
+   */
+  extraInOutput: FOLAxiom[];
+  /**
+   * Coarse classification of the diff axioms' FOL bucket. `tbox` if all
+   * diff entries are TBox-shaped (universals with unary-atom bodies);
+   * `rbox` if all are RBox-shaped (universals with binary-atom bodies);
+   * `abox` if all are bare-atom assertions; `mixed` otherwise.
+   */
+  classification: "tbox" | "abox" | "rbox" | "mixed";
+}
+
+/**
+ * Round-trip result per API §6.3. `equivalent === true` means strict parity
+ * holds modulo the Loss Signature ledger per spec §8.1; `equivalent ===
+ * false` means the parity criterion failed (the diff captures the
+ * un-recovered divergence).
+ */
+export interface RoundTripResult {
+  equivalent: boolean;
+  diff?: RoundTripDiff;
+  intermediateForm: FOLConversionResult;
+  finalForm: OWLConversionResult;
+}
+
 export interface OWLConversionResult {
   ontology: OWLOntology;
   manifest: ProjectionManifest;
