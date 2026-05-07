@@ -1,5 +1,5 @@
 /**
- * FOL → OWL Projector (Phase 2 Steps 1-4a)
+ * FOL → OWL Projector (Phase 2 Steps 1-4a + Step 5)
  *
  * Per API spec §6.2 + behavioral spec §6.1 (three-strategy router) +
  * §7 (audit artifacts) + §8.1 (round-trip parity).
@@ -24,6 +24,41 @@
  *     (Symmetric).
  *   - RBox universal-implication ∀x,y,z. P(x,y) ∧ P(y,z) → P(x,z) →
  *     ObjectPropertyCharacteristic(Transitive).
+ *
+ * IMPLEMENTED (Step 5 — strategy router with explicit per-axiom attribution
+ * per spec §6.2):
+ *   - `OWLConversionResult.strategySelections: StrategySelection[]` reports
+ *     the strategy chosen for each shape-valid input axiom. Shape-invalid
+ *     axioms (null entries, missing @type, etc.) are omitted per Routing
+ *     #0.5 robustness discipline.
+ *
+ *   - Attribution rule:
+ *     - Direct Mapping match + zero Annotated Approximation emission for
+ *       the axiom → strategy `'direct'`.
+ *     - Annotated Approximation emission (regardless of Direct Mapping
+ *       success) → strategy `'annotated-approximation'`.
+ *     - No Direct Mapping match + no AA emission → strategy
+ *       `'annotated-approximation'` (spec §6.2 fallthrough; this axiom
+ *       contributes no output but its strategy is reported as the
+ *       fallback).
+ *
+ *   - Property-Chain Realization (`'property-chain'`) is Step 6 territory;
+ *     not currently emitted.
+ *
+ *   - Per-axiom emission tracking: the dispatch loop maps each
+ *     LossSignature / RecoveryPayload back to its source axiom index so
+ *     the `lossSignatureCount` / `recoveryPayloadCount` fields on
+ *     `StrategySelection` are accurate. Pair-matched outputs (Step 3a/3c
+ *     EquivalentClasses / InverseObjectProperties / EquivalentObjectProperties)
+ *     are attributed to the earlier of the two consumed axiom indices,
+ *     matching the source-position-keyed output convention.
+ *
+ *   - Diagnostic-throw on no-strategy-applies is deferred to a follow-up:
+ *     spec §6.2's algorithm fallthrough is Annotated Approximation, so
+ *     every shape-valid axiom routes to at least AA. The
+ *     `strategy_routing_no_match` fixture (pending SME authoring) will
+ *     surface a specific pathological-axiom case that requires the
+ *     diagnostic-throw mechanism.
  *
  * IMPLEMENTED (Step 4a — Annotated Approximation strategy + LossSignature
  * emission machinery + ADR-011 content-addressed @id):
@@ -228,7 +263,9 @@ import type {
   LossSignature,
   OWLConversionResult,
   ProjectionManifest,
+  ProjectionStrategy,
   RecoveryPayload,
+  StrategySelection,
 } from "./projector-types.js";
 
 // Default permissive-namespace allowlist for unknown_relation emission
@@ -367,11 +404,14 @@ export async function folToOwl(
     delete ontology.prefixes;
   }
 
-  // Step 4a — emission pass. Walks the input axioms (NOT the projected
-  // output) so the Loss Signature's relationIRI matches the input's
-  // predicate IRI verbatim, and naf_residue triggers off the input
-  // negation regardless of whether Direct Mapping reconstructed the
-  // ObjectComplementOf shape on the OWL side.
+  // Step 4a — emission pass + Step 5 — per-axiom strategy attribution.
+  // Walks the input axioms (NOT the projected output) so the Loss
+  // Signature's relationIRI matches the input's predicate IRI verbatim,
+  // and naf_residue triggers off the input negation regardless of whether
+  // Direct Mapping reconstructed the ObjectComplementOf shape on the OWL
+  // side. Per-axiom emission counts are tracked so strategySelections can
+  // attribute each LossSignature / RecoveryPayload back to its source
+  // axiom.
   const newLossSignatures: LossSignature[] = [];
   const newRecoveryPayloads: RecoveryPayload[] = [];
   const sourceGraphIRI =
@@ -379,12 +419,25 @@ export async function folToOwl(
   const arcVersion = config?.arcManifestVersion ?? ARC_MANIFEST_VERSION;
   const permissive = config?.permissiveNamespaces ?? DEFAULT_PERMISSIVE_NAMESPACES;
 
-  for (const axiom of axioms) {
+  // Step 5 attribution tracking. axiomEmissionCounts[i] is the (LS, RP)
+  // pair attributed to axiom i. Indices that don't exist in the map
+  // correspond to shape-invalid axioms (omitted from strategySelections).
+  const axiomEmissionCounts = new Map<
+    number,
+    { lossSignatureCount: number; recoveryPayloadCount: number }
+  >();
+
+  for (let i = 0; i < axioms.length; i++) {
+    const axiom = axioms[i];
     if (!isShape(axiom)) continue;
+    let lsCount = 0;
+    let rpCount = 0;
     const naf = await emitNafResidueIfApplicable(axiom, sourceGraphIRI, arcVersion);
     if (naf) {
       newLossSignatures.push(naf.signature);
       newRecoveryPayloads.push(naf.recovery);
+      lsCount++;
+      rpCount++;
     }
     const unknownRels = await emitUnknownRelationsIfApplicable(
       axiom,
@@ -394,7 +447,36 @@ export async function folToOwl(
     );
     for (const ls of unknownRels) {
       newLossSignatures.push(ls);
+      lsCount++;
     }
+    axiomEmissionCounts.set(i, { lossSignatureCount: lsCount, recoveryPayloadCount: rpCount });
+  }
+
+  // Step 5 strategy attribution. Pair-matched axioms are attributed to
+  // their `positioned[i]` entry (the earlier of the two consumed indices);
+  // the consumed-but-not-positioned entry contributed no output and is
+  // attributed to its source position with strategy `'annotated-approximation'`
+  // per spec §6.2 fallthrough.
+  const strategySelections: StrategySelection[] = [];
+  for (let i = 0; i < axioms.length; i++) {
+    if (!isShape(axioms[i])) continue;
+    const emission = axiomEmissionCounts.get(i) ?? {
+      lossSignatureCount: 0,
+      recoveryPayloadCount: 0,
+    };
+    const hasDirectMappingOutput = positioned[i] !== null;
+    const hasAnnotatedApproximationOutput = emission.lossSignatureCount > 0;
+    const strategy: ProjectionStrategy = hasAnnotatedApproximationOutput
+      ? "annotated-approximation"
+      : hasDirectMappingOutput
+        ? "direct"
+        : "annotated-approximation";
+    strategySelections.push({
+      axiomIndex: i,
+      strategy,
+      lossSignatureCount: emission.lossSignatureCount,
+      recoveryPayloadCount: emission.recoveryPayloadCount,
+    });
   }
 
   const manifest: ProjectionManifest = buildSkeletonManifest(config);
@@ -404,6 +486,7 @@ export async function folToOwl(
     manifest,
     newRecoveryPayloads,
     newLossSignatures,
+    strategySelections,
   };
 }
 

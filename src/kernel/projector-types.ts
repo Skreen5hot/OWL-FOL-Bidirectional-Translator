@@ -149,9 +149,53 @@ export interface FolToOwlConfig extends LifterConfig {
   permissiveNamespaces?: ReadonlyArray<string>;
 }
 
+/**
+ * Phase 2 Step 5 — strategy router output.
+ *
+ * Tier names per spec §6.2 (strategy selection algorithm). v0.1 ships
+ * `direct` + `annotated-approximation`; `property-chain` activates at
+ * Step 6 (Property-Chain Realization).
+ */
+export type ProjectionStrategy =
+  | "direct"
+  | "annotated-approximation"
+  | "property-chain";
+
+/**
+ * Per-axiom strategy attribution. Reported by `folToOwl` so consumers can
+ * verify projection-strategy correctness (the "correct emission of the
+ * wrong projection strategy" failure mode that Phase 2 entry packet §3.3
+ * names as the high-risk concern). One entry per shape-valid input axiom;
+ * shape-invalid axioms (e.g., null entries, missing @type) are omitted
+ * per Routing #0.5 robustness discipline.
+ */
+export interface StrategySelection {
+  axiomIndex: number;
+  strategy: ProjectionStrategy;
+  /**
+   * Number of LossSignatures emitted attributable to this axiom. Zero for
+   * `direct` selections; non-zero for `annotated-approximation` selections
+   * that triggered an emission path (naf_residue, unknown_relation, etc.).
+   */
+  lossSignatureCount: number;
+  /**
+   * Number of RecoveryPayloads emitted attributable to this axiom. Zero
+   * for informational AA selections (e.g., unknown_relation); non-zero
+   * for reversible AA selections (e.g., naf_residue).
+   */
+  recoveryPayloadCount: number;
+}
+
 export interface OWLConversionResult {
   ontology: OWLOntology;
   manifest: ProjectionManifest;
   newRecoveryPayloads: RecoveryPayload[];
   newLossSignatures: LossSignature[];
+  /**
+   * Per-axiom strategy attribution per spec §6.2 — Step 5 contract. Phase 2
+   * entry packet §3.3's strategy-routing fixtures (strategy_routing_direct
+   * / _annotated / _chain / _no_match) re-exercise their assertions
+   * against this field at Step 5 entry per phase5Reactivation.
+   */
+  strategySelections: ReadonlyArray<StrategySelection>;
 }

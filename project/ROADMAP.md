@@ -274,7 +274,7 @@ Step 4 promotion (Aaron-led):
 
 **Goal:** Implement `folToOwl` for the same constructs Phase 1 covers, plus audit artifact emission. Closes the bidirectional pipeline for built-in OWL.
 
-**Status:** 🟡 In progress (Steps 1-3 + 4a ✅ Complete; entry ratified [`project/reviews/phase-2-entry.md`](reviews/phase-2-entry.md))
+**Status:** 🟡 In progress (Steps 1-3 + 4a + 5 ✅ Complete; entry ratified [`project/reviews/phase-2-entry.md`](reviews/phase-2-entry.md))
 
 **Plan reference:** §3.3
 
@@ -290,7 +290,7 @@ Proposed step granularity per [`project/reviews/phase-2-entry.md`](reviews/phase
 | 3c | Reserved-predicate ABox + remaining TBox/RBox forms: `SameIndividual` / `DifferentIndividuals` reconstruction from `owl:sameAs` / `owl:differentFrom` constant atoms; identity-axiomatization SUPPRESSION pre-pass (drops sameAs reflexivity / symmetry / transitivity, differentFrom symmetry, per-predicate identity-rewrite rules per spec §5.5.1-§5.5.2); `SubObjectPropertyOf` (binary→binary same-args universal-implication, distinct predicates); `EquivalentObjectProperties` (pair-matched); `DisjointObjectProperties` (binary version of DisjointWith). `ClassDefinition` with NamedClass body round-trips via existing `EquivalentClasses` pair-matcher; ClassDefinition with class-expression body banked as future-Step gap (left-side class-expression reconstruction; Phase 1 corpus does not exercise). Round-trips green for `p1_owl_same_and_different` + `p1_property_characteristics` fixtures. | ✅ Complete (this commit) |
 | 4a | Annotated Approximation strategy + LossSignature/RecoveryPayload emission machinery + ADR-011 ratified Draft → Accepted: SHA-256 content-addressed `@id` per ADR-011 §1; discriminating-field sets per ADR-011 §3 (5 for LossSignature / 3 for RecoveryPayload); two emission paths (`naf_residue` conservative — classical fol:Negation triggers LossSignature + RecoveryPayload; `unknown_relation` informational — predicate IRI outside permissive-namespace allowlist triggers informational LossSignature, no RecoveryPayload); ProjectionManifest source-provenance threading via `config.sourceOntologyIRI` / `sourceVersionIRI` / `sourceGraphIRI`; `p2_unknown_relation_fallback` Q-G fixture activated. | ✅ Complete (this commit) |
 | 4b | Cardinality routing per architect's α/β ruling (Q-C → architect cycle pending) | ⏳ Pending |
-| 5 | Strategy selection algorithm per spec §6.2 with tiered fallthrough + `RecoveryPayload` content-addressed `@id` | ⏳ Pending |
+| 5 | Strategy router with explicit per-axiom attribution per spec §6.2: new `OWLConversionResult.strategySelections` field reports `'direct'` / `'annotated-approximation'` / `'property-chain'` per shape-valid input axiom + `lossSignatureCount` / `recoveryPayloadCount` attribution. Shape-invalid axioms omitted per Routing #0.5 robustness. Property-Chain Realization (`'property-chain'`) emission deferred to Step 6. Diagnostic-throw on no-strategy-applies deferred until SME-authored `strategy_routing_no_match` fixture surfaces a concrete pathological-axiom case. RecoveryPayload content-addressed `@id` already shipped at Step 4a per ADR-011. | ✅ Complete (this commit) |
 | 6 | Property-Chain Realization strategy per spec §6.1.2 (simplified built-in OWL form) | ⏳ Pending |
 | 7 | `roundTripCheck` per API §6.3 + spec §8.1 parity criterion | ⏳ Pending |
 | 8 | 11 new fixtures landed (3 projection edge cases + 4 strategy routing + 3 parity canaries + 1 BFO/CLIF Layer A round-trip); stub-evaluator harness `tests/corpus/_stub-evaluator.js` per entry packet §3.4 | ⏳ Pending |

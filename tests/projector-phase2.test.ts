@@ -1826,6 +1826,165 @@ await report(
 );
 
 // ===========================================================================
+// STEP 5 — Strategy router with explicit per-axiom attribution per spec §6.2
+// ===========================================================================
+
+await report(
+  "Step 5 / Direct Mapping attribution: Phase 1 ABox axioms each report strategy='direct' with zero LossSignature/RecoveryPayload counts",
+  async () => {
+    const axioms: FOLAxiom[] = [
+      {
+        "@type": "fol:Atom",
+        predicate: "http://example.org/test/Person",
+        arguments: [{ "@type": "fol:Constant", iri: "http://example.org/test/alice" }],
+      },
+      {
+        "@type": "fol:Atom",
+        predicate: "http://example.org/test/knows",
+        arguments: [
+          { "@type": "fol:Constant", iri: "http://example.org/test/alice" },
+          { "@type": "fol:Constant", iri: "http://example.org/test/bob" },
+        ],
+      },
+    ];
+    const result = await folToOwl(axioms);
+    strictEqual(result.strategySelections.length, 2);
+    for (let i = 0; i < 2; i++) {
+      strictEqual(result.strategySelections[i].axiomIndex, i);
+      strictEqual(result.strategySelections[i].strategy, "direct");
+      strictEqual(result.strategySelections[i].lossSignatureCount, 0);
+      strictEqual(result.strategySelections[i].recoveryPayloadCount, 0);
+    }
+  },
+);
+
+await report(
+  "Step 5 / Annotated Approximation attribution: naf_residue axiom reports strategy='annotated-approximation' with lossSignatureCount=1 + recoveryPayloadCount=1",
+  async () => {
+    const axioms: FOLAxiom[] = [
+      {
+        "@type": "fol:Universal",
+        variable: "x",
+        body: {
+          "@type": "fol:Implication",
+          antecedent: {
+            "@type": "fol:Atom",
+            predicate: "http://example.org/p2-naf-attribution/Person",
+            arguments: [{ "@type": "fol:Variable", name: "x" }],
+          },
+          consequent: {
+            "@type": "fol:Negation",
+            inner: {
+              "@type": "fol:Atom",
+              predicate: "http://example.org/p2-naf-attribution/KnownDriver",
+              arguments: [{ "@type": "fol:Variable", name: "x" }],
+            },
+          },
+        },
+      },
+    ];
+    const result = await folToOwl(axioms);
+    strictEqual(result.strategySelections.length, 1);
+    strictEqual(result.strategySelections[0].axiomIndex, 0);
+    strictEqual(result.strategySelections[0].strategy, "annotated-approximation");
+    // 1 naf_residue LS (the Person predicate is uncatalogued under this
+    // namespace, so unknown_relation also fires for both Person and
+    // KnownDriver — total LS count = 3: 1 naf_residue + 2 unknown_relation)
+    ok(result.strategySelections[0].lossSignatureCount >= 1);
+    strictEqual(result.strategySelections[0].recoveryPayloadCount, 1);
+  },
+);
+
+await report(
+  "Step 5 / Annotated Approximation attribution: unknown_relation-only axiom reports strategy='annotated-approximation' with lossSignatureCount>=1 + recoveryPayloadCount=0",
+  async () => {
+    const axioms: FOLAxiom[] = [
+      {
+        "@type": "fol:Atom",
+        predicate: "http://example.org/p2-uncatalogued/uncatalogedRelation",
+        arguments: [
+          { "@type": "fol:Constant", iri: "http://example.org/p2-uncatalogued/alice" },
+          { "@type": "fol:Constant", iri: "http://example.org/p2-uncatalogued/bob" },
+        ],
+      },
+    ];
+    const result = await folToOwl(axioms);
+    strictEqual(result.strategySelections.length, 1);
+    strictEqual(result.strategySelections[0].strategy, "annotated-approximation");
+    strictEqual(result.strategySelections[0].lossSignatureCount, 1);
+    strictEqual(result.strategySelections[0].recoveryPayloadCount, 0);
+  },
+);
+
+await report(
+  "Step 5 / Mixed input: axioms in same projection get distinct strategy attributions per their own emission profile",
+  async () => {
+    const axioms: FOLAxiom[] = [
+      // Axiom 0: tolerated-namespace ABox → direct
+      {
+        "@type": "fol:Atom",
+        predicate: "http://example.org/test/Person",
+        arguments: [{ "@type": "fol:Constant", iri: "http://example.org/test/alice" }],
+      },
+      // Axiom 1: uncatalogued-namespace ABox → annotated-approximation (unknown_relation)
+      {
+        "@type": "fol:Atom",
+        predicate: "http://example.org/p2-uncatalogued/uncatalogedRelation",
+        arguments: [
+          { "@type": "fol:Constant", iri: "http://example.org/p2-uncatalogued/x" },
+          { "@type": "fol:Constant", iri: "http://example.org/p2-uncatalogued/y" },
+        ],
+      },
+    ];
+    const result = await folToOwl(axioms);
+    strictEqual(result.strategySelections.length, 2);
+    strictEqual(result.strategySelections[0].strategy, "direct");
+    strictEqual(result.strategySelections[1].strategy, "annotated-approximation");
+  },
+);
+
+await report(
+  "Step 5 / Shape-invalid axioms: omitted from strategySelections (Routing #0.5 robustness preserved)",
+  async () => {
+    const axioms = [
+      // Shape-valid Direct Mapping match
+      {
+        "@type": "fol:Atom",
+        predicate: "http://example.org/test/Person",
+        arguments: [{ "@type": "fol:Constant", iri: "http://example.org/test/alice" }],
+      },
+      null, // Shape-invalid; should be omitted from strategySelections
+      { "@type": 42 }, // Shape-invalid (@type non-string); omitted
+    ] as unknown as FOLAxiom[];
+    const result = await folToOwl(axioms);
+    strictEqual(result.strategySelections.length, 1, "only 1 shape-valid entry");
+    strictEqual(result.strategySelections[0].axiomIndex, 0);
+    strictEqual(result.strategySelections[0].strategy, "direct");
+  },
+);
+
+await report(
+  "Step 5 / Determinism: strategySelections are byte-identical across 100 runs",
+  async () => {
+    const axioms: FOLAxiom[] = [
+      {
+        "@type": "fol:Atom",
+        predicate: "http://example.org/test/knows",
+        arguments: [
+          { "@type": "fol:Constant", iri: "http://example.org/test/alice" },
+          { "@type": "fol:Constant", iri: "http://example.org/test/bob" },
+        ],
+      },
+    ];
+    const first = stableStringify(await folToOwl(axioms));
+    for (let i = 0; i < 99; i++) {
+      const next = stableStringify(await folToOwl(axioms));
+      strictEqual(next, first, `determinism drift on run ${i + 2}/100`);
+    }
+  },
+);
+
+// ===========================================================================
 // STEP 4a — Annotated Approximation + LossSignature emission
 // ===========================================================================
 
