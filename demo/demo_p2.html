@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>OFBT Phase 2 demo &mdash; round-trip parity arguments</title>
+  <title>OFBT Phase 2 demo &mdash; structural round-trip parity arguments</title>
   <link rel="stylesheet" href="demo.css" />
 </head>
 <body>
   <header>
     <h1>OFBT Phase 2 Demo</h1>
-    <p class="subtitle">Two correctness arguments: (A) class-expression reconstruction canary, (B) BFO/CLIF Layer A round-trip parity.</p>
+    <p class="subtitle">Two correctness arguments: (A) class-expression reconstruction canary, (B) BFO/CLIF Layer A structural round-trip parity.</p>
     <p class="back-link"><a href="index.html">&larr; All phase demos</a></p>
   </header>
 
@@ -19,7 +19,7 @@
       <p class="lead">Phase 1 shipped the lifter (OWL &rarr; FOL). Phase 2 ships the projector (FOL &rarr; OWL) and closes the round-trip. The Phase 2 demo argues both that the projector reconstructs the right shape on a known-difficult construct (class expressions) AND that the round-trip preserves canonical OWL semantics against a published external ground truth.</p>
       <ol>
         <li><strong>Internal canary discipline.</strong> The projector's pattern-match correctly reconstructs the input shape from the lifted FOL. The test suite asserts both the right shape's presence after round-trip <em>and</em> the wrong shape's absence (no conflations between superficially-similar restriction kinds).</li>
-        <li><strong>External CLIF round-trip parity.</strong> A BFO 2020 OWL fragment is lifted to FOL, then projected back to OWL. The projected OWL shape is parity-checked against the input AND each axiom's canonical CLIF semantics from the W3C OWL CLIF axiomatization.</li>
+        <li><strong>External CLIF structural round-trip parity.</strong> A BFO 2020 OWL fragment is lifted to FOL, then projected back to OWL. The projected OWL shape is parity-checked against the input AND each axiom's canonical CLIF semantics from the W3C OWL CLIF axiomatization. <em>"Structural" is load-bearing here: the v0.1 contract is content-equivalence at the lifted-FOL level modulo the Loss Signature ledger (spec §8.1). Stronger semantic senses (model-theoretic, axiomatic, entailment-preserving) are deferred to v0.2+ when Phase 3's <code>evaluate()</code> ships.</em></li>
       </ol>
       <div class="callout">
         <strong>Why both matter.</strong> A round-trip that reconstructs surface shape but swaps semantic content (e.g., someValuesFrom &harr; allValuesFrom) passes naive equality but produces wrong inferences downstream. A round-trip that preserves OWL surface but diverges from canonical CLIF passes self-referential checks but doesn't satisfy the standard. Both disciplines together catch failure modes neither catches alone.
@@ -47,7 +47,7 @@
         <ul>
           <li><strong>Cardinality n-tuple matcher</strong> (Step 4b per ADR-012's architect-ratified Option β) &mdash; cardinality projects as native OWL <code>Restriction</code> with <code>minCardinality</code> / <code>maxCardinality</code> / <code>cardinality</code> fields under Direct Mapping. Phase 1's <code>p1_restrictions_cardinality</code> fixture round-trips byte-clean.</li>
           <li><strong>Strategy router with tiered fallthrough</strong> (Step 5 per spec §6.2) &mdash; explicit per-axiom strategy attribution; Tier-2 Direct Mapping → Tier-3 Property-Chain Realization → Tier-default Annotated Approximation → documented diagnostic for no-strategy-applies.</li>
-          <li><strong>Property-Chain Realization</strong> (Step 6 per spec §6.1.2 + architect Q-Step6 rulings 2026-05-XX) &mdash; chain pattern detection with always-emit <code>regularity_scope_warning</code> Recovery Payload note per spec §6.2.1's literal framing (Phase 4 entry packet activates <code>regularityCheck(A, importClosure)</code> against loaded ARC modules; warning cleared for regularity-confirmed chains).</li>
+          <li><strong>Property-Chain Realization</strong> (Step 6 per spec §6.1.2 + architect Q-Step6-1 ruling 2026-05-XX, parenthetically clarified per architect Q-Frank-3 ruling 2026-05-07) &mdash; chain detection with <strong>always-emit</strong> <code>regularity_scope_warning</code> Recovery Payload note per spec §6.2.1's literal framing. <em>What v0.1 Realization actually emits:</em> the OWL <code>ObjectPropertyChain</code> axiom <strong>and</strong> the regularity warning (unconditional in Phase 2; the architect ratified always-emit-with-loss-marker as the v0.1 form of Realization, not deferred-Realization). <em>What Phase 4 Realization will emit:</em> the chain axiom alone for chains regularity-confirmed under <code>regularityCheck(A, importClosure)</code> against loaded ARC modules' import closure; the warning persists only when the regularity check cannot certify the chain. The v0.1 contract is conservative: every chain ships with the warning until Phase 4's import-closure machinery can clear it.</li>
           <li><strong><code>roundTripCheck()</code></strong> (Step 7 per API §6.3 + spec §8.1) &mdash; wraps <code>owlToFol</code> + <code>folToOwl</code> composition with the spec parity-criterion contract; emits <code>equivalent: true</code> for clean round-trips; <code>equivalent: true</code> modulo Recovery Payloads for reversible-regime fixtures; <code>equivalent: false</code> with documented diff for true-loss fixtures.</li>
           <li><strong>Stub-evaluator harness + parity canaries</strong> (Step 8 per architect Q3 ruling 2026-05-06) &mdash; <code>tests/corpus/_stub-evaluator.js</code> implements bounded SLD resolution per the SME-authored leading-JSDoc contract; 3 parity canaries exercise round-trip query-preservation (positive entailment, OWA against CWA-collapse, cross-section visual-equivalence-trap). Phase 3 entry packet's gate item re-exercises every stub-evaluated canary against the real <code>evaluate()</code> per API §7.1.</li>
         </ul>
@@ -93,21 +93,27 @@
         <pre id="ce-projected-display">&hellip;</pre>
       </div>
 
-      <h3>A.5. Right shape present</h3>
+      <h3>A.5. Right shape present <span class="badge pending">stub-validated</span></h3>
       <p class="lead">Each input axiom must round-trip to a <code>SubClassOf</code> with a <code>Restriction</code> consequent of the matching kind. The reconstruction recursively rebuilds the class expression from the lifted FOL.</p>
+      <div class="callout">
+        <strong>Stub-validated.</strong> The verdicts in this panel are validated by the Phase 2 stub-evaluator harness (<code>tests/corpus/_stub-evaluator.js</code>, bounded-Horn-resolution per the SME-authored leading-JSDoc contract). Stub semantics are sufficient for structural shape verification but cannot exercise non-Horn entailments, deeper proof trees beyond the resolution bound, or model-theoretic equivalence. Phase 3 entry packet inherits the per-canary publication commitment per Q-Frank-4 ruling 2026-05-07: each Phase 2 stub-validated canary is re-exercised against the real <code>evaluate()</code> and the per-canary outcome is published (survived / failed-revealed-stub-limit / not-yet-reactivated). The SME risk estimate authored at Phase 3 entry tags each canary <em>expected-to-survive</em> / <em>at-risk-horn-fragment-closure</em> / <em>requires-non-horn-evaluator</em>.
+      </div>
       <div id="ce-right-shape-results"></div>
 
-      <h3>A.6. Wrong shape absent</h3>
+      <h3>A.6. Absence of known failure-mode patterns</h3>
       <p class="lead">The projected OWL must <em>not</em> exhibit any of the following conflation patterns &mdash; each is a class-expression silent-failure mode that a shape-blind projector would emit.</p>
+      <div class="callout">
+        <strong>What this panel establishes (and what it does not).</strong> Per architect Q-Frank-4 ruling 2026-05-07, the wrong-shape canary is a <strong>regression-density check against known-bad patterns</strong>, not a soundness argument. It catches the specific failure modes the test author thought to look for; it does not certify that no other wrong shape is possible. A full soundness argument would require a structural proof over the OWL 2 DL grammar showing the projector cannot emit any wrong shape parametric over input, which is not a v0.1 deliverable. The canary is strictly better than no canary, and the failure modes listed here are exactly the silent-failure surface a logic-stakeholder would test for first; the authoring discipline as new failure modes are discovered is documented in the SME canary-extension note.
+      </div>
       <div id="ce-wrong-shape-results"></div>
     </section>
 
     <!-- ============================================================ -->
-    <!-- CASE B — BFO/CLIF Layer A round-trip parity                  -->
+    <!-- CASE B — BFO/CLIF Layer A structural round-trip parity       -->
     <!-- ============================================================ -->
 
     <section class="section">
-      <h2>Case B &mdash; BFO/CLIF Layer A round-trip parity</h2>
+      <h2>Case B &mdash; BFO/CLIF Layer A structural round-trip parity</h2>
       <p class="lead">A BFO 2020 OWL fragment is lifted to FOL, then projected back to OWL. The projected OWL is parity-checked against the input <em>and</em> against canonical Layer A CLIF semantics from <code>arc/upstream-canonical/owl-axiomatization.clif</code> (Fabian Neuhaus, 2009; vendored under CC BY 4.0 per <code>owl-axiomatization.clif.SOURCE</code>'s <code>license-verification</code> block).</p>
 
       <div class="callout">
@@ -146,8 +152,11 @@
         <pre id="bfo-projected-display">&hellip;</pre>
       </div>
 
-      <h3>B.5. Round-trip parity panel</h3>
+      <h3>B.5. Structural round-trip parity panel <span class="badge pending">stub-validated</span></h3>
       <p class="lead">For each input axiom: the projected OWL must contain a structurally-equivalent axiom. The check is shape-equivalence modulo the projector's emission of empty-array fields and source-provenance placeholders (Step 5 wires source-provenance threading; today's manifest carries <code>projectorVersion: "OFBT-0.1.0"</code> and <code>operatingMode: "permissive"</code>).</p>
+      <div class="callout">
+        <strong>Stub-validated.</strong> The verdicts in this panel are validated by the Phase 2 stub-evaluator harness — bounded-Horn-resolution sufficient for structural shape verification but not for non-Horn entailments or model-theoretic equivalence. Phase 3 reactivation re-exercises each canary against the real <code>evaluate()</code> and publishes per-canary outcomes per Q-Frank-4 ruling 2026-05-07.
+      </div>
       <div id="bfo-roundtrip-results"></div>
 
       <h3>B.6. Layer A CLIF parity panel</h3>
@@ -157,6 +166,67 @@
       <p class="lead spaced"><strong>How to verify these badges reflect reality.</strong> Same protocol as the Phase 1 demo: badges render at runtime from <code>tests/corpus/p1_bfo_clif_classical.fixture.js</code>'s <code>clifGroundTruth[i].verificationStatus</code> field; the fixture's flip from <code>[VERIFY]</code> to <code>Verified</code> happened at Step 9.2 close (commit <code>209a531</code>). The vendored CLIF file's SHA-256 (<code>480193e9&hellip;5912</code>) is pinned in the SOURCE sidecar; the LICENSE file's SHA-256 (<code>f5b745ef&hellip;cc3f</code>) and verified canonical commit (<code>294fa416&hellip;b0cd</code>) are pinned in the same sidecar's <code>license-verification</code> block per ADR-010 (Phase 2 entry verification ritual surfaced and corrected an unverified BSD-3-Clause assertion to the actual CC BY 4.0 license). See <code>arc/AUTHORING_DISCIPLINE.md</code> "SME-Persona Verification of Vendored Canonical Sources" + <code>project/GOVERNANCE.md</code> + <code>project/DECISIONS.md</code> ADR-010.</p>
 
       <p class="lead spaced">Per the architect-ratified meta-typing-predicate elision (ADR-007 §10): canonical CLIF includes <code>(Class X)</code> and <code>(OWLObjectProperty R)</code> typing predicates. OFBT's lifted FOL omits these per the encoding choice; the projector reconstructs without them. Round-trip is sound w.r.t. OWL semantics for v0.1.</p>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- CASE C — Lossy round-trip (Annotated Approximation strategy) -->
+    <!-- ============================================================ -->
+
+    <section class="section">
+      <h2>Case C &mdash; Lossy round-trip (Annotated Approximation strategy)</h2>
+      <p class="lead">Cases A and B exercise round-trip-clean fixtures where every input axiom maps cleanly to OWL 2 DL. Case C exercises the load-bearing <strong>Annotated Approximation</strong> strategy &mdash; the path the projector takes for FOL shapes that exceed OWL 2 DL expressivity. This is where OFBT's bidirectional value proposition matters most: a real consumer ingesting real ARC content will encounter expressivity gaps, and how OFBT handles them is the difference between honest-admission semantics and silent-loss semantics.</p>
+
+      <div class="callout">
+        <strong>Why Case C exists.</strong> Per architect Q-Frank-6 ruling 2026-05-07 (acknowledging Frank's stakeholder critique §6: "the most consequential capability of the system is invisible in the demo"), Case C makes the Annotated Approximation strategy visible: stakeholders see the <code>ObjectPropertyChain</code>-style fallback OWL output, the <code>LossSignature</code> ledger entries, the <code>RecoveryPayload</code> contents, and the downstream-consumer protocol for re-evaluating against the FOL substrate. This is the strategy that handles "FOL shapes that don't fit OWL 2 DL," and Phase 4+ ARC content will exercise it heavily.
+      </div>
+
+      <h3>C.1. Input FOL axioms</h3>
+      <p class="lead">A hand-authored FOL axiom set exercising <strong>both</strong> Annotated-Approximation-routing trigger paths in a single projector invocation:</p>
+      <ul>
+        <li><strong>Axiom 1:</strong> <code>∀x. Person(x) → ¬KnownProfession(x)</code> &mdash; classical negation over an unbound predicate (the <code>naf_residue</code> trigger; severity rank 2 per <code>LOSS_SIGNATURE_SEVERITY_ORDER</code>)</li>
+        <li><strong>Axiom 2:</strong> <code>unfamiliarBond(alice, bob)</code> &mdash; binary atom over a predicate IRI outside any loaded ARC module (the <code>unknown_relation</code> trigger; severity rank 5)</li>
+      </ul>
+      <p class="lead">From <code>tests/corpus/strategy_routing_annotated.fixture.js</code>. Projector-direct fixture (no lift step; the input is FOL directly). Demonstrates multi-Loss-Signature emission + the frozen severity-ordering contract.</p>
+      <div class="panel">
+        <div class="panel-title">Input FOL axioms array (structured per API §3.6)</div>
+        <pre id="lossy-input-display">Loading fixture&hellip;</pre>
+      </div>
+
+      <h3>C.2. Run the projection</h3>
+      <div class="controls">
+        <button type="button" id="lossy-run-button" disabled>Run folToOwl on lossy FOL input</button>
+        <span id="lossy-status" class="badge pending">Loading bundle&hellip;</span>
+      </div>
+
+      <h3>C.3. Projected OWL (Annotated Approximation output)</h3>
+      <p class="lead">Each input axiom emits a structurally-valid OWL annotation per spec §6.1.3 carrying <code>ofbt:originalFOL</code> (machine-readable FOL string), <code>ofbt:roundTripID</code> (content-addressed identifier), and <code>ofbt:strategy</code> (<code>"annotated-approximation"</code>). Consumer tooling that doesn't read the audit artifacts sees the annotation; consumer tooling that does read them recovers the FOL substrate.</p>
+      <div class="panel">
+        <div class="panel-title">Projected OWL ontology (Annotated Approximation form)</div>
+        <pre id="lossy-projected-display">Press <code>Run folToOwl on lossy FOL input</code> to project.</pre>
+      </div>
+
+      <h3>C.4. Loss Signature ledger</h3>
+      <p class="lead">Two Loss Signatures expected per the fixture's <code>expectedLossSignatureCount: 2</code> contract. Each carries a content-addressed <code>@id</code> (<code>ofbt:ls/&lt;sha256-hex&gt;</code> per ADR-011), a <code>lossType</code> field, severity rank, original FOL form, and machine-readable scope notes. The frozen <code>LOSS_SIGNATURE_SEVERITY_ORDER</code> exported per API §6.4.1 means consumers who request severity-ordered output get <code>naf_residue</code> (rank 2) before <code>unknown_relation</code> (rank 5).</p>
+      <div id="lossy-loss-signatures"></div>
+
+      <h3>C.5. Recovery Payload set</h3>
+      <p class="lead">Recovery Payloads preserve the FOL state for downstream re-lifting. Each carries a content-addressed <code>@id</code> (<code>ofbt:rp/&lt;sha256-hex&gt;</code> per ADR-011), the original FOL axiom (so the lifter can reconstruct it on re-lift), and the strategy that produced the payload.</p>
+      <div id="lossy-recovery-payloads"></div>
+
+      <h3>C.6. Strategy attribution + severity-ordering contract</h3>
+      <p class="lead">The Step 5 strategy router records each axiom's routing destination in the Projection Manifest. Both axioms route to <code>annotated-approximation</code> per spec §6.2's tiered fallthrough (Tier-2 Direct Mapping → Tier-3 Property-Chain Realization → Tier-default Annotated Approximation). The severity-ordering contract per API §6.4.1 is checked by sorting the emitted Loss Signatures and verifying the frozen ordering holds.</p>
+      <div id="lossy-strategy-results"></div>
+
+      <h3>C.7. Downstream consumer protocol</h3>
+      <p class="lead">A consumer ingesting Annotated Approximation output has three paths, depending on what the consumer needs:</p>
+      <ol>
+        <li><strong>Treat the OWL annotation as the canonical artifact.</strong> The structural annotation is valid OWL; OWL-only tooling consumes it as-is. The consumer accepts that the annotation captures FOL content the OWL syntax cannot natively express, and downstream OWL reasoners will treat it as opaque metadata.</li>
+        <li><strong>Read the Loss Signature ledger.</strong> The ledger names exactly what was approximated, with <code>lossType</code> and <code>scopeNotes</code> fields. A consumer running a Phase-3-warning surface (per Fandaws Consumer Requirement §7.1's honest-admission discipline) translates Loss Signatures into "this axiom required approximation" warnings for the user.</li>
+        <li><strong>Use the Recovery Payload to re-lift to FOL.</strong> The payload preserves the original FOL form. A consumer with FOL-capable inference (Phase 3+'s <code>evaluate()</code>) re-lifts the annotation, recovers the FOL state, and reasons over the substrate directly. This is the bidirectional translator's load-bearing claim: nothing is lost; everything is recoverable.</li>
+      </ol>
+      <div class="callout">
+        <strong>What this case establishes (and what it does not).</strong> Case C demonstrates <em>structural</em> Annotated Approximation behavior — the strategy fires, the audit artifacts emit with content-addressed identifiers, the severity ordering holds, the Recovery Payload preserves the FOL state. It does <strong>not</strong> certify that the re-lifted FOL is semantically equivalent to the original FOL under all classical-FOL evaluations; that's Phase 3+ semantic-equivalence territory per Q-Frank-1's structural/semantic distinction. The structural claim Case C makes is exactly: lift → approximate → annotate → recover gives back the same FOL structure modulo the recorded approximation. The semantic claim Phase 3 will make on top of that is: every entailment of the FOL state is preserved through the round trip.
+      </div>
     </section>
 
     <!-- ============================================================ -->
@@ -174,7 +244,7 @@
         <li><strong>Lifter <code>ObjectPropertyChain</code> support</strong> per ADR-007 §1 / spec §5.2 &mdash; <strong>Phase 3 OR Phase 4 entry packet</strong>. Step 6 ships projector-only chain detection per architect Q-Step6-3 ruling; lifter support deferred until corpus demand surfaces (cycle-guarded chain rule emission for SLD inference at Phase 3, OR ARC content with chain axioms at Phase 4).</li>
         <li><strong>Source-provenance threading</strong> in the <code>ProjectionManifest</code> &mdash; placeholder fields remain (<code>ontologyIRI</code>, <code>versionIRI</code>, <code>projectedFrom</code>); future cycle wires source-IRI threading from the lifter side. Forward-tracked.</li>
         <li><strong>Six remaining LossType trigger-matchers</strong> &mdash; the Step 4a machinery supports all 8 LossTypes (per ADR-011), but only <code>naf_residue</code> + <code>unknown_relation</code> have trigger-matchers shipping today. <code>arity_flattening</code> arrives at Phase 4 (BFO ternary parthood); <code>closure_truncated</code> + <code>una_residue</code> arrive at Phase 3 (evaluator-time concerns); <code>coherence_violation</code> arrives at Phase 3 No-Collapse adversarial corpus; <code>bnode_introduced</code> at Phase 3 evaluator-derived Skolem introduction; <code>lexical_distinct_value_equal</code> at Phase 4 datatype handling.</li>
-        <li><strong>Phase 3 entry re-exercise of parity canaries</strong> against the real <code>evaluate()</code> &mdash; per Phase 2 entry packet §3.4 (Q3 phase3Reactivation discipline). The class-expression canary above asserts structural shape; full semantic round-trip parity (lift &rarr; project &rarr; re-lift &rarr; query-evaluation match) requires Phase 3.</li>
+        <li><strong>Phase 3 entry re-exercise of parity canaries</strong> against the real <code>evaluate()</code> &mdash; per Phase 2 entry packet §3.4 (Q3 phase3Reactivation discipline) and Q-Frank-4 architect ruling 2026-05-07 (per-canary publication commitment). The class-expression canary above asserts structural shape; the v0.1 contract is <em>structural</em> round-trip parity (spec §8.1). Stronger semantic senses (model-theoretic, axiomatic, entailment-preserving — a full semantic round-trip via lift &rarr; project &rarr; re-lift &rarr; query-evaluation match) require Phase 3's real <code>evaluate()</code>.</li>
       </ul>
     </section>
 
@@ -215,9 +285,11 @@
 
   <script type="module">
     // Demo runner. Pure ES module; no framework. Imports owlToFol + folToOwl
-    // from the browser bundle and two fixtures (Phase 1's class-expression
+    // from the browser bundle and three fixtures (Phase 1's class-expression
     // fixture for Case A round-trip canary; Phase 1's BFO/CLIF fixture for
-    // Case B Layer A round-trip parity) from the corpus deploy directory.
+    // Case B Layer A structural round-trip parity; Phase 2's strategy-routing
+    // annotated fixture for Case C lossy round-trip / Annotated Approximation
+    // exercise per Q-Frank-6 ruling 2026-05-07) from the corpus deploy directory.
     // SME-role discipline: corpus-driven. Demo outputs match what the test
     // suite asserts; no parallel demo logic.
 
@@ -233,6 +305,14 @@
     const bfoRunButton = document.getElementById('bfo-run-button');
     const bfoStatusEl = document.getElementById('bfo-status');
     const bfoLiftedDisplay = document.getElementById('bfo-lifted-display');
+
+    const lossyInputDisplay = document.getElementById('lossy-input-display');
+    const lossyRunButton = document.getElementById('lossy-run-button');
+    const lossyStatusEl = document.getElementById('lossy-status');
+    const lossyProjectedDisplay = document.getElementById('lossy-projected-display');
+    const lossyLossSignaturesEl = document.getElementById('lossy-loss-signatures');
+    const lossyRecoveryPayloadsEl = document.getElementById('lossy-recovery-payloads');
+    const lossyStrategyResultsEl = document.getElementById('lossy-strategy-results');
     const bfoProjectedDisplay = document.getElementById('bfo-projected-display');
     const bfoRoundtripResults = document.getElementById('bfo-roundtrip-results');
     const bfoClifParityResults = document.getElementById('bfo-clif-parity-results');
@@ -382,6 +462,7 @@
     let folToOwl;
     let ceFixture;
     let bfoFixture;
+    let lossyFixture;
 
     try {
       const bundle = await import('./bundles/ofbt-core.browser.min.js');
@@ -398,20 +479,27 @@
       ceFixture = ceModule.fixture;
       const bfoModule = await import('./fixtures/p1_bfo_clif_classical.fixture.js');
       bfoFixture = bfoModule.fixture;
+      const lossyModule = await import('./fixtures/strategy_routing_annotated.fixture.js');
+      lossyFixture = lossyModule.fixture;
 
       ceInputDisplay.textContent = pretty(ceFixture.input);
       bfoInputDisplay.textContent = pretty(bfoFixture.input);
+      lossyInputDisplay.textContent = pretty(lossyFixture.input);
 
       setStatus(ceStatusEl, 'Ready', 'good');
       setStatus(bfoStatusEl, 'Ready', 'good');
+      setStatus(lossyStatusEl, 'Ready', 'good');
       ceRunButton.disabled = false;
       bfoRunButton.disabled = false;
+      lossyRunButton.disabled = false;
     } catch (err) {
       const msg = 'Failed to load: ' + err.message;
       setStatus(ceStatusEl, msg, 'bad');
       setStatus(bfoStatusEl, msg, 'bad');
+      setStatus(lossyStatusEl, msg, 'bad');
       ceInputDisplay.textContent = 'Could not load demo assets. Check the browser console for details.';
       bfoInputDisplay.textContent = 'Could not load demo assets. Check the browser console for details.';
+      lossyInputDisplay.textContent = 'Could not load demo assets. Check the browser console for details.';
       console.error('OFBT demo load error:', err);
     }
 
@@ -550,7 +638,7 @@
         const projected = await folToOwl(liftedAxioms(lifted));
         bfoProjectedDisplay.textContent = pretty(projected);
 
-        // ===== Round-trip parity: input axiom counts vs projected axiom counts =====
+        // ===== Structural round-trip parity: input axiom counts vs projected axiom counts =====
         const inputAll = [
           ...(bfoFixture.input.tbox || []),
           ...(bfoFixture.input.abox || []),
@@ -610,6 +698,127 @@
         console.error('OFBT round-trip error (Case B):', err);
       } finally {
         bfoRunButton.disabled = false;
+      }
+    });
+
+    // ===== Case C run handler (lossy round-trip / Annotated Approximation) =====
+    lossyRunButton.addEventListener('click', async () => {
+      setStatus(lossyStatusEl, 'Projecting...', 'pending');
+      lossyRunButton.disabled = true;
+      lossyLossSignaturesEl.innerHTML = '';
+      lossyRecoveryPayloadsEl.innerHTML = '';
+      lossyStrategyResultsEl.innerHTML = '';
+
+      try {
+        // Projector-direct: the fixture's input is FOL axioms array, not OWL.
+        // Call folToOwl directly without a prior owlToFol step.
+        const projected = await folToOwl(lossyFixture.input);
+        lossyProjectedDisplay.textContent = pretty(projected);
+
+        // ===== Loss Signature ledger =====
+        const lossSignatures = projected.newLossSignatures || [];
+        if (lossSignatures.length === 0) {
+          const empty = document.createElement('p');
+          empty.className = 'lead';
+          empty.textContent = 'No Loss Signatures emitted — UNEXPECTED. Fixture expects at least 2.';
+          empty.style.color = '#a00';
+          lossyLossSignaturesEl.appendChild(empty);
+        } else {
+          for (const ls of lossSignatures) {
+            const panel = document.createElement('div');
+            panel.className = 'panel';
+            panel.style.marginBottom = '0.75rem';
+            const title = document.createElement('div');
+            title.className = 'panel-title';
+            title.textContent = 'LossSignature — lossType: ' + (ls.lossType || '<missing>');
+            panel.appendChild(title);
+            const body = document.createElement('pre');
+            body.textContent = pretty(ls);
+            panel.appendChild(body);
+            lossyLossSignaturesEl.appendChild(panel);
+          }
+        }
+
+        // ===== Recovery Payload set =====
+        const recoveryPayloads = projected.newRecoveryPayloads || [];
+        if (recoveryPayloads.length === 0) {
+          const empty = document.createElement('p');
+          empty.className = 'lead';
+          empty.textContent = 'No Recovery Payloads emitted.';
+          lossyRecoveryPayloadsEl.appendChild(empty);
+        } else {
+          for (const rp of recoveryPayloads) {
+            const panel = document.createElement('div');
+            panel.className = 'panel';
+            panel.style.marginBottom = '0.75rem';
+            const title = document.createElement('div');
+            title.className = 'panel-title';
+            title.textContent = 'RecoveryPayload — strategy: ' + (rp.approximationStrategy || rp.strategy || '<missing>');
+            panel.appendChild(title);
+            const body = document.createElement('pre');
+            body.textContent = pretty(rp);
+            panel.appendChild(body);
+            lossyRecoveryPayloadsEl.appendChild(panel);
+          }
+        }
+
+        // ===== Strategy attribution + severity-ordering contract =====
+        // Per the fixture's expected_v0.1_verdict.expectedLossSignatureCount: 2
+        renderAssertion(
+          lossyStrategyResultsEl,
+          'Loss Signature count is 2 (one naf_residue + one unknown_relation per fixture contract): ' + lossSignatures.length,
+          lossSignatures.length === 2
+        );
+
+        // Both expected lossTypes present
+        const lossTypes = lossSignatures.map((ls) => ls.lossType);
+        renderAssertion(
+          lossyStrategyResultsEl,
+          'naf_residue lossType present in ledger',
+          lossTypes.includes('naf_residue')
+        );
+        renderAssertion(
+          lossyStrategyResultsEl,
+          'unknown_relation lossType present in ledger',
+          lossTypes.includes('unknown_relation')
+        );
+
+        // Severity ordering: naf_residue (rank 2) precedes unknown_relation (rank 5)
+        // when sorted by LOSS_SIGNATURE_SEVERITY_ORDER. The fixture's contract
+        // names this explicitly. Demo asserts the ledger preserves the ordering
+        // when consumers sort by severity.
+        const SEVERITY_ORDER = [
+          'naf_residue', 'closure_truncated', 'una_residue', 'arity_flattening',
+          'unknown_relation', 'coherence_violation', 'bnode_introduced', 'lexical_distinct_value_equal'
+        ];
+        const sortedTypes = [...lossTypes].sort(
+          (a, b) => SEVERITY_ORDER.indexOf(a) - SEVERITY_ORDER.indexOf(b)
+        );
+        const expectedSorted = ['naf_residue', 'unknown_relation'];
+        const orderingOk = sortedTypes.length === expectedSorted.length &&
+          sortedTypes.every((t, i) => t === expectedSorted[i]);
+        renderAssertion(
+          lossyStrategyResultsEl,
+          'Severity ordering: naf_residue (rank 2) precedes unknown_relation (rank 5) per LOSS_SIGNATURE_SEVERITY_ORDER',
+          orderingOk
+        );
+
+        // Content-addressed @id format per ADR-011
+        const idPattern = /^ofbt:ls\/[0-9a-f]{64}$/;
+        const allIdsMatch = lossSignatures.every((ls) => idPattern.test(ls['@id'] || ''));
+        renderAssertion(
+          lossyStrategyResultsEl,
+          'All LossSignature @id fields match ofbt:ls/<sha256-hex> per ADR-011',
+          allIdsMatch
+        );
+
+        setStatus(lossyStatusEl, 'Projection complete', 'good');
+      } catch (err) {
+        lossyProjectedDisplay.textContent = 'Projector threw: ' + (err.message || String(err));
+        setStatus(lossyStatusEl, 'Projection error', 'bad');
+        console.error('OFBT projection error (Case C):', err);
+      } finally {
+        lossyRunButton.disabled = false;
       }
     });
   </script>
