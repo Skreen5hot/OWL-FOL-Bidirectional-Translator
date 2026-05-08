@@ -222,8 +222,8 @@ Per Q-Frank-4 ruling 2026-05-07: each Phase 2 stub-validated parity canary is ta
 | Canary | Step 1 pre-emptive-review outcome |
 |---|---|
 | `parity_canary_query_preservation` | (no review required; expected-to-survive) |
-| `parity_canary_negative_query` | ⏳ Pending (Step 1 deliverable) — banks one of: "expected-to-survive after pre-emptive review" / "anticipated-divergence; phase3Reactivation pre-amended" / "genuine semantic divergence; entry-cycle micro-cycle for architect ratification" |
-| `parity_canary_visual_equivalence_trap` | ⏳ Pending (Step 1 deliverable) — same three-way disposition as above |
+| `parity_canary_negative_query` | ✓ **expected-to-survive after pre-emptive review** (Step 1a 2026-05-08). Discriminating query `Knows(alice, bob)?` is a single `FOLAtom` (in EvaluableQuery per API §7.1). Real `evaluate()` SLD trace: lifted FOL state has `Person(alice)`, `Person(bob)` only — no Knows-deriving rules, no Knows facts; SLD fails to unify; default OWA (no `closedPredicates`) maps fail-to-prove → `'undetermined'`, reason `'open_world_undetermined'`. Matches stub's `'undetermined'`. No amendment required. |
+| `parity_canary_visual_equivalence_trap` | ⚠ **anticipated-divergence; phase3Reactivation pre-amended** (Step 1a 2026-05-08). Tier 1 (atomic queries Q_1 `Person(bob)?` + Q_2 `hasChild(alice, bob)?`) is in v0.1 EvaluableQuery scope; real `evaluate()` returns `'true'`/`'true'` against asserted ABox facts; matches stub. Tier 2 enhanced kind-swap discriminator `∃y. hasChild(alice, y) ∧ ¬Person(y)?` under `closedPredicates` falls outside v0.1 EvaluableQuery — `FOLExistential` + `FOLNegation` both throw `UnsupportedConstructError` per API §7.5; the Tier 2 case is the exact "canary needs STRENGTHENING" path the fixture's own `divergenceTrigger` (lines 313-323) pre-anticipates. **Pre-amendment is forward-track-clarification only (Tier 1 v0.1-in-scope / Tier 2 v0.2-deferred), NOT primary-assertion-amendment.** The fixture's `Verified` status routes the actual amendment through cycle 2 architect-mediated cycle (per Aaron's Step 1a routing 2026-05-08 + the just-banked Phase 2 Track-2 principle "Verified-fixture vs implementation drift routes to next phase's entry packet, not to silent SME edit"); see new I8 in §4 below. |
 
 If Step 1 pre-emptive review reveals genuine semantic divergence requiring corpus amendment of either at-risk canary's primary assertion, that surfaces as a Phase 3 entry-cycle micro-cycle for architect ratification BEFORE Step 2 reactivation runs. This is the Q-3-B-ratified pre-emptive-vs-reactive cycle pattern.
 
@@ -297,6 +297,14 @@ The architecturally-routable items the entry packet must ratify or document. Eac
 **Disposition: ⏭ Cycle 2 Pass 2b deliverable per Q-3-G ruling 2026-05-08.** SME drafts the fixture update (`expectedLossSignatureCount: 4` plus expanded `expectedLossSignatureLossTypes` array reflecting per-predicate emission); architect ratifies per the schema-evolution discipline (Verified-status fixtures get architect-mediated update cycles, not silent SME edits) — same shape as the Phase 1 Step 4 fixture amendment cycle. Pass 2b routes I7 in its own architect cycle. Demo Case C's honest-divergence callout references the Pass 2b reconciliation explicitly so the gap is auditable until Pass 2b lands.
 
 **Banking principle (now banked per architect Q-3-G ruling 2026-05-08, codified at this entry packet's §12):** *Verified-fixture vs implementation drift discovered at phase close routes to the next phase's entry packet, not to silent SME edit. The cycle-discipline preserves the Verified-status-as-architect-ratified guarantee.*
+
+### I8 — `parity_canary_visual_equivalence_trap` phase3Reactivation tier-split pre-amendment (NEW from Step 1a 2026-05-08)
+
+**Source:** Step 1a pre-emptive review per Q-3-B 2026-05-08 (see §3.6 outcomes table). The fixture's Tier 2 enhanced kind-swap discriminator (`∃y. hasChild(alice, y) ∧ ¬Person(y)?` under `closedPredicates`) falls outside v0.1 EvaluableQuery — `FOLExistential` + `FOLNegation` both throw `UnsupportedConstructError` per API §7.5. The fixture's own `divergenceTrigger` (lines 313-323) anticipates this exact case; pre-amendment is forward-track-clarification only (Tier 1 in v0.1 / Tier 2 deferred to v0.2), NOT primary-assertion-amendment.
+
+**Disposition: ⏭ Cycle 2 Pass 2b deliverable per Aaron Step 1a routing 2026-05-08.** SME path-fence-authors the `phase3Reactivation` field tier-split (`tier1_v01_in_scope`: Q_1 + Q_2 atomic queries against real `evaluate()` expected `'true'`/`'true'`; `tier2_v02_deferred`: original existential-conjunction-negation discriminator deferred to v0.2 with rationale per API §7.5); architect ratifies per the just-banked Track-2 principle (Verified-fixture amendment routes through architect-mediated cycle, not silent SME edit); Developer commits. Pass 2b routes I8 in its own architect cycle alongside I5 + I6 + I7.
+
+**Does NOT block Phase 3 Step 1b** (`evaluate()` skeleton code). The fixture's primary assertion (Tier 1) survives at Phase 3 fidelity; the Tier 2 amendment is forward-track-clarification documentation, parallel to code work.
 
 ---
 
