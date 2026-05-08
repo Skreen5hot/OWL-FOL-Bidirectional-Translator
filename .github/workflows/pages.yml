@@ -69,11 +69,15 @@ jobs:
           #   - p1_restrictions_object_value (Case A: class-expression consequent
           #     round-trip through Phase 2 projector)
           #   - p1_bfo_clif_classical (Case B: re-uses Phase 1 BFO fixture)
+          #   - strategy_routing_annotated (Case C: lossy round-trip via
+          #     Annotated Approximation strategy; added per Q-Frank-6 ruling
+          #     2026-05-07 — the load-bearing strategy demanded demo visibility)
           # Future phases extend this list as their demos ship.
           cp tests/corpus/p1_prov_domain_range.fixture.js \
              tests/corpus/canary_domain_range_existential.fixture.js \
              tests/corpus/p1_bfo_clif_classical.fixture.js \
              tests/corpus/p1_restrictions_object_value.fixture.js \
+             tests/corpus/strategy_routing_annotated.fixture.js \
              gh-pages-deploy/fixtures/
           # Vendored upstream canonical sources.
           # Phase 1 vendoring includes the W3C OWL CLIF axiomatization
