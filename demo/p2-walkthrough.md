@@ -213,11 +213,18 @@ If any panel shows "Loading fixture…" indefinitely, the GitHub Pages staging s
 
 ### 5.5 Loss Signature ledger
 
-**Screen:** C.4 results — two panels, one per Loss Signature.
+**Screen:** C.4 results — multiple panels, one per Loss Signature.
 
-> Two Loss Signatures emitted per the fixture's contract. Each carries a content-addressed `@id` (`ofbt:ls/<sha256-hex>` per ADR-011), a `lossType` field (`naf_residue` or `unknown_relation`), severity rank, the original FOL form, and machine-readable scope notes.
+> Four Loss Signatures emitted on this input. The projector emits **one `unknown_relation` LossSignature per unique uncatalogued predicate** (per-predicate, not per-axiom), so this two-axiom input produces:
+>
+> - 1 `naf_residue` (from the negation in axiom 1)
+> - 3 `unknown_relation` (one each for `Person`, `KnownProfession`, `unfamiliarBond`)
+>
+> Each carries a content-addressed `@id` (`ofbt:ls/<sha256-hex>` per ADR-011), a `lossType` field, severity rank, the original FOL form, and machine-readable scope notes.
 
-> The frozen `LOSS_SIGNATURE_SEVERITY_ORDER` exported from API §6.4.1 means consumers who request severity-ordered output get `naf_residue` (rank 2) before `unknown_relation` (rank 5). C.6 below verifies this ordering holds.
+> The frozen `LOSS_SIGNATURE_SEVERITY_ORDER` exported from API §6.4.1 means consumers who request severity-ordered output get all `naf_residue` (rank 2) entries before any `unknown_relation` (rank 5) entries. C.6 below verifies this rank-monotonic invariant holds in the emitted ledger.
+
+> **Honest note for stakeholders.** The fixture's structured `expectedLossSignatureCount` field claims `2`; the actual emission is `4`. The fixture's prose docstring more correctly says "at least 2." The implementation's per-unique-predicate semantics is correct; the fixture's structured field is stale. Reconciliation is forward-tracked to Phase 3 entry packet authoring per Q-Frank-6 ruling 2026-05-08 Track 2 — fixtures with `Verified` status get architect-mediated update cycles, not silent SME edits. Same class of fixture-vs-implementation gap as the `strategy_routing_no_match` Step 9.1 deferral.
 
 ### 5.6 Recovery Payload set
 
@@ -229,17 +236,19 @@ If any panel shows "Loading fixture…" indefinitely, the GitHub Pages staging s
 
 ### 5.7 Strategy attribution + severity-ordering contract verification
 
-**Screen:** C.6 results panel — four green check marks expected.
+**Screen:** C.6 results panel — four green check marks plus an honest-divergence callout.
 
-> Four assertions verify the projector behaved per contract:
+> Four assertions verify the projector behaved per the implementation's emission contract:
 >
-> 1. **Loss Signature count is 2** (one naf_residue + one unknown_relation per the fixture's `expectedLossSignatureCount`).
+> 1. **At least 2 Loss Signatures emitted** (fixture's prose contract; actual is 4 because the projector emits per unique uncatalogued predicate).
 > 2. **`naf_residue` lossType present** in the ledger.
 > 3. **`unknown_relation` lossType present** in the ledger.
-> 4. **Severity ordering preserved**: when sorted by `LOSS_SIGNATURE_SEVERITY_ORDER`, `naf_residue` (rank 2) precedes `unknown_relation` (rank 5).
+> 4. **Severity ordering preserved**: in the sorted ledger, all `naf_residue` (rank 2) entries precede all `unknown_relation` (rank 5) entries per `LOSS_SIGNATURE_SEVERITY_ORDER` — rank-monotonic invariant.
 > 5. **All `@id` fields match `ofbt:ls/<sha256-hex>`** per ADR-011.
 
-> If any of these fired red, that's a real regression — the demo would surface it visually and CI would catch the same regression on the same commit. Same discipline as Cases A and B.
+> A green-checkmark panel does NOT mean "matches the fixture's structured `expectedLossSignatureCount` field" — that field is stale. It means the implementation behaved correctly per its emission semantics and the fixture's prose contract. The honest-divergence callout below the assertions surfaces this gap explicitly. If any of these assertions fired red, that's a real regression — the demo surfaces it visually; CI catches it on the same commit. Same discipline as Cases A and B.
+
+> **Why we ship this divergence visibly instead of papering over it.** Per architect-banked principle "claims must match what the engineering establishes, no more" (Q-Frank-1 ruling 2026-05-07): the demo's job is to show what the implementation actually does, not to match a stale fixture field. The fixture-vs-implementation reconciliation is real follow-on work; it's not a problem the demo can or should hide. Track 2 of Q-Frank-6 ruling 2026-05-08 routes the fixture update to Phase 3 entry packet authoring (architect-mediated since the fixture is `Verified`).
 
 ### 5.8 Downstream consumer protocol
 
@@ -278,7 +287,7 @@ If any panel shows "Loading fixture…" indefinitely, the GitHub Pages staging s
 
 ## 7. Closing — 1 min
 
-> Three correctness arguments today. Internal canary on class expressions (Case A): right shape present, absence of known failure-mode patterns confirmed. External CLIF parity on the BFO Layer A subset (Case B): lifted FOL matches the W3C canonical axiomatization. Lossy round-trip via Annotated Approximation (Case C): two Loss Signatures emitted with the frozen severity ordering preserved, Recovery Payloads preserve the FOL state for downstream re-lifting. All green. **Structural** round-trip parity established for the v0.1 fixture corpus per spec §8.1 — content equivalence at the lifted-FOL level modulo Loss Signatures, with the load-bearing Annotated Approximation strategy now visible end-to-end. Stronger semantic senses (model-theoretic, axiomatic, entailment-preserving) are explicitly Phase 3+ scope; the Q-Frank-4 publication commitment means each Phase 2 stub-validated canary will be re-exercised against the real `evaluate()` and the per-canary outcome published.
+> Three correctness arguments today. Internal canary on class expressions (Case A): right shape present, absence of known failure-mode patterns confirmed. External CLIF parity on the BFO Layer A subset (Case B): lifted FOL matches the W3C canonical axiomatization. Lossy round-trip via Annotated Approximation (Case C): four Loss Signatures emitted (one naf_residue plus three unknown_relation per the projector's per-unique-predicate emission semantics) with the frozen severity ordering preserved as a rank-monotonic invariant; Recovery Payloads preserve the FOL state for downstream re-lifting. All structural assertions green. **Structural** round-trip parity established for the v0.1 fixture corpus per spec §8.1 — content equivalence at the lifted-FOL level modulo Loss Signatures, with the load-bearing Annotated Approximation strategy now visible end-to-end. Stronger semantic senses (model-theoretic, axiomatic, entailment-preserving) are explicitly Phase 3+ scope; the Q-Frank-4 publication commitment means each Phase 2 stub-validated canary will be re-exercised against the real `evaluate()` and the per-canary outcome published.
 
 > Phase 3 is next: validator and `evaluate()` give us answer-equivalence on top of shape-equivalence. After that, ARC content drives real inference against published ontologies.
 
@@ -344,7 +353,8 @@ A: The architect ratified at Q-Step6-1 (and reaffirmed at Q-Frank-3) that v0.1 P
 - **If a panel shows "Loading fixture…" indefinitely:** the deployed Pages staging step is missing the fixture. Switch to the local fallback (`npx serve gh-pages-deploy/`) and route a chore to extend `.github/workflows/pages.yml`.
 - **If A.6 (absence of known failure-mode patterns) fires red:** STOP. Do not paper over. CI would catch the same regression; the demo is honest about it. Acknowledge it, capture the commit hash, route to engineering as a real bug.
 - **If B.6 (Layer A parity) shows a `[VERIFY]` badge instead of `Verified`:** that means a SubClassOf row's `verificationStatus` was rolled back. Acknowledge it as in-progress SME work, point to `tests/corpus/p1_bfo_clif_classical.fixture.js` for current state.
-- **If C.4 emits zero or one Loss Signature instead of two:** STOP. The fixture's contract requires two; one trigger path was silently dropped. This is exactly the failure mode Frank's stakeholder critique flagged at §6 ("the projector emitting only ONE LossSignature when TWO are expected"). Same response as A.6: acknowledge, capture commit, route as a real bug.
+- **If C.4 emits zero or one Loss Signature:** STOP. The implementation should emit at least 2 (one naf_residue + at least one unknown_relation). One or zero indicates a trigger path was silently dropped — exactly the failure mode Frank's stakeholder critique flagged at §6. Same response as A.6: acknowledge, capture commit, route as a real bug.
+- **If C.4 emits a different count than 4 (e.g., 2 or 5):** the implementation may have changed since 2026-05-08 (this walkthrough was authored when the projector emitted 4 LS for this input — 1 naf_residue + 3 unknown_relation per unique uncatalogued predicate). Cross-check against `src/kernel/projector.ts emitUnknownRelationsIfApplicable`. If the projector's per-predicate semantics changed, update this walkthrough's §5.5 narration. The C.6 honest-divergence note already explains the per-predicate emission mechanism; a count change reflects either a fixture update or a projector emission-rule change.
 - **If C.6 (severity ordering) fires red:** the frozen `LOSS_SIGNATURE_SEVERITY_ORDER` contract was violated. This is an API §6.4.1 commitment; not a presentation issue. Same protocol.
 - **If the bundle import fails:** browser console will show the error. Common causes: (1) `dist/bundles/` not built locally — run `npm run build && node esbuild.config.js`; (2) Pages deploy mid-flight — wait, retry, or fall back to local.
 - **Don't read the script verbatim.** Use it as the spine; the on-screen prose carries the precise wording. Your job is to point and contextualize.
