@@ -967,9 +967,479 @@
       "expected_v0.2_elk_verdict": null,
       "phase3Reactivation": {
         "gatedOn": "phase-3-entry-packet-ratifies-no-strategy-applies-closure",
-        "expectedOutcome": "Architect ratifies one of two candidate closures: (a) throw-discipline per spec §6.1 literal framing — folToOwl throws documented diagnostic error; OR (b) always-emit-LossSignature per spec §0.1 framing — folToOwl returns empty ontology + non-empty newLossSignatures with synthetic-or-omitted relationIRI. Fixture's contract amends to match ratified closure at Phase 3 reactivation.",
-        "divergenceTrigger": "If Phase 3 implementation diverges from BOTH ratified closures (still silent-fallthrough with empty output AND no LossSignature), ESCALATE: spec §0.1 + §6.1 conformance gap not resolved. If Phase 3 implementation matches whichever closure architect ratified, NORMAL — fixture's contract amends to match."
+        "expectedOutcome": "Architect ratified Q-3-C 2026-05-08 — Option (a) Throw discipline. Phase 3 Step 8 ships NoStrategyAppliesError (13th typed error class in API §10) + no_strategy_applies (17th reason code per ADR-011 banked principle 2 + spec §11.2 minor-version-bump discipline). Phase 2's silent-fallthrough path amends to throw NoStrategyAppliesError. Fixture's contract at Phase 3 reactivation: folToOwl(fixture.input) throws NoStrategyAppliesError; expectedOutcomeOptionA becomes the live contract; expectedOutcomeOptionB documented as the rejected alternative for audit-trail completeness.",
+        "divergenceTrigger": "If Phase 3 Step 8 implementation does NOT throw NoStrategyAppliesError on this fixture's input, ESCALATE: Q-3-C ratified Option (a) Throw discipline is not honored. Phase 2 exit packet update per cycle-2 Pass 2b I6 records the closure reference."
       }
+    },
+    {
+      "fixtureId": "nc_self_complement",
+      "phase": 3,
+      "specSections": ["§8.5", "§8.5.1", "§8.5.2", "§8.5.4", "API §8.1", "API §8.1.1"],
+      "acceptanceCriteria": [
+        "Phase 3 entry packet §3.3 corpus-before-code (architect-ratified 2026-05-08 Q-3-E)",
+        "ROADMAP Phase 3 No-Collapse Adversarial Corpus",
+        "spec §8.5 No-Collapse Guarantee (Horn-checkable fragment)"
+      ],
+      "arcEntries": [],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "checkConsistency on the lifted FOL state returns consistent: false. Witness chain names ParadoxClass + the EquivalentClasses-with-ObjectComplementOf axiom. Decidable in Horn-checkable fragment per spec §8.5.1. unverifiedAxioms empty.",
+        "fixtureType": "consistency-check",
+        "expectedConsistencyResult": "false",
+        "canaryRole": "no-collapse-adversarial-horn-detectable-inconsistency"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "checkConsistency silently returning consistent: true on the canonical equivalent-to-complement contradiction. Failure modes: Skolem-witness assertion not introduced; EquivalentClasses unfolding incomplete; resolution depth bound terminates before contradiction reached.",
+      "expected_v0.1_verdict": {
+        "ringStatus": "ring3-passes-with-horn-inconsistency-detected",
+        "phaseAuthored": 3,
+        "phaseActivated": 3,
+        "expectedConsistencyResult": "false",
+        "expectedReason": "horn_inconsistency_proven",
+        "expectedUnverifiedAxiomsCount": 0,
+        "stepBinding": 6,
+        "activationTiming": "corpus-before-code"
+      },
+      "expected_v0.2_elk_verdict": null
+    },
+    {
+      "fixtureId": "nc_horn_incomplete_disjunctive",
+      "phase": 3,
+      "specSections": ["§8.5", "§8.5.1", "§8.5.2", "§8.5.5", "API §8.1", "API §8.1.1"],
+      "acceptanceCriteria": [
+        "Phase 3 entry packet §3.3 corpus-before-code (architect-ratified 2026-05-08 Q-3-E)",
+        "ROADMAP Phase 3 No-Collapse Adversarial Corpus",
+        "spec §8.5.1 Horn-checkable fragment (excludes arbitrary disjunctive class expressions)",
+        "Fandaws Consumer Requirement §7.1 (honest-admission discipline)"
+      ],
+      "arcEntries": [],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "checkConsistency returns consistent: 'undetermined' with reason: 'coherence_indeterminate'. unverifiedAxioms populated with the SubClassOf-with-ObjectUnionOf-consequent axiom + DisjointClasses(A, D) axiom. Classical FOL judges KB inconsistent; v0.1's Horn-only check correctly reports 'undetermined' rather than silently passing.",
+        "fixtureType": "consistency-check",
+        "expectedConsistencyResult": "undetermined",
+        "expectedReason": "coherence_indeterminate",
+        "canaryRole": "no-collapse-adversarial-non-horn-disjunctive-incompleteness"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "checkConsistency silently returning consistent: true when input requires disjunctive case-analysis the Horn fragment cannot perform. Discrimination: returning 'undetermined' with empty unverifiedAxioms also fails (violates spec §8.5.5).",
+      "expected_v0.1_verdict": {
+        "ringStatus": "ring3-passes-with-horn-incompleteness-surfaced",
+        "phaseAuthored": 3,
+        "phaseActivated": 3,
+        "expectedConsistencyResult": "undetermined",
+        "expectedReason": "coherence_indeterminate",
+        "expectedUnverifiedAxiomsMinCount": 2,
+        "stepBinding": 6,
+        "activationTiming": "corpus-before-code"
+      },
+      "expected_v0.2_elk_verdict": null
+    },
+    {
+      "fixtureId": "nc_horn_incomplete_existential",
+      "phase": 3,
+      "specSections": ["§8.5", "§8.5.1", "§8.5.5", "API §7.1", "API §8.1.1"],
+      "acceptanceCriteria": [
+        "Phase 3 entry packet §3.3 corpus-before-code (architect-ratified 2026-05-08 Q-3-E)",
+        "ROADMAP Phase 3 No-Collapse Adversarial Corpus",
+        "ROADMAP discrimination requirement: different reason+unverifiedAxioms than disjunctive sibling"
+      ],
+      "arcEntries": [],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "checkConsistency returns consistent: 'undetermined' with reason: 'coherence_indeterminate'. unverifiedAxioms contains the existential SubClassOf, universal SubClassOf, and ObjectComplementOf SubClassOf axioms — the three axioms whose interaction requires existential-witnessing the Horn fragment cannot perform. Discriminates from disjunctive sibling: NOT ObjectUnionOf shape.",
+        "fixtureType": "consistency-check",
+        "expectedConsistencyResult": "undetermined",
+        "expectedReason": "coherence_indeterminate",
+        "canaryRole": "no-collapse-adversarial-non-horn-existential-incompleteness"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "checkConsistency silently returning consistent: true when the input's inconsistency requires existential-witnessing. Plus: returning 'undetermined' with unverifiedAxioms only naming disjunctive shapes (failure to detect existential as Horn-escape).",
+      "expected_v0.1_verdict": {
+        "ringStatus": "ring3-passes-with-horn-incompleteness-surfaced-existential-flavor",
+        "phaseAuthored": 3,
+        "phaseActivated": 3,
+        "expectedConsistencyResult": "undetermined",
+        "expectedReason": "coherence_indeterminate",
+        "expectedUnverifiedAxiomsMinCount": 3,
+        "stepBinding": 6,
+        "activationTiming": "corpus-before-code"
+      },
+      "expected_v0.2_elk_verdict": null
+    },
+    {
+      "fixtureId": "nc_silent_pass_canary",
+      "phase": 3,
+      "specSections": ["§8.5", "§8.5.1", "§8.5.2", "§8.5.4", "§8.5.5", "API §8.1", "API §8.1.1"],
+      "acceptanceCriteria": [
+        "Phase 3 entry packet §3.3 corpus-before-code (architect-ratified 2026-05-08 Q-3-E)",
+        "ROADMAP Phase 3 No-Collapse Adversarial Corpus — silent-pass catchall canary"
+      ],
+      "arcEntries": [],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "checkConsistency MUST NOT return consistent: true. Acceptable verdicts: 'undetermined' with populated unverifiedAxioms OR consistent: false (only if tableau-extended implementation ships pre-Phase-3-exit). KB classically inconsistent through compounded non-Horn pathways: disjunctive partition + existential-witnessing + property-chain + inverse.",
+        "fixtureType": "consistency-check",
+        "expectedConsistencyResultMustNotBe": "true",
+        "expectedConsistencyResultAcceptable": ["undetermined", "false"],
+        "canaryRole": "no-collapse-adversarial-silent-pass-catchall"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "the canonical SILENT-PASS failure mode for No-Collapse Guarantee: checkConsistency returning consistent: true on a KB classically inconsistent through non-Horn machinery. Catchall regression-density check; does not assert specific verdict (false vs 'undetermined' both acceptable) but asserts consistent: true is wrong.",
+      "expected_v0.1_verdict": {
+        "ringStatus": "ring3-passes-with-silent-pass-catchall",
+        "phaseAuthored": 3,
+        "phaseActivated": 3,
+        "expectedConsistencyResultMustNotBe": "true",
+        "expectedConsistencyResultAcceptable": ["undetermined", "false"],
+        "stepBinding": 6,
+        "activationTiming": "corpus-before-code"
+      },
+      "expected_v0.2_elk_verdict": null
+    },
+    {
+      "fixtureId": "hypothetical_inconsistency",
+      "phase": 3,
+      "specSections": ["API §8.1", "API §8.1.2", "§8.5"],
+      "acceptanceCriteria": [
+        "Phase 3 entry packet §3.4 corpus-before-code (architect-ratified 2026-05-08 Q-3-E)",
+        "ROADMAP Phase 3 Hypothetical-Axiom Set",
+        "API §8.1.2 hypothetical-axiom case contract"
+      ],
+      "arcEntries": [],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "checkConsistency(session, axiomSet) returns consistent: false. Hypothetical DisjointClasses(Adult, Person) contradicts base Adult ⊑ Person + Adult(alice). Witnesses name the axiomSet axiom and the base axioms it contradicted. Subsequent checkConsistency(session) returns base-KB consistent: true (non-persistence guarantee).",
+        "fixtureType": "consistency-check-with-hypothetical-axiomset",
+        "expectedConsistencyResult": "false",
+        "canaryRole": "hypothetical-axiom-inconsistency-detection"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "checkConsistency failing to participate axiomSet (would return base-KB consistent: true ignoring hypothetical); persisting axiomSet (corrupts session); witnesses incomplete (failing to name the hypothetical's contribution).",
+      "expected_v0.1_verdict": {
+        "ringStatus": "ring3-passes-with-hypothetical-inconsistency-detected",
+        "phaseAuthored": 3,
+        "phaseActivated": 3,
+        "expectedConsistencyResult": "false",
+        "stepBinding": 7,
+        "activationTiming": "corpus-before-code"
+      },
+      "expected_v0.2_elk_verdict": null
+    },
+    {
+      "fixtureId": "hypothetical_horn_incompleteness",
+      "phase": 3,
+      "specSections": ["API §8.1.2", "API §8.1.1", "§8.5.1", "§8.5.5"],
+      "acceptanceCriteria": [
+        "Phase 3 entry packet §3.4 corpus-before-code (architect-ratified 2026-05-08 Q-3-E)",
+        "ROADMAP Phase 3 Hypothetical-Axiom Set",
+        "API §8.1.2 hypothetical-axiom case + Horn-incompleteness attribution"
+      ],
+      "arcEntries": [],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "checkConsistency(session, axiomSet) returns consistent: 'undetermined' with reason 'coherence_indeterminate'. unverifiedAxioms contains the hypothetical SubClassOf-with-ObjectUnionOf axiom only — base KB axioms NOT flagged (correct attribution to hypothetical extension).",
+        "fixtureType": "consistency-check-with-hypothetical-axiomset",
+        "expectedConsistencyResult": "undetermined",
+        "expectedReason": "coherence_indeterminate",
+        "canaryRole": "hypothetical-axiom-horn-incompleteness-attribution"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "checkConsistency mis-attributing Horn-incompleteness to base axioms; returning consistent: false on satisfiable KB; silently consistent: true ignoring the Horn-fragment escape.",
+      "expected_v0.1_verdict": {
+        "ringStatus": "ring3-passes-with-hypothetical-horn-incompleteness-attributed",
+        "phaseAuthored": 3,
+        "phaseActivated": 3,
+        "expectedConsistencyResult": "undetermined",
+        "expectedReason": "coherence_indeterminate",
+        "stepBinding": 7,
+        "activationTiming": "corpus-before-code"
+      },
+      "expected_v0.2_elk_verdict": null
+    },
+    {
+      "fixtureId": "hypothetical_clean",
+      "phase": 3,
+      "specSections": ["API §8.1.2", "§8.5.2"],
+      "acceptanceCriteria": [
+        "Phase 3 entry packet §3.4 corpus-before-code (architect-ratified 2026-05-08 Q-3-E)",
+        "ROADMAP Phase 3 Hypothetical-Axiom Set — positive control"
+      ],
+      "arcEntries": [],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "checkConsistency(session, axiomSet) returns consistent: true. Hypothetical ClassAssertion(Mother, alice) is consistent with base Person(alice) + Mother ⊑ Person. Horn-decidable; positive control for the test set.",
+        "fixtureType": "consistency-check-with-hypothetical-axiomset",
+        "expectedConsistencyResult": "true",
+        "canaryRole": "hypothetical-axiom-clean-extension-positive-control"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "checkConsistency over-pessimistically returning 'undetermined' on a clean Horn-decidable extension; incorrectly returning consistent: false; conflating new content with new uncertainty.",
+      "expected_v0.1_verdict": {
+        "ringStatus": "ring3-passes-with-hypothetical-clean-extension",
+        "phaseAuthored": 3,
+        "phaseActivated": 3,
+        "expectedConsistencyResult": "true",
+        "expectedUnverifiedAxiomsCount": 0,
+        "stepBinding": 7,
+        "activationTiming": "corpus-before-code"
+      },
+      "expected_v0.2_elk_verdict": null
+    },
+    {
+      "fixtureId": "hypothetical_non_persistence",
+      "phase": 3,
+      "specSections": ["API §8.1.2", "§9.4"],
+      "acceptanceCriteria": [
+        "Phase 3 entry packet §3.4 corpus-before-code (architect-ratified 2026-05-08 Q-3-E)",
+        "ROADMAP Phase 3 Hypothetical-Axiom Set — non-persistence verification",
+        "API §8.1.2 non-persistence guarantee"
+      ],
+      "arcEntries": [],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "Two-call protocol against same session. Call 1: checkConsistency(session, axiomSet) returns consistent: false. Call 2: checkConsistency(session) returns consistent: true (hypothetical did not persist; base-KB verdict). Discriminating assertion: Call 2's verdict must be base-KB.",
+        "fixtureType": "consistency-check-non-persistence-protocol",
+        "expectedSequence": "[false, true]",
+        "canaryRole": "hypothetical-axiom-non-persistence-guarantee-verification"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "non-persistence violation: hypothetical axiomSet persisting in session after checkConsistency(session, axiomSet). Failure modes: assertz without matching retract; derived facts not retracted; shared-reference mutation instead of copy-and-extend.",
+      "expected_v0.1_verdict": {
+        "ringStatus": "ring3-passes-with-non-persistence-verified",
+        "phaseAuthored": 3,
+        "phaseActivated": 3,
+        "expectedSequence": ["false", "true"],
+        "stepBinding": 7,
+        "activationTiming": "corpus-before-code"
+      },
+      "expected_v0.2_elk_verdict": null
+    },
+    {
+      "fixtureId": "cycle_equivalent_classes",
+      "phase": 3,
+      "specSections": ["spec §5.4", "ADR-011"],
+      "acceptanceCriteria": [
+        "Phase 3 entry packet §3.5 step-N-bind (architect-ratified 2026-05-08 Q-3-E)",
+        "spec §5.4 cycle detection + ADR-011 visited-ancestor list"
+      ],
+      "arcEntries": [],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "Stub for Step 5 authoring. Stub-level contract: query against EquivalentClasses cycle resolves without infinite loop; cycle_detected reason code emitted.",
+        "fixtureType": "consistency-check-cycle-detection",
+        "canaryRole": "cycle-detection-class-hierarchy-cycle",
+        "stubStatus": "step-5-authoring-pending"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "cycle detection failure: infinite loop; depth-bound termination misreported as closure_truncated; thrown when consumer config requested non-throwing.",
+      "expected_v0.1_verdict": {
+        "ringStatus": "ring3-stub-pending-step-5",
+        "phaseAuthored": 3,
+        "phaseActivated": 3,
+        "expectedReason": "cycle_detected",
+        "stepBinding": 5,
+        "activationTiming": "step-N-bind"
+      },
+      "expected_v0.2_elk_verdict": null
+    },
+    {
+      "fixtureId": "cycle_recursive_predicate",
+      "phase": 3,
+      "specSections": ["spec §5.4", "ADR-011"],
+      "acceptanceCriteria": [
+        "Phase 3 entry packet §3.5 step-N-bind (architect-ratified 2026-05-08 Q-3-E)",
+        "spec §5.4 cycle detection — recursive-predicate variant"
+      ],
+      "arcEntries": [],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "Stub for Step 5 authoring. Stub-level contract: query involving recursive predicate resolves without infinite loop; cycle_detected via visited-ancestor mechanism.",
+        "fixtureType": "evaluate-cycle-detection",
+        "canaryRole": "cycle-detection-recursive-predicate",
+        "stubStatus": "step-5-authoring-pending"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "cycle detection failure on recursive predicates: infinite loop in SLD resolution; depth-bound misreported as closure_truncated.",
+      "expected_v0.1_verdict": {
+        "ringStatus": "ring3-stub-pending-step-5",
+        "phaseAuthored": 3,
+        "phaseActivated": 3,
+        "expectedReason": "cycle_detected",
+        "stepBinding": 5,
+        "activationTiming": "step-N-bind"
+      },
+      "expected_v0.2_elk_verdict": null
+    },
+    {
+      "fixtureId": "cwa_closed_predicate",
+      "phase": 3,
+      "specSections": ["spec §6.3.2", "API §6.3"],
+      "acceptanceCriteria": [
+        "Phase 3 entry packet §3.5 step-N-bind (architect-ratified 2026-05-08 Q-3-E)",
+        "spec §6.3.2 per-predicate CWA + API §6.3 closedPredicates parameter"
+      ],
+      "arcEntries": [],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "Stub for Step 4 authoring. Stub-level contract: query Knows(alice, bob)? with closedPredicates: {Knows} produces 'false' (CWA-derived).",
+        "fixtureType": "evaluate-with-closedPredicates",
+        "canaryRole": "per-predicate-cwa-closed-discriminator",
+        "stubStatus": "step-4-authoring-pending"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "closedPredicates failure: parameter ignored; CWA applied globally; wrong reason code.",
+      "expected_v0.1_verdict": {
+        "ringStatus": "ring3-stub-pending-step-4",
+        "phaseAuthored": 3,
+        "phaseActivated": 3,
+        "expectedResult": "false",
+        "expectedReason": "closed_world_negation",
+        "stepBinding": 4,
+        "activationTiming": "step-N-bind"
+      },
+      "expected_v0.2_elk_verdict": null
+    },
+    {
+      "fixtureId": "cwa_open_predicate",
+      "phase": 3,
+      "specSections": ["spec §6.3", "spec §6.3.2", "API §6.3"],
+      "acceptanceCriteria": [
+        "Phase 3 entry packet §3.5 step-N-bind (architect-ratified 2026-05-08 Q-3-E)",
+        "spec §6.3 default OWA framing"
+      ],
+      "arcEntries": [],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "Stub for Step 4 authoring. Stub-level contract: query without closedPredicates produces 'undetermined' with naf_residue reason (default OWA per spec §6.3).",
+        "fixtureType": "evaluate-default-owa",
+        "canaryRole": "per-predicate-cwa-open-discriminator",
+        "stubStatus": "step-4-authoring-pending"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "OWA-default failure: CWA applied globally returning 'false' instead of 'undetermined'; wrong reason code (e.g., closure_truncated instead of naf_residue).",
+      "expected_v0.1_verdict": {
+        "ringStatus": "ring3-stub-pending-step-4",
+        "phaseAuthored": 3,
+        "phaseActivated": 3,
+        "expectedResult": "undetermined",
+        "expectedReason": "naf_residue",
+        "stepBinding": 4,
+        "activationTiming": "step-N-bind"
+      },
+      "expected_v0.2_elk_verdict": null
+    },
+    {
+      "fixtureId": "step_cap_per_query",
+      "phase": 3,
+      "specSections": ["API §7.2", "API §7.4"],
+      "acceptanceCriteria": [
+        "Phase 3 entry packet §3.5 step-N-bind (architect-ratified 2026-05-08 Q-3-E)",
+        "API §7.2 per-query 10K step cap"
+      ],
+      "arcEntries": [],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "Stub for Step 1 authoring. Stub-level contract: deeply-recursive query exhausts 10K default per-query cap; step_cap_exceeded reason code returned.",
+        "fixtureType": "evaluate-step-cap-exhausted",
+        "canaryRole": "step-cap-per-query-exhaustion",
+        "stubStatus": "step-1-authoring-pending"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "step cap failure: never terminates; wrong reason code; throw config inverted.",
+      "expected_v0.1_verdict": {
+        "ringStatus": "ring3-stub-pending-step-1",
+        "phaseAuthored": 3,
+        "phaseActivated": 3,
+        "expectedReason": "step_cap_exceeded",
+        "stepBinding": 1,
+        "activationTiming": "step-N-bind"
+      },
+      "expected_v0.2_elk_verdict": null
+    },
+    {
+      "fixtureId": "step_cap_aggregate",
+      "phase": 3,
+      "specSections": ["API §2.1", "API §7.4"],
+      "acceptanceCriteria": [
+        "Phase 3 entry packet §3.5 step-N-bind (architect-ratified 2026-05-08 Q-3-E)",
+        "API §2.1 session-aggregate cap + SessionStepCapExceededError"
+      ],
+      "arcEntries": [],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "Stub for Step 8 authoring. Stub-level contract: multi-query session cumulatively exhausts maxAggregateSteps; SessionStepCapExceededError thrown.",
+        "fixtureType": "evaluate-session-aggregate-cap",
+        "canaryRole": "session-step-cap-exhaustion",
+        "stubStatus": "step-8-authoring-pending"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "session-aggregate cap failure: never throws; throws on wrong query (cumulative miscalc); wrong error class.",
+      "expected_v0.1_verdict": {
+        "ringStatus": "ring3-stub-pending-step-8",
+        "phaseAuthored": 3,
+        "phaseActivated": 3,
+        "expectedThrows": "SessionStepCapExceededError",
+        "stepBinding": 8,
+        "activationTiming": "step-N-bind"
+      },
+      "expected_v0.2_elk_verdict": null
+    },
+    {
+      "fixtureId": "error_structural_annotation_mismatch",
+      "phase": 3,
+      "specSections": ["API §2.1.1", "spec §5.9"],
+      "acceptanceCriteria": [
+        "Phase 3 entry packet §3.5 step-N-bind (architect-ratified 2026-05-08 Q-3-E)",
+        "API §2.1.1 structural annotation declaration consistency"
+      ],
+      "arcEntries": [],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "Stub for Step 8 authoring. Stub-level contract: caller-declared annotation diverges from projection's recorded annotation; structural_annotation_mismatch thrown.",
+        "fixtureType": "session-error-surface",
+        "canaryRole": "structural-annotation-mismatch-detection",
+        "stubStatus": "step-8-authoring-pending"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "annotation-mismatch detection failure: silent acceptance; wrong error class.",
+      "expected_v0.1_verdict": {
+        "ringStatus": "ring3-stub-pending-step-8",
+        "phaseAuthored": 3,
+        "phaseActivated": 3,
+        "expectedThrows": "structural_annotation_mismatch",
+        "stepBinding": 8,
+        "activationTiming": "step-N-bind"
+      },
+      "expected_v0.2_elk_verdict": null
+    },
+    {
+      "fixtureId": "error_arc_manifest_version_mismatch",
+      "phase": 3,
+      "specSections": ["API §2.1.2"],
+      "acceptanceCriteria": [
+        "Phase 3 entry packet §3.5 step-N-bind (architect-ratified 2026-05-08 Q-3-E)",
+        "API §2.1.2 ARC manifest version mismatch detection"
+      ],
+      "arcEntries": [],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "Stub for Step 8 authoring. Stub-level contract: session ARC version diverges from conversion ARC version; arc_manifest_version_mismatch thrown.",
+        "fixtureType": "session-error-surface",
+        "canaryRole": "arc-manifest-version-mismatch-detection",
+        "stubStatus": "step-8-authoring-pending"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "version-mismatch detection failure: silent acceptance; wrong error class; missing version info in error.",
+      "expected_v0.1_verdict": {
+        "ringStatus": "ring3-stub-pending-step-8",
+        "phaseAuthored": 3,
+        "phaseActivated": 3,
+        "expectedThrows": "arc_manifest_version_mismatch",
+        "stepBinding": 8,
+        "activationTiming": "step-N-bind"
+      },
+      "expected_v0.2_elk_verdict": null
     }
   ]
 }
