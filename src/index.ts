@@ -27,3 +27,7 @@ export type {
   LifterConfiguration,
   SessionConfiguration,
 } from "./composition/session.js";
+
+// Phase 3 Step 1b: evaluate() composition-layer wrapper per API §7.1.
+// Kernel-pure types + validateEvaluableQuery re-export via the kernel barrel.
+export { evaluate } from "./composition/evaluate.js";

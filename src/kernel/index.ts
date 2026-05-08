@@ -38,6 +38,20 @@ export type { ParsePosition } from "./errors.js";
 export { REASON_CODES, REASON_CODES_LIST, isReasonCode } from "./reason-codes.js";
 export type { ReasonCode } from "./reason-codes.js";
 
+// --- Phase 3 Step 1b: evaluate() type surface + pure validation helper
+//     (API spec §7.1 + §7.5). Composition-layer evaluate(session, ...) lives
+//     in src/composition/evaluate.ts and re-exports through src/index.ts. ---
+export {
+  validateEvaluableQuery,
+  DEFAULT_PER_QUERY_STEP_CAP,
+} from "./evaluate-types.js";
+export type {
+  EvaluableQuery,
+  EvaluationResult,
+  Binding,
+  QueryParameters,
+} from "./evaluate-types.js";
+
 // --- Phase 0.4: version surfacing + Tau Prolog verification (API spec §9) ---
 export { getVersionInfo, verifyTauPrologVersion } from "./version.js";
 export type { VersionInfo, TauPrologVerification } from "./version.js";
