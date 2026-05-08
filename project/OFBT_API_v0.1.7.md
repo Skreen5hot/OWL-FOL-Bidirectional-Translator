@@ -705,7 +705,7 @@ This is non-negotiable for FOL output: round-trip determinism (§6.1) requires t
 - If the source used full URIs without prefixes, the projection emits full URIs.
 - The `OWLOntology.prefixes` field of the output reflects the prefix table used.
 
-This means a round-trip `folToOwl(owlToFol(input))` produces an `OWLOntology` whose surface IRI form matches the input's convention. Round-trip parity (§6.3) holds at the FOL level regardless; surface-form preservation is an additional ergonomic guarantee.
+This means a round-trip `folToOwl(owlToFol(input))` produces an `OWLOntology` whose surface IRI form matches the input's convention. Structural round-trip parity (§6.3) holds at the FOL level regardless; surface-form preservation is an additional ergonomic guarantee.
 
 For consumers calling `folToOwl` with FOL constructed by hand (no prior `owlToFol` call), the output uses full URI form unless the caller supplies a `prefixes` mapping in the optional configuration.
 
@@ -990,7 +990,7 @@ async function folToOwl(
 ): Promise<OWLConversionResult>;
 ```
 
-Converts FOL axioms back to OWL. The `recoveryPayloads` parameter is optional but recommended: it carries the FOL forms of reversible approximations needed for round-trip parity per behavioral specification §7.3.
+Converts FOL axioms back to OWL. The `recoveryPayloads` parameter is optional but recommended: it carries the FOL forms of reversible approximations needed for structural round-trip parity per behavioral specification §7.3.
 
 The `config.prefixes` field controls the surface form of IRIs in the output. When `folToOwl` is called as part of a round trip (after `owlToFol`), the original ontology's prefix table is the natural value for `prefixes`:
 
@@ -1026,11 +1026,13 @@ async function roundTripCheck(
 ): Promise<RoundTripResult>;
 ```
 
-Performs a complete round trip on an ontology and validates parity per behavioral specification §8. This is the canonical defense-in-depth call for consumers who need to verify their input round-trips cleanly.
+Performs a complete round trip on an ontology and validates **structural round-trip parity** per behavioral specification §8.1. This is the canonical defense-in-depth call for consumers who need to verify their input round-trips cleanly.
+
+The `equivalent: boolean` field reports structural round-trip parity per spec §8.1 — content equivalence at the lifted-FOL level modulo the Loss Signature ledger. It does **not** certify model-theoretic equivalence, axiomatic equivalence, or entailment-preservation in the general FOL sense; those stronger claims require Phase 3+ evaluator semantics (see spec §8.1's "What 'structural' means here" subsection for the precise distinction).
 
 ```typescript
 interface RoundTripResult {
-  equivalent: boolean;
+  equivalent: boolean;                  // structural round-trip parity per spec §8.1
   diff?: RoundTripDiff;                // populated when equivalent === false
   intermediateForm: FOLConversionResult;
   finalForm: OWLConversionResult;
@@ -2102,7 +2104,7 @@ v0.1.7 commits to the following coverage matrix. The library's CI runs each acce
 | Criterion | BFO 2020 core | PROV-O | CCO Geospatial | CCO Agent | constitution.ttl |
 |---|---|---|---|---|---|
 | **Behavioral spec §12** | | | | | |
-| 1. Round-trip parity | exercised | exercised | exercised | exercised | exercised |
+| 1. Structural round-trip parity | exercised | exercised | exercised | exercised | exercised |
 | 2. ARC coverage | exercised | partial | exercised | exercised | exercised |
 | 3. Identity rules | exercised | n/a | exercised | exercised | exercised |
 | 4. Datatype canonicalization | n/a | partial | exercised | exercised | partial |

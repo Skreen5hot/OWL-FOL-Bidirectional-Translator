@@ -8,7 +8,7 @@ Per-phase demos hosted on GitHub Pages. Each phase ships a focused, disposable d
 demo/
   index.html           Landing page — lists all phase demos.
   demo_p1.html         Phase 1 — lifter (PROV-O domain/range conditional translation).
-  demo_p2.html         Phase 2 — projector + round-trip parity. (Lands at Phase 2 exit.)
+  demo_p2.html         Phase 2 — projector + structural round-trip parity (spec §8.1). (Lands at Phase 2 exit.)
   ...
   demo.css             Shared stylesheet across all phase demos.
   README.md            This file.
@@ -67,7 +67,7 @@ Per-phase concrete shapes:
 | Phase | Case A (canary) | Case B (CLIF parity) |
 |---|---|---|
 | Phase 1 (shipped) | PROV-O domain/range conditional translation; the wrong existential-synthesis form's absence | BFO 2020 OWL subset → Layer A (W3C OWL CLIF axiomatization); cumulative parity flag |
-| Phase 2 | Round-trip parity canary (NAF residues against open predicates; lossy fixtures with documented Loss Signatures) | Layer A round-trip parity (lift → project → re-lift produces FOL semantically equivalent to the canonical CLIF, modulo OFBT's encoding choices) |
+| Phase 2 | Structural round-trip parity canary (NAF residues against open predicates; lossy fixtures with documented Loss Signatures) | Layer A structural round-trip parity (lift → project → re-lift produces FOL structurally equivalent to the canonical CLIF, modulo OFBT's encoding choices per spec §8.1 + ADR-007 §10) |
 | Phase 3 | No-Collapse Guarantee canary (deliberate-inconsistency fixtures fire `consistent: false`; deliberate-Horn-incompleteness fixtures fire `coherence_indeterminate` not silently `consistent: true`) | Layer A consistency-check parity (the validator's verdicts match what classical FOL semantics would conclude on the canonical CLIF axiomatization) |
 | Phase 4 | BFO Disjointness Map canary (Continuant ⊓ Occurrent fires `consistent: false` with witnesses) | Layer A + **Layer B introduction** — `bfo-2020.clif` vendored, BFO-specific content (ternary parthood, bridge axioms) parity-checked against it |
 | Phase 5 | IAO information-bridge canary | Layer B for IAO (`iao.clif` vendored if available; otherwise scope-document) |

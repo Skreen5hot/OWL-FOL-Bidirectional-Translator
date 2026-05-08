@@ -77,7 +77,7 @@ This document mixes three levels of certainty deliberately. Readers should disti
 
 **Implementation choices** are decisions that have been made for v0.1.x but are subject to revision once code lands and reveals practical constraints. These appear throughout the body of the spec. Examples: the resolution depth bound of 50 (§5.4), the specific Skolem hash length (§5.7), the visited-ancestor approach to cycle detection (§5.4, §10/ADR-011 with v0.2 upgrade noted).
 
-**Correctness aspirations** are statements of what "correct OFBT behavior" means. These define the validation contract. They are not claims that the implementation already achieves them — they are the bar the implementation must reach to be considered correct. Examples: round-trip parity (§8.1), the No-Collapse Guarantee (§8.5), determinism (§7.4).
+**Correctness aspirations** are statements of what "correct OFBT behavior" means. These define the validation contract. They are not claims that the implementation already achieves them — they are the bar the implementation must reach to be considered correct. Examples: structural round-trip parity (§8.1), the No-Collapse Guarantee (§8.5), determinism (§7.4).
 
 The v0.1.2 spec sometimes stated correctness aspirations in language that read as if they were architectural commitments — for instance, asserting bidirectional satisfiability preservation as a property of the system rather than a property the validator checks. This revision corrects that. Where a claim is aspirational, it is now labeled as such and accompanied by the validation mechanism that *checks* it (§8.5's Horn-resolution check, for example, is explicitly the validator for the No-Collapse Guarantee, and the guarantee itself is restricted to the fragment that validator can reach).
 
@@ -155,7 +155,7 @@ Earlier drafts of this work characterized the gap as "OWA vs CWA." That framing 
 
 - **ARC grounding.** Every relation handled by the translator must trace to a verified entry in the Axiomatic Relational Core (ARC). ARC is the source of truth.
 - **Three-strategy projection.** The projector must select between Direct Mapping, Property-Chain Realization, and Annotated Approximation per axiom, with the selection traceable.
-- **Round-trip parity.** A graph G lifted to FOL, processed, and projected back to OWL must re-lift to a logically equivalent FOL state, modulo the explicit Loss Signature residue.
+- **Structural round-trip parity.** A graph G lifted to FOL, processed, and projected back to OWL must re-lift to a structurally equivalent FOL state (same FOL facts modulo explicit Loss Signature residue). This is the content-equivalence criterion at the lifted-FOL level; stronger semantic senses (model-theoretic, axiomatic, entailment-preserving) are deferred to v0.2+ per §8.1.
 - **Edge-canonical execution.** No infrastructure dependencies; runs unmodified in browser or via `node index.js`; deterministic byte-stable output.
 - **No silent loss.** Every axiom that cannot be projected as Direct Mapping or Property-Chain Realization must emit a Loss Signature record with sufficient information to reconstruct the FOL form.
 
@@ -174,7 +174,7 @@ The following are explicitly out of scope for v0.1 and are deferred to later ver
 
 OFBT has two related but distinct natures, and this specification addresses both:
 
-**OFBT as specification.** A behavioral description of the bridge between OWL 2 DL and First-Order Logic, grounded in the ARC manifest of verified relations. The specification defines what "correct OFBT behavior" means: round-trip parity, the No-Collapse Guarantee, the three-strategy projection router, the audit-artifact taxonomy. This is the content of §1 through §10 and §15.
+**OFBT as specification.** A behavioral description of the bridge between OWL 2 DL and First-Order Logic, grounded in the ARC manifest of verified relations. The specification defines what "correct OFBT behavior" means: structural round-trip parity (§8.1), the No-Collapse Guarantee, the three-strategy projection router, the audit-artifact taxonomy. This is the content of §1 through §10 and §15.
 
 **OFBT as deliverable artifact.** A JavaScript library (`@ontology-of-freedom/ofbt` or successor name) that implements the specification and is consumed by Fandaws-Sentinel and other future consumers. The library satisfies a concrete API contract (function signatures, error classes, async semantics, configuration models) and ships with an independent test corpus, semver-versioned releases, and a compatibility shim for primary consumers. This is the content of §11 (technical stack), §12 (acceptance criteria), §16 (forward-referenced), and §17 (consumer alignment).
 
@@ -222,7 +222,7 @@ The four components:
 - **Lifter** — translates Oxigraph triples into Tau Prolog predicates and injects the corresponding ARC axioms.
 - **Projector** — translates Tau Prolog inference results back into Oxigraph triples, selecting per-axiom between the three projection strategies.
 
-The two stores (Oxigraph, Tau Prolog) hold the same content in different representations. They are kept synchronized by the lifter and projector. Neither is more authoritative than the other in steady state; the relationship is defined by the round-trip parity contract (§8).
+The two stores (Oxigraph, Tau Prolog) hold the same content in different representations. They are kept synchronized by the lifter and projector. Neither is more authoritative than the other in steady state; the relationship is defined by the structural round-trip parity contract (§8).
 
 ### 2.1 TBox and ABox content
 
@@ -514,7 +514,7 @@ The expanded form is used because it is the only form whose identity is independ
 
 **Output form.** The projector emits IRIs in the form that matches the dominant input convention of the source graph: if the source used CURIEs, the projection re-introduces matching prefixes and uses CURIEs; if the source used bracketed full URIs, the projection emits bracketed full URIs. The Projection Manifest records the prefix table used for the projection so consumers can reproduce the IRI normalization step.
 
-**Round-trip stability.** Because the internal canonical form is stable and the output form derives from the source's convention, round-trip parity (§8.1) is independent of the surface form chosen by the input. A graph using bracketed full URIs produces the same lifted FOL state as the same graph using CURIEs.
+**Round-trip stability.** Because the internal canonical form is stable and the output form derives from the source's convention, structural round-trip parity (§8.1) is independent of the surface form chosen by the input. A graph using bracketed full URIs produces the same lifted FOL state as the same graph using CURIEs.
 
 **Error surface.** IRIs that cannot be normalized — malformed URIs, unbound prefixes, mixed forms within a single triple — cause ingestion to fail with a typed error (forward-referenced to v0.1.5's API specification: `IRIFormatError`). The error carries the offending source IRI and the failure reason for diagnostic purposes.
 
@@ -528,7 +528,7 @@ BFO 2020 declares several relations as ternary in the formal CL specification bu
 
 3. **Skolemization fallback.** If neither (1) nor (2) is present, the lifter introduces a fresh Skolem constant `t_<hash>` for the temporal argument, where `<hash>` is a deterministic content hash of the triple. A Loss Signature record of type `temporal_skolemization` is emitted, allowing the projector to either drop the index (returning to binary form, with annotation) or preserve it (in n-ary reified form) on the way back out.
 
-The Skolemization is deterministic (same triple content → same Skolem constant) so that round-trip parity holds across runs. ADR-005 records this policy.
+The Skolemization is deterministic (same triple content → same Skolem constant) so that structural round-trip parity holds across runs. ADR-005 records this policy.
 
 ### 4.4 ARC manifest coverage check
 
@@ -537,7 +537,7 @@ On ingestion, OFBT scans every property IRI used in the input graph. Behavior de
 - **Strict mode.** Any IRI not present as a Verified ARC entry causes ingestion to fail with a clear diagnostic. This is the validation-pipeline mode.
 - **Permissive mode** (default). Unknown properties are treated by §6.4's fallback path. [VERIFY] entries are usable. Draft entries are usable with annotation. Unknown-property occurrences emit `unknown_relation` Loss Signature records but do not block ingestion.
 
-The two modes use the same lifter and projector engines; only the coverage-check stringency differs. Round-trip parity (§8) is checked in both modes; the No-Collapse Guarantee (§8.5) applies at full strength only in strict mode (in permissive mode, fallback-path axioms cannot be coherence-checked because their semantics are not fully specified in ARC).
+The two modes use the same lifter and projector engines; only the coverage-check stringency differs. Structural round-trip parity (§8) is checked in both modes; the No-Collapse Guarantee (§8.5) applies at full strength only in strict mode (in permissive mode, fallback-path axioms cannot be coherence-checked because their semantics are not fully specified in ARC).
 
 ---
 
@@ -613,7 +613,7 @@ p(X, Y) :- same_as(X, X1), p_orig(X1, Y).
 p(X, Y) :- p_orig(X, Y1), same_as(Y1, Y).
 ```
 
-where `p_orig` is the directly-asserted form. In practice the lifter rewrites the original `p(a, b)` facts as `p_orig(a, b)` and uses the two rules above to define `p`. This preserves source identifiers (no rewriting of the graph), making round-trip parity straightforward, at the cost of additional resolution steps per query.
+where `p_orig` is the directly-asserted form. In practice the lifter rewrites the original `p(a, b)` facts as `p_orig(a, b)` and uses the two rules above to define `p`. This preserves source identifiers (no rewriting of the graph), making structural round-trip parity straightforward, at the cost of additional resolution steps per query.
 
 An alternative implementation — pre-computing equivalence classes and rewriting all identifiers to canonical class representatives — is faster but loses traceability to the original `owl:sameAs` triples and complicates projection. ADR-010 records the choice of the rule-based approach for v0.1.
 
@@ -709,7 +709,7 @@ Language tags are normalized to lowercase per BCP 47 / RFC 5646. Two literals wi
 
 OWL ontologies use blank nodes (b-nodes) pervasively for anonymous instances and complex class expressions: every `owl:Restriction`, `owl:intersectionOf` list, `owl:unionOf` list, axiom annotation, and `owl:Class` defined by extension introduces b-nodes. RDF treats b-nodes as locally-scoped existential variables — their identity is meaningful only within the graph that introduces them, and any serialization round trip is permitted to mint new b-node identifiers.
 
-This is incompatible with OFBT's round-trip parity contract (§8). Tau Prolog has no native b-node concept, and Oxigraph may legitimately re-mint b-node IDs on serialization. Without deterministic handling, a graph with b-nodes cannot satisfy round-trip parity even if every other aspect of the lift and project is correct.
+This is incompatible with OFBT's structural round-trip parity contract (§8). Tau Prolog has no native b-node concept, and Oxigraph may legitimately re-mint b-node IDs on serialization. Without deterministic handling, a graph with b-nodes cannot satisfy structural round-trip parity even if every other aspect of the lift and project is correct.
 
 #### 5.7.1 Canonicalization via RDFC-1.0
 
@@ -835,7 +835,7 @@ Under the wrong translation, asserting any new `prov_entity(X)` would synthesize
 
 The wrong translation passes most casual tests:
 
-- Round-trip parity may pass because the wrong axioms are also stable under round-trip
+- Structural round-trip parity may pass because the wrong axioms are also stable under round-trip
 - Direct queries on the source's actual assertions may return correct results
 - The wrong axioms become visible only when the user asserts a *new* class membership and the system synthesizes successors that the user did not authorize
 
@@ -887,7 +887,7 @@ On projection, the projector reads the Recovery Payload entries and restores ann
 - The original literal form (lexical and datatype, post-canonicalization per §5.6.5)
 - Co-occurring annotations on the same subject
 
-Round-trip parity holds because the structural-annotation declaration is itself part of the projection metadata: on re-lift, the same declaration recreates the lifted predicates.
+Structural round-trip parity holds because the structural-annotation declaration is itself part of the projection metadata: on re-lift, the same declaration recreates the lifted predicates.
 
 #### 5.9.4 Interaction with closure scope
 
@@ -905,7 +905,7 @@ Before specifying the three projection strategies, this section establishes the 
 
 **Equivalent encoding.** The OWL form is *logically equivalent* to the FOL form. No semantic content is added or removed; the encoding is just different. Examples: an OWL `TransitiveObjectProperty` declaration is logically equivalent to its Prolog rule form `p(X,Z) :- p(X,Y), p(Y,Z)`. A `SubClassOf` declaration is equivalent to a Horn implication. Equivalent encodings need no recovery metadata; they are perfectly bidirectional.
 
-**Reversible approximation.** The OWL form is *weaker* than the FOL form (it doesn't entail everything the FOL form does), but the FOL form is *fully recoverable* from accompanying metadata. The annotation carries the original FOL axiom; the lifter, on reading the annotation, restores the FOL form exactly. Examples: a property chain that captures part but not all of an FOL implication, with the FOL form preserved in `ofbt:originalFOL`. An axiom that exceeds OWL 2 DL but is preserved as an annotation. Reversible approximations need a Recovery Payload (§7.3) to make round-trip parity work.
+**Reversible approximation.** The OWL form is *weaker* than the FOL form (it doesn't entail everything the FOL form does), but the FOL form is *fully recoverable* from accompanying metadata. The annotation carries the original FOL axiom; the lifter, on reading the annotation, restores the FOL form exactly. Examples: a property chain that captures part but not all of an FOL implication, with the FOL form preserved in `ofbt:originalFOL`. An axiom that exceeds OWL 2 DL but is preserved as an annotation. Reversible approximations need a Recovery Payload (§7.3) to make structural round-trip parity work.
 
 **True loss.** Information is genuinely lost — not recoverable from the projected output, even with the metadata. Examples: closure truncation (a fact that would have been derived if depth bound permitted, but wasn't); NAF residue (a complex refutation that cannot be projected and isn't preserved). True losses need a Loss Signature (§7.2) so the validator and human reviewers can see what was given up.
 
@@ -969,7 +969,7 @@ The provenance metadata makes both consumer interpretations possible. Consumers 
 
 The spec does not pick one of these as "the right way" — both are legitimate, and the metadata supports both. ADR-013 records this dual-consumer commitment.
 
-**Annotation-only mode.** If a user wants OFBT to *check* round-trip parity without producing a fresh graph (e.g., for CI validation), the `--no-output` flag suppresses graph emission entirely. Provenance applies only to emitted graphs.
+**Annotation-only mode.** If a user wants OFBT to *check* structural round-trip parity without producing a fresh graph (e.g., for CI validation), the `--no-output` flag suppresses graph emission entirely. Provenance applies only to emitted graphs.
 
 The projector applies one of three strategies per axiom or inferred fact:
 
@@ -1009,7 +1009,7 @@ ofi:realizesDirective owl:propertyChainAxiom (
 ) .
 ```
 
-A Loss Signature record of type `property_chain_realization` is emitted, recording the original FOL form and the chain used. The Loss Signature is informational, not a defect — round-trip parity holds because the lifter, on reading the chain, regenerates the original implication.
+A Loss Signature record of type `property_chain_realization` is emitted, recording the original FOL form and the chain used. The Loss Signature is informational, not a defect — structural round-trip parity holds because the lifter, on reading the chain, regenerates the original implication.
 
 #### 6.1.3 Annotated Approximation
 
@@ -1031,7 +1031,7 @@ ofbt:annotatedAxiom [
 ] .
 ```
 
-The lifter, on reading an annotated approximation, restores the original FOL axiom from the `ofbt:originalFOL` payload. This is the mechanism that makes round-trip parity possible across the expressivity gap.
+The lifter, on reading an annotated approximation, restores the original FOL axiom from the `ofbt:originalFOL` payload. This is the mechanism that makes structural round-trip parity possible across the expressivity gap.
 
 ### 6.2 Strategy selection algorithm
 
@@ -1213,7 +1213,7 @@ Note the absence of `ofbt:originalFOL` here — true loss means the FOL is not p
 }
 ```
 
-The lifter MUST be able to reconstruct the FOL state from the projected OWL plus the Recovery Payloads. Round-trip parity (§8) depends on this.
+The lifter MUST be able to reconstruct the FOL state from the projected OWL plus the Recovery Payloads. Structural round-trip parity (§8) depends on this.
 
 **A Recovery Payload may co-exist with a Loss Signature.** The `coherence_violation` case from §6.2.1 is the canonical example: the OWL output is weaker (Loss Signature) but the FOL is preserved in annotation (Recovery Payload). The two artifacts together describe the full transformation.
 
@@ -1231,11 +1231,11 @@ Loss Signature IDs and Recovery Payload IDs are content-addressed (hash of the r
 
 ---
 
-## 8. Round-Trip Parity Validation
+## 8. Structural Round-Trip Parity Validation
 
-### 8.1 The parity criterion
+### 8.1 The structural parity criterion
 
-OFBT v0.1 defines correctness as round-trip parity:
+OFBT v0.1 defines correctness as **structural round-trip parity**:
 
 > For an input graph G₁ in the v0.1 supported formats, let:
 > - F₁ = lift(G₁)
@@ -1243,9 +1243,21 @@ OFBT v0.1 defines correctness as round-trip parity:
 > - G₂ = project(F₂)
 > - F₃ = lift(G₂)
 >
-> Round-trip parity holds iff F₃ ≡ F₂ modulo the Loss Signature ledger L.
+> Structural round-trip parity holds iff F₃ ≡ F₂ modulo the Loss Signature ledger L.
 
 The "modulo L" qualifier means: facts in F₂ but not F₃ must be reconstructible from L by the lifter, and facts in F₃ but not F₂ must be derivable by the closure step from F₃ ∪ ARC_axioms.
+
+#### What "structural" means here, and what it does not claim
+
+The v0.1 contract is **structural** in the FOL-state-content-equivalence sense: F₃ and F₂ contain the same FOL facts modulo the recorded Loss Signature ledger. This is a content-equivalence criterion at the lifted-FOL level — it tests that lift+project+re-lift reaches a state with the same axiom content (modulo recorded losses), not stronger semantic notions.
+
+Specifically, structural round-trip parity is **necessary but not sufficient** for the following stronger senses:
+
+- **Model-theoretic equivalence** — every model of the input graph is a model of the round-tripped graph and vice versa. v0.1 does not certify this; certifying it requires evaluator semantics that ship in Phase 3 (`evaluate()` per API §7.1) and a model-theoretic check beyond v0.1's scope.
+- **Axiomatic equivalence** — `input ⊢ round-tripped` and `round-tripped ⊢ input` under classical FOL deduction. v0.1 does not certify this; the lifted FOL state's equivalence under structural parity is a content-content match modulo Loss Signatures, not a deductive bidirectional entailment proof.
+- **Entailment-preserving** — every entailment of the input is an entailment of the round-tripped graph. v0.1's `evaluate()`-equivalent surface (the Phase 2 stub-evaluator harness) provides bounded-Horn-resolution checks against curated query fixtures; it is not a general entailment-preservation certificate. Phase 3's real `evaluate()` plus the per-canary reactivation discipline (Q-Frank-4 ruling 2026-05-07) is the v0.2 path to a stronger claim.
+
+Stakeholder communications, demo materials, and downstream tooling MUST use the qualified term "structural round-trip parity" when referring to the v0.1 contract. Reserve unqualified "round-trip parity" or stronger phrases ("semantic round-trip parity", "entailment-preserving round-trip") for v0.2+ claims that ship the corresponding evaluator-witnessed certificates. This distinction is load-bearing for logic-stakeholder credibility per the banked principle "claims must match what the engineering establishes, no more."
 
 ### 8.2 Bidirectional check
 
@@ -1262,7 +1274,7 @@ The earlier draft proposed HermiT as a "Gold Standard" oracle for validation. v0
 
 1. **Edge-canonical violation.** HermiT requires Java; OFBT requires browser/Node-only.
 2. **Authority misplacement.** If OFBT is the bridge, OFBT is the source of truth for what the bridged graph entails. Validating against a third-party reasoner subordinates OFBT's authority to that reasoner.
-3. **Round-trip parity is the right test.** What we care about is that OFBT preserves content across the expressivity gap. That's a property of OFBT's lifter and projector, testable internally without an oracle.
+3. **Structural round-trip parity is the right test.** What we care about is that OFBT preserves content across the expressivity gap. That's a property of OFBT's lifter and projector, testable internally without an oracle.
 
 Users who want an external sanity check can run any OWL reasoner against the projected output independently. v0.1 does not require, depend on, or integrate with any. ADR-002 records this decision.
 
@@ -1278,7 +1290,7 @@ The first axiom/strategy/property whose toggling restores parity is reported as 
 
 ### 8.5 TBox coherence and satisfiability
 
-Round-trip parity (§8.1) is necessary but not sufficient. It catches *entailment* loss but is silent on *satisfiability collapse* — the failure mode in which a class satisfiable in the source becomes unsatisfiable in the projection (or vice versa).
+Structural round-trip parity (§8.1) is necessary but not sufficient. It catches *entailment* loss but is silent on *satisfiability collapse* — the failure mode in which a class satisfiable in the source becomes unsatisfiable in the projection (or vice versa).
 
 #### 8.5.1 The No-Collapse Guarantee (scoped)
 
@@ -1359,7 +1371,7 @@ The v0.1.2 spec said "neither is authoritative" — this was operationally impre
 
 **For FOL queries**: Tau Prolog wins. A query asking "what does the FOL state entail?" is answered from Tau Prolog's closure, including derivations that have no OWL representation. The OWL output is an approximation of the FOL state; the FOL state is the full reasoning content.
 
-**For round-trip parity** (§8): The check is `lift(G_OWL) ≡ F_FOL modulo Recovery Payloads + Loss Signatures`. Both stores participate. Disagreement is fault, not policy — the lifter and projector are responsible for keeping the stores synchronized through the audit artifacts.
+**For structural round-trip parity** (§8): The check is `lift(G_OWL) ≡ F_FOL modulo Recovery Payloads + Loss Signatures`. Both stores participate. Disagreement is fault, not policy — the lifter and projector are responsible for keeping the stores synchronized through the audit artifacts.
 
 **For consumer-facing claims**: Whatever is written in Oxigraph and emitted as OWL is what OFBT *asserts*. Whatever is in Tau Prolog beyond that is what OFBT *knows* but does not assert. This distinction matters for downstream consumers: a consumer running an OWL reasoner against the projection will see only what Oxigraph emitted; a consumer using OFBT's API to query the inference state will see the Tau Prolog closure.
 
@@ -1383,7 +1395,7 @@ ADRs recorded in this specification:
 |---|---|---|
 | ADR-001 | Tau Prolog as the FOL engine (over server-side alternatives) | Accepted |
 | ADR-002 | No external OWL reasoner dependency for v0.1 validation | Accepted |
-| ADR-003 | Round-trip parity as the primary correctness criterion | Accepted |
+| ADR-003 | Structural round-trip parity as the primary correctness criterion | Accepted |
 | ADR-004 | Connected With as primitive with bridge axioms | Accepted |
 | ADR-005 | Deterministic Skolemization for missing temporal indices | Accepted |
 | ADR-006 | Oxigraph and Tau Prolog as separated, coupled stores | Accepted |
@@ -1449,7 +1461,7 @@ A v0.1 release is acceptable when all of the following hold:
 11. **No-Collapse Guarantee (§8.5).** For a test corpus including BFO 2020 core, no named class satisfiable in the source becomes unsatisfiable in the projection, and no class unsatisfiable in the source becomes satisfiable in the projection. Coherence violations detected during projection are correctly diverted to Annotated Approximation with `coherence_violation` Loss Signature records.
 12. **Blank node round-trip (§5.7).** For input graphs containing blank nodes (verified against real BFO/CCO releases, both of which use b-nodes for class expressions), every source b-node has a stable Skolem constant across runs (RDFC-1.0 canonical labeling), and the projected graph either preserves the source b-node identifier (where present in the registry) or marks the b-node as `_:ofbt_*` with a `bnode_introduced` Loss Signature record.
 13. **Domain/range correctness (§5.8).** Test fixtures verify the conditional translation explicitly: `rdfs:domain(P, X)` lifts to `x(S) :- p(S, _).` and not to an existential restriction. The wrong existential translation must not be emitted by the lifter under any input. Three named fixtures are required (per §5.8.5): asserted property + domain, asserted property + range, and domain alone with no property assertions.
-14. **Structural annotation round-trip (§5.9).** A graph with caller-declared structural annotations round-trips through the lifter and projector with the annotations preserved. Querying the lifted predicates returns the annotation values; round-trip parity holds modulo the structural annotation declaration in the Projection Manifest.
+14. **Structural annotation round-trip (§5.9).** A graph with caller-declared structural annotations round-trips through the lifter and projector with the annotations preserved. Querying the lifted predicates returns the annotation values; structural round-trip parity holds modulo the structural annotation declaration in the Projection Manifest.
 15. **Per-predicate CWA (§3.5.2, §6.3).** A query with `closedPredicates: {p}` produces `NegativeObjectPropertyAssertion` projections for failing `\+ p(x, y)` goals on named individuals; the same query without `closedPredicates` produces `naf_residue` Loss Signature records instead. Open predicates outside the closed set produce `naf_residue` records regardless of closure scope on other predicates.
 
 ---
@@ -1460,7 +1472,7 @@ Documented for completeness; deferred to later versions:
 
 - Natural-language ingestion (TagTeam.js bridge) — v0.3+
 - Fandaws integration as orchestration layer — v0.4+
-- **External OWL reasoner integration as optional sanity check** — v0.2 candidate. The realistic target is ELK (Kazakov, Krötzsch, Simančík), which handles the EL profile, is JS-portable (elk.js exists), and covers the bulk of BFO/CCO content. Integration would be optional and additive: a `--validate-with-elk` flag that runs ELK against the projected output and compares its inference closure to OFBT's own. ELK does not subsume OFBT's authority — round-trip parity (§8) remains the primary correctness criterion. HermiT, Pellet, FaCT++, and RACER are permanently excluded as direct dependencies because they require Java or other infrastructure incompatible with edge-canonical execution; users may run them independently against OFBT's projected output, but OFBT will not call them.
+- **External OWL reasoner integration as optional sanity check** — v0.2 candidate. The realistic target is ELK (Kazakov, Krötzsch, Simančík), which handles the EL profile, is JS-portable (elk.js exists), and covers the bulk of BFO/CCO content. Integration would be optional and additive: a `--validate-with-elk` flag that runs ELK against the projected output and compares its inference closure to OFBT's own. ELK does not subsume OFBT's authority — structural round-trip parity (§8) remains the primary correctness criterion. HermiT, Pellet, FaCT++, and RACER are permanently excluded as direct dependencies because they require Java or other infrastructure incompatible with edge-canonical execution; users may run them independently against OFBT's projected output, but OFBT will not call them.
 - SHACL validation — separate spec
 - SPARQL endpoint — v0.2 candidate
 - Multi-graph reasoning across imports — v0.3+
@@ -1504,7 +1516,7 @@ v0.1.2 listed five open questions. v0.1.3 resolves four:
 
 The federal CMS/DHS Data Exchange MOA from TagTeam ISA testing is deferred to v0.2 as it depends on TagTeam.js bridge integration (out of scope for v0.1).
 
-**Acceptance harness commitment.** v0.1.4 acceptance requires *all five* in-scope corpora to pass the round-trip parity check, the No-Collapse Guarantee check (in strict mode), and the new §12 criteria 13-15 (domain/range correctness, structural annotation round-trip, per-predicate CWA correctness). Failure of any single corpus on any single criterion blocks the v0.1 release.
+**Acceptance harness commitment.** v0.1.4 acceptance requires *all five* in-scope corpora to pass the structural round-trip parity check (§8.1), the No-Collapse Guarantee check (in strict mode), and the new §12 criteria 13-15 (domain/range correctness, structural annotation round-trip, per-predicate CWA correctness). Failure of any single corpus on any single criterion blocks the v0.1 release.
 
 ---
 
@@ -1553,7 +1565,7 @@ The split into two documents reflects different reading audiences: this specific
 The API specification is bound to this specification by:
 
 - **Architectural decisions** — every ADR in §10 that affects API shape (ADRs 017, 018, 019, 020 in particular) is honored by the API specification. The API specification cannot relax or contradict ADRs.
-- **Behavioral commitments** — every behavioral commitment in §1–§9 (round-trip parity, No-Collapse Guarantee, three-strategy projection router, audit artifact taxonomy, configuration model) is exposed through the API specification as concrete function signatures and parameter shapes.
+- **Behavioral commitments** — every behavioral commitment in §1–§9 (structural round-trip parity, No-Collapse Guarantee, three-strategy projection router, audit artifact taxonomy, configuration model) is exposed through the API specification as concrete function signatures and parameter shapes.
 - **Acceptance criteria** — §12's behavioral acceptance criteria carry through to the API specification, supplemented by API-specific criteria (compatibility shim parallel-run, bundle budget, ES Module compatibility, etc.).
 
 Changes to the API specification require corresponding spec revisions when the change reflects a behavioral shift; purely API-shape changes (e.g., refactoring a parameter object) are recorded only in the API specification's revision history and require minor version bump per §6.1.1.

@@ -112,11 +112,11 @@
 
     <section class="section">
       <h2>What Phase 1 does NOT yet do</h2>
-      <p class="lead">Phase 1 ships only the lifter. The Phase 1 demo verifies <em>structural</em> correctness; entailment, round-trip parity, and consistency checking land in later phases.</p>
+      <p class="lead">Phase 1 ships only the lifter. The Phase 1 demo verifies <em>structural</em> correctness; entailment, structural round-trip parity (Phase 2), and consistency checking (Phase 3) land in later phases.</p>
       <ul>
         <li><strong>Case A entailment-query verification</strong> &mdash; "does <code>prov:Entity(project_alpha)</code> evaluate to <code>true</code>?" requires the validator (Phase 3) plus PROV-O ARC content (Phase 4). The same fixture re-activates with entailment expectations at Phase 4 via the documented cross-phase activation pattern.</li>
         <li><strong>Case B Layer B citations</strong> against <code>bfo-2020.clif</code> (BFO's specific class-hierarchy and disjointness CLIF declarations) require Phase 4 ARC content + Layer B vendoring. The Phase 4 demo extends the parity panel with Layer B rows.</li>
-        <li><strong>Round-trip parity</strong> (lift &rarr; project &rarr; re-lift &rarr; compare) requires the projector (Phase 2). That demo lands at Phase 2 exit.</li>
+        <li><strong>Structural round-trip parity</strong> (lift &rarr; project &rarr; re-lift &rarr; compare) requires the projector (Phase 2). That demo lands at Phase 2 exit.</li>
         <li><strong>Consistency check</strong> (No-Collapse Guarantee per spec §8.5) requires the validator (Phase 3). That demo lands at Phase 3 exit.</li>
       </ul>
     </section>
