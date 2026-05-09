@@ -113,5 +113,55 @@ check("verifyTauPrologVersion swallows probe exceptions and returns found=null",
   registerTauPrologProbe(null);
 });
 
+// --- pl.version object-shape fallback (9.4-amendment-3, 2026-05-09) ---
+// Tau Prolog 0.3.x exposes pl.version as { major, minor, patch, status }
+// (see node_modules/tau-prolog/modules/core.js ~line 4); the probe must
+// normalize that object to the pinned "M.m.p" string. Browser deploy
+// regression: previously the typeof === "string" guard rejected the
+// object form and reported "(not loaded)" even when pl was loaded.
+
+check("readTauPrologVersion reads object-shape globalThis.pl.version (Tau Prolog 0.3.x browser-load shape)", () => {
+  registerTauPrologProbe(null);
+  const g = globalThis as { pl?: unknown };
+  const saved = g.pl;
+  g.pl = { version: { major: 0, minor: 3, patch: 4, status: "beta" } };
+  try {
+    const r = verifyTauPrologVersion();
+    strictEqual(r.match, true);
+    strictEqual(r.expected, "0.3.4");
+    strictEqual(r.found, "0.3.4");
+  } finally {
+    if (saved === undefined) delete g.pl; else g.pl = saved;
+  }
+});
+
+check("readTauPrologVersion still reads string-shape globalThis.pl.version (back-compat with older builds)", () => {
+  registerTauPrologProbe(null);
+  const g = globalThis as { pl?: unknown };
+  const saved = g.pl;
+  g.pl = { version: "0.3.4" };
+  try {
+    const r = verifyTauPrologVersion();
+    strictEqual(r.match, true);
+    strictEqual(r.found, "0.3.4");
+  } finally {
+    if (saved === undefined) delete g.pl; else g.pl = saved;
+  }
+});
+
+check("readTauPrologVersion returns null when pl.version is malformed (missing patch)", () => {
+  registerTauPrologProbe(null);
+  const g = globalThis as { pl?: unknown };
+  const saved = g.pl;
+  g.pl = { version: { major: 0, minor: 3 } };
+  try {
+    const r = verifyTauPrologVersion();
+    strictEqual(r.match, false);
+    strictEqual(r.found, null);
+  } finally {
+    if (saved === undefined) delete g.pl; else g.pl = saved;
+  }
+});
+
 console.log(`\n  ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
