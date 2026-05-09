@@ -16,6 +16,14 @@
  * concern (kernel is pure; no Tau Prolog dependency).
  */
 
+declare module "tau-prolog/modules/lists.js" {
+  // The lists module is a function that registers list predicates
+  // (member/2, append/3, length/2, etc.) on the passed pl object.
+  // Returns void; mutation of the pl object is the side effect.
+  const listsModule: (pl: unknown) => void;
+  export default listsModule;
+}
+
 declare module "tau-prolog" {
   export interface TauPrologConsultOptions {
     /** Treat program string as filename (Node fs lookup). Default true; pass false to force text path. */

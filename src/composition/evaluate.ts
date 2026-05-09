@@ -52,7 +52,10 @@ import {
   type EvaluationResult,
   type QueryParameters,
 } from "../kernel/evaluate-types.js";
-import { translateEvaluableQueryToPrologGoal } from "../kernel/fol-to-prolog.js";
+import {
+  translateEvaluableQueryToPrologGoal,
+  CYCLE_DETECTED_MARKER_PREDICATE,
+} from "../kernel/fol-to-prolog.js";
 import type { Session } from "./session.js";
 
 /**
@@ -212,18 +215,60 @@ export async function evaluate(
   const goalString = translateEvaluableQueryToPrologGoal(query) + ".";
   const tps = session.tauPrologSession as TauPrologSessionLike;
 
+  // Phase 3 Step 5 (ADR-013 visited-ancestor cycle-guard pattern):
+  // before each SLD invocation, retract any prior cycle-detection marker
+  // assertion so the post-SLD check measures THIS query's cycle attempts
+  // only, not stale state from a prior evaluate() call. Tau Prolog's
+  // retractall succeeds whether the predicate exists or not (idempotent),
+  // matching the per-query lifecycle requirement.
+  await runSLD(tps, "retractall(" + CYCLE_DETECTED_MARKER_PREDICATE + ").");
+
   const sldResult = await runSLD(tps, goalString);
+
+  // Phase 3 Step 5: after SLD, query the cycle-detection marker. If a
+  // cycle was attempted during SLD, the visited-ancestor guard clauses
+  // assertz'd the marker; this query succeeds iff a cycle was detected.
+  // Per ADR-013 §detection-emission-contract, cycle-detection cases
+  // surface 'cycle_detected' reason code with no LossSignature (cycle
+  // is a termination signal, not information loss).
+  const cycleCheckResult = await runSLD(
+    tps,
+    CYCLE_DETECTED_MARKER_PREDICATE + "."
+  );
+  const cycleDetected = cycleCheckResult === "success";
 
   switch (sldResult) {
     case "success":
       // SLD-success path: positive proof found regardless of
       // closedPredicates. Three-state result: 'true' / 'consistent'.
+      // Note: even when SLD succeeds, a cycle MAY have been detected
+      // along an alternative resolution path that ultimately succeeded.
+      // Per ADR-013 §detection-emission-contract, success-with-cycle-
+      // detected stays 'true' / 'consistent' (the cycle was prevented
+      // by visited-ancestor encoding; resolution found a non-cyclic
+      // path; the proof is valid). Cycle marker is informational on
+      // success paths.
       return {
         result: "true",
         reason: REASON_CODES.consistent,
         steps: 0,
       };
     case "failure": {
+      // Phase 3 Step 5 (ADR-013): if a cycle was detected during SLD
+      // (visited-ancestor guard clauses fired the marker), the SLD
+      // failure is attributable to cycle prevention. Per ADR-013
+      // §detection-emission-contract, surface 'undetermined' /
+      // 'cycle_detected' reason code. This takes precedence over the
+      // closedPredicates / open-world handling because the cycle
+      // detection is a structural termination signal that's
+      // independent of OWA/CWA semantics.
+      if (cycleDetected) {
+        return {
+          result: "undetermined",
+          reason: REASON_CODES.cycle_detected,
+          steps: 0,
+        };
+      }
       // Step 4 (Q-3-Step4-A 2026-05-09 + ADR-007 §11): per-predicate
       // CWA handling per spec §6.3.2.
       //

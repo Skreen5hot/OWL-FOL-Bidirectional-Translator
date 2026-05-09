@@ -37,6 +37,13 @@ import {
 import type { OWLOntology } from "../kernel/owl-types.js";
 import type { FOLAxiom } from "../kernel/fol-types.js";
 import type { LifterConfiguration, Session } from "./session.js";
+// Phase 3 Step 5 (ADR-013): the visited-ancestor cycle-guard pattern uses
+// member/2 from Tau Prolog's lists module. The module is NOT auto-loaded
+// per ISO Prolog convention; we register it once at module load so any
+// pl.create() session created by the factory has access.
+import pl from "tau-prolog";
+import listsModule from "tau-prolog/modules/lists.js";
+listsModule(pl);
 
 /**
  * The result of a loadOntology call per API §5.5.
@@ -120,6 +127,27 @@ function allocateTauPrologSession(): unknown {
     "loadOntology requires a Tau Prolog runtime. Either install tau-prolog@0.3.4 as a peer dependency (so globalThis.pl is available) or register a TauPrologFactory probe via registerTauPrologFactory()."
   );
 }
+
+/**
+ * Phase 3 Step 5 (ADR-013 visited-ancestor cycle-guard pattern):
+ * Tau Prolog session-init directives. Per spec §6.3 default OWA framing
+ * + ADR-013 §pattern requirements:
+ *   - `use_module(library(lists))` loads `member/2` and other list
+ *     predicates the visited-ancestor pattern depends on (Tau Prolog
+ *     does not auto-load the lists module per ISO Prolog convention)
+ *   - `set_prolog_flag(unknown, fail)` per Step 4 / Q-3-Step4-A:
+ *     undefined predicates fail (no proof) rather than throw
+ *     existence_error, enabling closedPredicates fail-then-classify
+ *
+ * The `use_module` directive is BEFORE `set_prolog_flag` so the
+ * lists module's predicates are resolvable when the unknown=fail flag
+ * applies; otherwise system bootstrap could fail-out on the lists module
+ * during its own load.
+ */
+const SESSION_INIT_DIRECTIVES = [
+  ":- use_module(library(lists)).",
+  ":- set_prolog_flag(unknown, fail).",
+].join("\n");
 
 /**
  * Async loadOntology per API §5.5.
@@ -207,7 +235,7 @@ export async function loadOntology(
           }
         ) => unknown;
       };
-      tps.consult(":- set_prolog_flag(unknown, fail).", {
+      tps.consult(SESSION_INIT_DIRECTIVES, {
         file: false,
         url: false,
         html: false,

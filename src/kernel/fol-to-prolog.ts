@@ -41,8 +41,21 @@ import type {
   FOLImplication,
   FOLTerm,
   FOLUniversal,
+  FOLVariable,
 } from "./fol-types.js";
 import type { EvaluableQuery } from "./evaluate-types.js";
+
+/**
+ * Phase 3 Step 5 cycle-detection marker (per ADR-013 visited-ancestor
+ * pattern; emitted by visited-ancestor cycle-guard clauses when a cycle
+ * attempt is blocked). The composition-layer evaluate() retracts the
+ * marker before each SLD invocation and queries it after to distinguish
+ * SLD-failure-via-cycle-detection from SLD-failure-via-no-proof.
+ *
+ * Single global marker name so all visited-ancestor wrappings emit to
+ * the same surface; per-query state is reset by retractall in evaluate().
+ */
+export const CYCLE_DETECTED_MARKER_PREDICATE = "ofbt_cycle_detected";
 
 /**
  * Per-variant disposition for a FOLAxiom whose translation is forward-
@@ -367,29 +380,238 @@ function translateOneAxiom(ax: FOLAxiom): {
 }
 
 /**
- * Translate a FOLAxiom[] state into a deterministic Prolog clause set per
- * ADR-007 §11 + multi-ontology accumulation determinism contract.
+ * Detect whether an axiom (after Universal-flattening) is a transitive-
+ * pattern rule: ∀x,y,z. P(x,y) ∧ P(y,z) → P(x,z), where the predicate is
+ * the same in all three positions and the variables thread x→y→z. This
+ * is Class 1 from ADR-013's cycle-prone predicate classification.
  *
- * The output clauses array is SORTED so that load order does not affect
- * the byte-identical result per Q-3-Step3-A refinement 2.
+ * Returns the transitive predicate IRI when the pattern matches; null
+ * otherwise. Pure helper used by translateFOLToPrologClauses to identify
+ * cycle-prone predicates that need visited-ancestor wrapping per ADR-013.
+ */
+function detectTransitivePredicate(ax: FOLAxiom): string | null {
+  // Strip enclosing Universals (lifter emits ∀x,y,z. ... shape).
+  let inner: FOLAxiom = ax;
+  while ((inner as { "@type"?: unknown })["@type"] === "fol:Universal") {
+    inner = (inner as FOLUniversal).body;
+  }
+  if ((inner as { "@type"?: unknown })["@type"] !== "fol:Implication") {
+    return null;
+  }
+  const impl = inner as FOLImplication;
+  if ((impl.antecedent as { "@type"?: unknown })["@type"] !== "fol:Conjunction") {
+    return null;
+  }
+  const conj = impl.antecedent as FOLConjunction;
+  if (conj.conjuncts.length !== 2) return null;
+  const a1 = conj.conjuncts[0] as FOLAtom;
+  const a2 = conj.conjuncts[1] as FOLAtom;
+  const c = impl.consequent;
+  if (
+    (a1 as { "@type"?: unknown })["@type"] !== "fol:Atom" ||
+    (a2 as { "@type"?: unknown })["@type"] !== "fol:Atom" ||
+    (c as { "@type"?: unknown })["@type"] !== "fol:Atom"
+  ) {
+    return null;
+  }
+  if (
+    typeof a1.predicate !== "string" ||
+    a1.predicate !== a2.predicate ||
+    a1.predicate !== (c as FOLAtom).predicate
+  ) {
+    return null;
+  }
+  if (
+    a1.arguments.length !== 2 ||
+    a2.arguments.length !== 2 ||
+    (c as FOLAtom).arguments.length !== 2
+  ) {
+    return null;
+  }
+  // All six arg positions must be FOLVariable.
+  const allArgs = [
+    a1.arguments[0],
+    a1.arguments[1],
+    a2.arguments[0],
+    a2.arguments[1],
+    (c as FOLAtom).arguments[0],
+    (c as FOLAtom).arguments[1],
+  ];
+  for (const a of allArgs) {
+    if ((a as { "@type"?: unknown })["@type"] !== "fol:Variable") return null;
+  }
+  // Variable shape: a1=P(X,Y), a2=P(Y,Z), c=P(X,Z)
+  const x1 = (a1.arguments[0] as FOLVariable).name;
+  const y1 = (a1.arguments[1] as FOLVariable).name;
+  const y2 = (a2.arguments[0] as FOLVariable).name;
+  const z2 = (a2.arguments[1] as FOLVariable).name;
+  const xc = ((c as FOLAtom).arguments[0] as FOLVariable).name;
+  const zc = ((c as FOLAtom).arguments[1] as FOLVariable).name;
+  if (y1 !== y2) return null; // shared intermediate var
+  if (x1 !== xc) return null; // first arg threads through
+  if (z2 !== zc) return null; // last arg threads through
+  return a1.predicate;
+}
+
+/**
+ * Generate the visited-ancestor cycle-guard Prolog clauses for a
+ * transitive predicate per ADR-013's pattern (Class 1 cycle-prone).
+ *
+ * For predicate `p`, emits four clauses:
+ *
+ *   1. p(X, Y) :- p_guard(X, Y, []).             — entry wrapper
+ *   2. p_guard(X, Y, V) :- p_orig(X, Y).         — direct-fact path
+ *   3. p_guard(X, Y, V) :- p_orig(X, Z), \+ member(Z, V),
+ *                          p_guard(Z, Y, [Z | V]).  — recursive path
+ *   4. p_guard(X, Y, V) :- p_orig(X, Z), member(Z, V),
+ *                          assertz(ofbt_cycle_detected), fail. — cycle marker
+ *
+ * Where `p_orig` holds the directly-asserted form per ADR-013 §pattern
+ * + ADR-007 §9 reserved-predicate canonical-form discipline. The
+ * caller (translateFOLToPrologClauses two-pass) ensures all `p` facts
+ * are translated to `p_orig` clauses for transitive predicates.
+ *
+ * The cycle marker uses CYCLE_DETECTED_MARKER_PREDICATE (a 0-arity
+ * Prolog predicate); composition-layer evaluate() retracts/asserts/queries
+ * this marker per per-query lifecycle.
+ */
+function visitedAncestorClausesFor(predicateIRI: string): string[] {
+  const p = iriToPrologAtom(predicateIRI);
+  // p_orig functor: same IRI but with "/orig" suffix appended INSIDE the
+  // single-quoted atom — preserves Prolog atom validity while keeping the
+  // canonical-IRI prefix grouping.
+  const pOrig = "'" + predicateIRI.replace(/'/g, "''") + "/orig'";
+  const pGuard = "'" + predicateIRI.replace(/'/g, "''") + "/guard'";
+  const cycleMarker = CYCLE_DETECTED_MARKER_PREDICATE;
+  return [
+    // 1. entry wrapper
+    p + "(X, Y) :- " + pGuard + "(X, Y, []).",
+    // 2. direct-fact path
+    pGuard + "(X, Y, _V) :- " + pOrig + "(X, Y).",
+    // 3. recursive path (cycle-safe via member-check)
+    pGuard +
+      "(X, Y, V) :- " +
+      pOrig +
+      "(X, Z), \\+ member(Z, V), " +
+      pGuard +
+      "(Z, Y, [Z | V]).",
+    // 4. cycle-detection clause: when member(Z, V) succeeds, mark and fail
+    pGuard +
+      "(X, Y, V) :- " +
+      pOrig +
+      "(X, Z), member(Z, V), assertz(" +
+      cycleMarker +
+      "), fail.",
+  ];
+}
+
+/**
+ * Rewrite a transitive-pattern axiom's facts (top-level FOLAtom on the
+ * transitive predicate) to use the `p_orig` functor instead of `p`. This
+ * is part of the visited-ancestor encoding per ADR-013: directly-asserted
+ * facts become `p_orig` so the `p_guard` recursive resolution can consume
+ * them while the entry wrapper `p(X, Y) :- p_guard(X, Y, [])` exposes the
+ * public `p/2` predicate.
+ *
+ * Returns null if the axiom is not a fact on the transitive predicate
+ * (caller falls through to standard translation).
+ */
+function rewriteFactToOrig(
+  ax: FOLAxiom,
+  transitivePredicates: ReadonlySet<string>
+): string | null {
+  if ((ax as { "@type"?: unknown })["@type"] !== "fol:Atom") return null;
+  const atom = ax as FOLAtom;
+  if (typeof atom.predicate !== "string") return null;
+  if (!transitivePredicates.has(atom.predicate)) return null;
+  // Translate the atom but with predicate IRI suffixed by /orig.
+  const varMap = makeVarMap();
+  const origPredAtom =
+    "'" + atom.predicate.replace(/'/g, "''") + "/orig'";
+  if (atom.arguments.length === 0) {
+    return origPredAtom + ".";
+  }
+  const args = atom.arguments.map((a) => termToProlog(a, varMap)).join(", ");
+  return origPredAtom + "(" + args + ").";
+}
+
+/**
+ * Translate a FOLAxiom[] state into a deterministic Prolog clause set per
+ * ADR-007 §11 + multi-ontology accumulation determinism contract +
+ * ADR-013 visited-ancestor cycle-guard pattern (Class 1 transitive-
+ * predicate scope at Step 5 minimum).
+ *
+ * Two-pass implementation per ADR-013:
+ *   Pass 1 — identify transitive-pattern predicates (Class 1 cycle-prone)
+ *   Pass 2 — translate each axiom:
+ *     * Transitive-pattern rule on a transitive predicate: SKIP (replaced
+ *       by visited-ancestor clauses)
+ *     * Top-level fact on a transitive predicate: rewrite to p_orig form
+ *     * All other axioms: standard Step 3 translation
+ *   Pass 3 — append visited-ancestor guard clauses for each transitive
+ *   predicate (entry wrapper + direct-fact path + recursive path + cycle
+ *   marker clause)
+ *
+ * Output clauses are SORTED for byte-stability per multi-ontology
+ * accumulation determinism (Q-3-Step3-A refinement 2).
+ *
+ * Step 5 minimum scope (per ADR-013 §implementation status): Class 1
+ * (TransitiveObjectProperty-derived rules). Classes 2-6 forward-tracked
+ * to subsequent Phase 3 cycles per ADR-013 §implementation status's
+ * "Phase 4+ ARC content may extend with implementation evidence per spec
+ * §0.2.3" framing — same applies for Phase 3 follow-on Step refinements.
  */
 export function translateFOLToPrologClauses(
   axioms: ReadonlyArray<FOLAxiom>
 ): PrologTranslation {
+  // Pass 1: identify transitive-pattern predicates per ADR-013 Class 1.
+  const transitivePredicates = new Set<string>();
+  for (const ax of axioms) {
+    const transP = detectTransitivePredicate(ax);
+    if (transP !== null) transitivePredicates.add(transP);
+  }
+
   const allClauses: string[] = [];
   const allSkipped: SkippedAxiom[] = [];
+
+  // Pass 2: translate each axiom with transitive-pattern awareness.
   for (const ax of axioms) {
+    const t = (ax as { "@type"?: unknown })["@type"];
+    // Top-level Universal/Implication that matches the transitive pattern
+    // for an identified transitive predicate: skip standard translation;
+    // the visited-ancestor clauses replace it.
+    if (t === "fol:Universal" || t === "fol:Implication") {
+      const transP = detectTransitivePredicate(ax);
+      if (transP !== null && transitivePredicates.has(transP)) {
+        // Transitive rule replaced by visited-ancestor wrapping in Pass 3.
+        continue;
+      }
+    }
+    // Top-level fact on a transitive predicate: rewrite to p_orig form.
+    const origRewrite = rewriteFactToOrig(ax, transitivePredicates);
+    if (origRewrite !== null) {
+      allClauses.push(origRewrite);
+      continue;
+    }
+    // Standard Step 3 translation per ADR-007 §11.
     const sub = translateOneAxiom(ax);
     allClauses.push(...sub.clauses);
     allSkipped.push(...sub.skipped);
   }
-  // Sort for byte-stability per multi-ontology accumulation determinism.
-  // Prolog `assertz` is order-sensitive at SLD-trace level (search order),
-  // but the determinism contract is on the SET of clauses, not the
-  // execution trace. Sorting the assert order keeps the resulting clause
-  // database byte-identical across load orderings. Explicit comparator
-  // per kernel purity rule (no-bare-sort): use lexicographic comparison
-  // of the clause strings.
+
+  // Pass 3: append visited-ancestor guard clauses for each transitive
+  // predicate per ADR-013 §pattern. Sorted predicate iteration for
+  // byte-stability.
+  const sortedTransitive = Array.from(transitivePredicates).sort((a, b) =>
+    a < b ? -1 : a > b ? 1 : 0
+  );
+  for (const transP of sortedTransitive) {
+    allClauses.push(...visitedAncestorClausesFor(transP));
+  }
+
+  // Sort all clauses for byte-stability per multi-ontology accumulation
+  // determinism (Q-3-Step3-A refinement 2). Explicit comparator per
+  // kernel purity rule (no-bare-sort).
   allClauses.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
   return { clauses: allClauses, skipped: allSkipped };
 }

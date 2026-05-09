@@ -1,24 +1,40 @@
 /**
  * Phase 3 fixture — Cycle detection: EquivalentClasses cycle.
  *
- * Per Phase 3 entry packet §3.5 + architect Q-3-E ratification 2026-05-08 (step-N-bind):
- * Step 5 (cycle detection per spec §5.4 + ADR-011) authoring cycle fills the
- * full fixture body. This stub lands at Pass 2a per architect's audit-trail-unity
- * preference; full content lands at Step 5 implementation alongside the cycle-detection
- * code path that consumes the fixture.
+ * Per Phase 3 entry packet §3.5 + architect Q-3-E ratification 2026-05-08
+ * (step-N-bind): Step 5 (cycle detection per spec §5.4 + ADR-013) authoring
+ * cycle fills the full fixture body.
  *
- * Status: Draft (stub). Step 5 binding.
+ * Status: Draft (stub) — STAYS Draft after Step 5 close per Q-3-Step5-B
+ * Strategy (A) Visited-ancestor encoding scope. ADR-013 ratification 2026-05-09
+ * covers 6 cycle-prone predicate classes; Step 5 minimum implements Class 1
+ * (TransitiveObjectProperty) only. This fixture's cycle is Class 3
+ * (recursive SubClassOf chain via mutual EquivalentClasses) — implementation
+ * forward-tracked beyond Step 5 minimum to a subsequent architect-routable
+ * cycle (Phase 3 follow-on Step OR Phase 4+ ARC-content surfacing per
+ * ADR-013 §implementation-status's "Phase 4+ ARC content may extend with
+ * implementation evidence per spec §0.2.3" framing).
  *
- * Exercises: Class hierarchy with EquivalentClasses cycle (e.g., A ≡ B, B ≡ C,
- * C ≡ A). Some valid OWL ontologies declare such cycles; the lifted FOL has
- * mutual-implication chains that loop without cycle protection. ADR-011's
- * visited-ancestor list catches the loop and emits cycle_detected reason code.
+ * Exercises: Class hierarchy with EquivalentClasses cycle (A ≡ B, B ≡ C,
+ * C ≡ A). The lifter emits 6 mutual unary implications; SLD chains them
+ * forming a cycle through the predicate-call graph (NOT through transitive
+ * closure of a single predicate). ADR-013 §pattern's visited-ancestor wrap
+ * targets transitive shape `p(X,Z) :- p(X,Y), p(Y,Z)`; the mutual-implication
+ * cycle requires graph-based predicate-call analysis (Class 3) which Step 5
+ * minimum does not implement.
  *
- * Expected v0.1 verdict (filled at Step 5): cycle_detected reason code returned
- * (or thrown per consumer config); no infinite loop; resolution depth bound (spec
- * §5.4) honored. Discrimination from cycle_recursive_predicate sibling: this
- * fixture's cycle is in CLASS hierarchy via EquivalentClasses; the sibling's
- * cycle is in PREDICATE definition via recursive rules.
+ * Step 5 minimum behavior on this fixture (until Class 3 ships): Tau Prolog's
+ * SLD on the mutual-implication cycle would loop until the per-query step
+ * cap; current evaluate() maps step-cap exhaustion to 'undetermined' /
+ * 'open_world_undetermined' (NOT cycle_detected), which is honest about
+ * Step 5 minimum coverage but not the architecturally-correct contract.
+ *
+ * Expected v0.1 verdict at Class 3 implementation completion (forward-tracked):
+ * 'undetermined' / 'cycle_detected' per ADR-013 §detection-emission-contract.
+ * Discrimination from cycle_recursive_predicate sibling: this fixture's
+ * cycle is in CLASS hierarchy via EquivalentClasses (Class 3); the sibling's
+ * cycle is in PREDICATE definition via TransitiveObjectProperty (Class 1,
+ * Step 5 minimum coverage).
  */
 
 const PREFIX = "http://example.org/test/cycle_equivalent_classes/";
@@ -40,12 +56,13 @@ export const fixture = {
 
   expectedOutcome: {
     summary:
-      "Stub for Step 5 (cycle detection) authoring. Full expected behavior lands at Step 5 " +
-      "implementation. Stub-level contract: query against the lifted FOL state involving any of " +
-      "{A, B, C} resolves without infinite loop; cycle_detected reason code emitted (or thrown).",
+      "Class 3 cycle-prone-predicate fixture (recursive SubClassOf chain via mutual EquivalentClasses). " +
+      "Step 5 minimum coverage is Class 1 only per Q-3-Step5-B Strategy (A) ratification 2026-05-09; " +
+      "Class 3 implementation forward-tracked beyond Step 5 minimum. Fixture stays Draft until Class 3 " +
+      "implementation lands; activation-ringStatus is 'ring3-class-3-forward-tracked'.",
     fixtureType: "consistency-check-cycle-detection",
-    canaryRole: "cycle-detection-class-hierarchy-cycle",
-    stubStatus: "step-5-authoring-pending",
+    canaryRole: "cycle-detection-class-3-mutual-equivalentclasses-cycle",
+    stubStatus: "class-3-forward-tracked-beyond-step-5-minimum",
   },
 
   expectedLossSignatureReasons: [],
@@ -57,11 +74,12 @@ export const fixture = {
     "reason code (when consumer config requested non-throwing behavior).",
 
   "expected_v0.1_verdict": {
-    ringStatus: "ring3-stub-pending-step-5",
+    ringStatus: "ring3-class-3-forward-tracked",
     phaseAuthored: 3,
     phaseActivated: 3,
     expectedReason: "cycle_detected",
-    stubFilledAt: "step-5-implementation-cycle",
+    forwardTrackedAt:
+      "step-5-close-2026-05-09; Class 3 implementation requires graph-based predicate-call analysis beyond ADR-013 §pattern's transitive-shape detection; routes as architect-mediated cycle when surfaced",
   },
 
   "expected_v0.2_elk_verdict": null,
