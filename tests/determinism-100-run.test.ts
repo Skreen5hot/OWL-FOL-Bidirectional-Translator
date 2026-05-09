@@ -39,6 +39,22 @@
  * contributes 500; total ≥ 2,700 (floor) and observed 3,300 (actual).
  * Future fixtures append; the floor scales with manifest.fixtures.length.
  *
+ * Phase 3 close baseline (43 manifest entries, RUNS=100): 27 Phase 1+2
+ * carryforward + 16 new Phase 3 entries (8 corpus-before-code at
+ * Pass 2a 074f63d: 4 No-Collapse adversarial nc_* + 4 hypothetical_*;
+ * 8 step-N-bind stubs filled across Steps 1/4/5/6/7/8: cycle_*,
+ * cwa_*, step_cap_*, error_*). Coverage floor at Phase 3 close is
+ * 43 × 100 = 4,300; multi-input/multi-case overage from Phase 1
+ * carryforwards still applies (canary_iri_canonicalization 300,
+ * canary_punned_construct_rejection 500), so observed total is
+ * 43 × 100 + 200 + 400 = 4,900. The harness's three-shape dispatcher
+ * (single-input lifter / single-input projector-direct / multi-input /
+ * multi-case throwing) covers all Phase 3 fixture shapes — Phase 3
+ * introduced no new fixtureType variants requiring dispatcher
+ * extension. Per Phase 3 Step 9.2 exit-cadence verification 2026-05-09:
+ * harness baseline confirmed at smoke RUNS=3 (43 × 3 = 129 invocations
+ * against the floor); CI runs the default RUNS=100 contract.
+ *
  * Spec context:
  *   - spec §5.7 + API §6.1.1 mandate RDFC-1.0 b-node canonicalization;
  *     p1_blank_node_anonymous_restriction's expectedOutcome explicitly says
