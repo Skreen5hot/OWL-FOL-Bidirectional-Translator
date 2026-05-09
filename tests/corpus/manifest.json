@@ -1303,27 +1303,28 @@
     {
       "fixtureId": "cwa_open_predicate",
       "phase": 3,
-      "specSections": ["spec §6.3", "spec §6.3.2", "API §6.3"],
+      "specSections": ["spec §6.3", "spec §6.3.2", "API §2 (QueryParameters.closedPredicates)", "API §7.1 (evaluate)"],
       "acceptanceCriteria": [
         "Phase 3 entry packet §3.5 step-N-bind (architect-ratified 2026-05-08 Q-3-E)",
-        "spec §6.3 default OWA framing"
+        "spec §6.3 default OWA framing",
+        "Q-3-Step4-A reason-code label correction (architect-ratified 2026-05-09)"
       ],
       "arcEntries": [],
       "regime": "equivalent",
       "expectedOutcome": {
-        "summary": "Stub for Step 4 authoring. Stub-level contract: query without closedPredicates produces 'undetermined' with naf_residue reason (default OWA per spec §6.3).",
+        "summary": "Stub for Step 4 authoring. Stub-level contract: query without closedPredicates produces 'undetermined' with open_world_undetermined reason (default OWA per spec §6.3; canonical reason code per Q-3-Step4-A 2026-05-09).",
         "fixtureType": "evaluate-default-owa",
         "canaryRole": "per-predicate-cwa-open-discriminator",
         "stubStatus": "step-4-authoring-pending"
       },
       "expectedLossSignatureReasons": [],
-      "intendedToCatch": "OWA-default failure: CWA applied globally returning 'false' instead of 'undetermined'; wrong reason code (e.g., closure_truncated instead of naf_residue).",
+      "intendedToCatch": "OWA-default failure: CWA applied globally returning 'false' instead of 'undetermined'; wrong reason code (e.g., unbound_predicate instead of open_world_undetermined per Q-3-Step4-A Option γ refusal — OWA-stance semantic, not predicate-state semantic).",
       "expected_v0.1_verdict": {
         "ringStatus": "ring3-stub-pending-step-4",
         "phaseAuthored": 3,
         "phaseActivated": 3,
         "expectedResult": "undetermined",
-        "expectedReason": "naf_residue",
+        "expectedReason": "open_world_undetermined",
         "stepBinding": 4,
         "activationTiming": "step-N-bind"
       },
