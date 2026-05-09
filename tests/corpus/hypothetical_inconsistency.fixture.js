@@ -7,7 +7,10 @@
  *    inconsistency; checkConsistency(session, axiomSet) returns consistent: false
  *    with witnesses"
  *
- * Status: Draft. Authored corpus-before-code at Pass 2a 2026-05-08.
+ * Status: Verified. Authored corpus-before-code at Pass 2a 2026-05-08;
+ * promoted to Verified at Phase 3 Step 7 implementation cycle 2026-05-09
+ * per architect Q-3-A step ledger ratification + Step 7 FOLFalse-in-head
+ * inconsistency-detection coverage.
  *
  * ── Per API §8.1.2 hypothetical-reasoning contract ────────────────────────
  *
@@ -124,7 +127,7 @@ export const fixture = {
   "expected_v0.2_elk_verdict": null,
 
   meta: {
-    verifiedStatus: "Draft",
+    verifiedStatus: "Verified",
     phase: 3,
     activationTiming: "corpus-before-code",
     stepBinding: 7,
