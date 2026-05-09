@@ -76,6 +76,15 @@ export interface Session {
   tauPrologSession: unknown | null;
   loadedOntologyHashes: Set<string>;
   cumulativeAxioms: unknown[];
+  /**
+   * Phase 3 Step 6 (per ADR-007 §11 + Q-3-Step6-A): Horn-fragment-escape
+   * axioms accumulated across loadOntology calls. Each entry is a FOLAxiom
+   * the translator skipped per its Step 4 / Step 6 forward-track
+   * (FOLDisjunction-in-head, FOLNegation-in-head, FOLEquality, FOLFalse,
+   * FOLUniversal-in-body, etc.). checkConsistency surfaces these as
+   * unverifiedAxioms per API §8.1.1 honest-admission discipline.
+   */
+  cumulativeSkipped: unknown[];
 }
 
 // Module-local per-process session counter. Not a singleton holding
@@ -129,6 +138,7 @@ export function createSession(config: SessionConfiguration = {}): Session {
     tauPrologSession: null,
     loadedOntologyHashes: new Set<string>(),
     cumulativeAxioms: [],
+    cumulativeSkipped: [],
   };
 }
 
@@ -160,6 +170,7 @@ export function disposeSession(session: Session | null | undefined): void {
   session.tauPrologSession = null;
   session.loadedOntologyHashes.clear();
   session.cumulativeAxioms = [];
+  session.cumulativeSkipped = [];
 }
 
 /**

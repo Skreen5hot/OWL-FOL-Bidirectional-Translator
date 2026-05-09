@@ -299,6 +299,13 @@ export async function loadOntology(
   for (const ax of folAxioms) {
     (session.cumulativeAxioms as FOLAxiom[]).push(ax);
   }
+  // Phase 3 Step 6 (per ADR-007 §11 + Q-3-Step6-A): cumulativeSkipped
+  // accumulates Horn-fragment-escape axioms across loadOntology calls.
+  // checkConsistency surfaces these as unverifiedAxioms per API §8.1.1
+  // honest-admission discipline.
+  for (const skip of translation.skipped) {
+    (session.cumulativeSkipped as FOLAxiom[]).push(skip.axiom);
+  }
 
   // --- Build + cache result ---
   const result: LoadOntologyResult = {

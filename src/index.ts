@@ -41,3 +41,13 @@ export type {
   LoadOntologyResult,
   TauPrologFactory,
 } from "./composition/load-ontology.js";
+
+// Phase 3 Step 6: checkConsistency composition function per API §8.1.
+// Three-state ConsistencyResult per Q-3-Step6-A option (α) editorial
+// correction; No-Collapse Guarantee surface per spec §8.5;
+// unverifiedAxioms honest-admission surface per API §8.1.1.
+export { checkConsistency } from "./composition/check-consistency.js";
+export type {
+  ConsistencyResult,
+  InconsistencyWitness,
+} from "./composition/check-consistency.js";
