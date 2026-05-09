@@ -858,7 +858,7 @@ Corresponding to the FOL axiom `∀x. Student(x) → Person(x)`.
 
 ## 5. Session Lifecycle
 
-Per ADR-019, OFBT does not maintain module-level state. Sessions are caller-owned, explicitly created, and explicitly disposed. There is no implicit session, no automatic creation on first call, and no shared state between sessions.
+Per ADR-019, OFBT does not maintain module-level state. Sessions are caller-owned, explicitly created (§5.1), explicitly populated with FOL state via `loadOntology` (§5.5), and explicitly disposed (§5.2). There is no implicit session, no automatic creation on first call, no implicit FOL-state loading at session creation, and no shared state between sessions. The session is an opaque handle from the consumer's perspective; the canonical session-mutating API is `loadOntology`.
 
 ### 5.1 createSession
 
@@ -891,10 +891,14 @@ Releases all resources held by the session: Tau Prolog state, blank node registr
 The standard pattern for consumers:
 
 ```javascript
-import { createSession, disposeSession, evaluate } from '@ontology-of-freedom/ofbt';
+import { createSession, disposeSession, loadOntology, evaluate } from '@ontology-of-freedom/ofbt';
 
 const session = createSession({ arcCoverage: 'permissive' });
 try {
+  // Load the ontology into the session (composes owlToFol with session-state assertion)
+  await loadOntology(session, ontology);
+
+  // Query the loaded FOL state
   const result = await evaluate(session, query, { stepCap: 5000 });
   // ...
 } finally {
@@ -902,11 +906,54 @@ try {
 }
 ```
 
+`loadOntology` (§5.5) is the canonical session-mutating API: it composes the pure `owlToFol` (§6.1) with session-state assertion. `evaluate` (§7.1) and `checkConsistency` (§8.1) query against the FOL state accumulated by `loadOntology` calls.
+
 Long-running consumers (e.g., browser apps ingesting multiple ontologies) MUST dispose sessions between ontology contexts. Failure to dispose causes Tau Prolog state accumulation and eventual memory exhaustion.
 
 ### 5.4 Session-required errors
 
-Any function that requires a session — `evaluate`, `checkConsistency`, the lifter and projector internals exposed via `owlToFol` and `folToOwl` when called with a session — throws `SessionRequiredError` if called without one. This is a typed error per the throw-not-warn discipline.
+Any function that requires a session — `loadOntology`, `evaluate`, `checkConsistency`, `roundTripCheck` — throws `SessionRequiredError` if called without one. This is a typed error per the throw-not-warn discipline. The session-pure conversion functions (`owlToFol`, `folToOwl` per §6.1, §6.2) do NOT require a session; they are composable into a session-aware pipeline via `loadOntology` (§5.5).
+
+### 5.5 loadOntology
+
+```typescript
+async function loadOntology(
+  session: Session,
+  ontology: OWLOntology,
+  config?: LifterConfiguration
+): Promise<LoadOntologyResult>;
+```
+
+Composes `owlToFol` with session-state mutation. Calls `owlToFol(ontology, config)` internally; asserts the resulting lifted FOL axioms into the session's Tau Prolog state via the same protocol as `assertz`. Loads the corresponding ARC manifest entries into the session per behavioral specification §5.2.
+
+Returns the `LoadOntologyResult` (extends `FOLConversionResult` per §6.1) so consumers can inspect Recovery Payloads, Loss Signatures, and the Projection Manifest immediately after loading.
+
+```typescript
+interface LoadOntologyResult extends FOLConversionResult {
+  /** Number of FOL axioms asserted into the session by this call.
+   *  May be 0 if the same ontology (by content hash) was already loaded
+   *  (idempotency contract — see below). */
+  axiomsAsserted: number;
+
+  /** Whether this call was a no-op due to the idempotency contract. */
+  alreadyLoaded: boolean;
+}
+```
+
+**Multi-ontology semantics.** A session MAY have `loadOntology` called multiple times with different ontologies; the FOL state accumulates per behavioral specification §5.5.3. The session's audit-artifact ledger accumulates Loss Signatures and Recovery Payloads across all loaded ontologies. Subsequent `evaluate(session, query)` calls run against the cumulative FOL state.
+
+**Multi-ontology accumulation determinism.** When multiple ontologies load into the same session, the resulting FOL state is the union of each ontology's lifted FOL plus any cross-ontology entailments. The order of `loadOntology` calls MUST NOT affect the final FOL state's content. Same set of ontologies loaded in any order produces byte-identical FOL state per the determinism contract from behavioral specification §0.1 + this specification §6.1.1.
+
+**Idempotency (no-op contract).** Calling `loadOntology` twice with the byte-identical ontology (by content hash) into the same session is a **no-op**: the second call returns success with `alreadyLoaded: true` and `axiomsAsserted: 0`, returning the cached `LoadOntologyResult` from the prior load. This preserves the deterministic `@id` discipline per behavioral specification §7.4 AND supports consumers writing graph-merge or import-resolution code that naturally calls `loadOntology` repeatedly across overlapping ontology sets — raising on duplicate would force consumers to maintain their own loaded-set tracking.
+
+**Async.** Async because `owlToFol` is async (rdf-canonize for blank node canonicalization is async).
+
+**Throws:**
+- `SessionRequiredError` if `session` is null/undefined per §10.3 convention
+- `SessionDisposedError` if the session has been disposed per §5.2
+- All errors `owlToFol` throws (`UnsupportedConstructError`, `IRIFormatError`, etc.) propagate
+- `arc_manifest_version_mismatch` per §2.1.2 if `config.arcManifestVersion` differs from the session's recorded version
+- `structural_annotation_mismatch` per §2.1.1 if the ontology declares structural annotations that diverge from the session's declared set
 
 ---
 
@@ -923,7 +970,9 @@ async function owlToFol(
 ): Promise<FOLConversionResult>;
 ```
 
-Converts an OWL ontology to its FOL representation. Pure: does not require or modify a session. The optional `config` controls lifter behavior (most importantly `arcCoverage`, `structuralAnnotations`, and `arcModules`).
+Converts an OWL ontology to its FOL representation. **Pure: does not require or modify a session.** The optional `config` controls lifter behavior (most importantly `arcCoverage`, `structuralAnnotations`, and `arcModules`).
+
+To compose `owlToFol` with a session (i.e., to load a lifted ontology into a session's FOL state for subsequent `evaluate` / `checkConsistency` calls), use **`loadOntology` (§5.5)**. `loadOntology` calls `owlToFol` internally and asserts the result into the session's Tau Prolog state; `owlToFol` itself remains session-pure.
 
 The function accepts `LifterConfiguration` (the base type, §2.0). Callers may also pass `SessionConfiguration` (the derived type, §2.1) — session-only fields like `maxAggregateSteps` are simply ignored by `owlToFol`. This permits the single-config-object pattern recommended in §2.1.1 for ensuring consistency between conversion and evaluation.
 

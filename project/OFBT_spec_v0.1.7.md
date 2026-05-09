@@ -555,7 +555,7 @@ The predicate symbol is the local fragment of the property IRI, normalized to a 
 
 ### 5.2 Axiom injection
 
-For each property used in the source graph, the lifter loads the corresponding ARC axioms into the Tau Prolog session. The axiom set for a single property can include:
+For each property used in the source graph, the lifter (`owlToFol` per API §6.1) emits the corresponding ARC axioms as part of its `FOLConversionResult.axioms` array. The session-state assertion of these axioms is performed by `loadOntology` (API §5.5) — the composition function that asserts the lifter's output into the session's Tau Prolog state per ADR-007 §11's per-FOLAxiom-variant translation rules. The lifter itself is session-pure per API §6.1; `loadOntology` is the canonical session-mutating API. The axiom set for a single property can include:
 
 - **Property-characteristic axioms** (transitivity, symmetry, reflexivity, functionality, asymmetry, irreflexivity)
 - **Subproperty axioms** (`P(x,y) → Q(x,y)` where Q is the declared parent in ARC)
