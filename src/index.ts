@@ -31,3 +31,13 @@ export type {
 // Phase 3 Step 1b: evaluate() composition-layer wrapper per API §7.1.
 // Kernel-pure types + validateEvaluableQuery re-export via the kernel barrel.
 export { evaluate } from "./composition/evaluate.js";
+
+// Phase 3 Step 3: loadOntology composition function per API §5.5.
+// Lifts the ontology, translates FOL→Prolog per ADR-007 §11, asserts
+// clauses into the session's Tau Prolog state. Source kernel-pure
+// translator re-exports via the kernel barrel.
+export { loadOntology, registerTauPrologFactory } from "./composition/load-ontology.js";
+export type {
+  LoadOntologyResult,
+  TauPrologFactory,
+} from "./composition/load-ontology.js";

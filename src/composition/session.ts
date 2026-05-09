@@ -51,13 +51,31 @@ export interface SessionConfiguration extends LifterConfiguration {
  *   - config: frozen snapshot of the SessionConfiguration the session was created with
  *   - aggregateSteps: running counter for SessionStepCapExceededError checks
  *
- * Phase 1+ adds: tauPrologSession, arcManifest, bnodeRegistry, auditLedger.
+ * Phase 3 Step 3 adds:
+ *   - tauPrologSession: the live Tau Prolog session per API §5.1 + §5.5;
+ *     allocated lazily on first loadOntology call (or eagerly if Tau
+ *     Prolog factory is registered). Type is `unknown` here to keep the
+ *     composition-layer Session interface decoupled from the tau-prolog
+ *     module's exact runtime types — load-ontology.ts and evaluate.ts
+ *     narrow at use-time.
+ *   - loadedOntologyHashes: idempotency-contract per API §5.5 — set of
+ *     content hashes (stableStringify of the ontology) for ontologies
+ *     already loaded into this session. Second loadOntology call with
+ *     the same content hash returns alreadyLoaded:true / axiomsAsserted:0.
+ *   - cumulativeAxioms: monotonically-growing FOL axiom set across
+ *     loadOntology calls; used by evaluate() + checkConsistency() to
+ *     reason about the session's accumulated FOL state.
+ *
+ * Phase 4+ will extend: arcManifest, bnodeRegistry (cross-ontology), auditLedger.
  */
 export interface Session {
   readonly id: string;
   disposed: boolean;
   readonly config: Readonly<SessionConfiguration>;
   aggregateSteps: number;
+  tauPrologSession: unknown | null;
+  loadedOntologyHashes: Set<string>;
+  cumulativeAxioms: unknown[];
 }
 
 // Module-local per-process session counter. Not a singleton holding
@@ -108,6 +126,9 @@ export function createSession(config: SessionConfiguration = {}): Session {
     disposed: false,
     config: frozenConfig,
     aggregateSteps: 0,
+    tauPrologSession: null,
+    loadedOntologyHashes: new Set<string>(),
+    cumulativeAxioms: [],
   };
 }
 
@@ -131,6 +152,14 @@ export function disposeSession(session: Session | null | undefined): void {
   }
   session.disposed = true;
   session.aggregateSteps = 0;
+  // Phase 3 Step 3: release Tau Prolog session reference + accumulated state
+  // per API §5.2 ("releases all resources held by the session"). Tau Prolog
+  // sessions don't expose an explicit dispose API, so dropping the
+  // reference is the canonical release path; GC reclaims the underlying
+  // session state.
+  session.tauPrologSession = null;
+  session.loadedOntologyHashes.clear();
+  session.cumulativeAxioms = [];
 }
 
 /**

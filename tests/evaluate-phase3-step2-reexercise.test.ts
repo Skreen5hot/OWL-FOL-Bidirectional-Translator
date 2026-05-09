@@ -7,29 +7,27 @@
  *
  * Per architect Q-3-A ratification 2026-05-08 (step granularity) +
  * Q-Frank-4 publication commitment 2026-05-07: this file produces the
- * STEP 2 BASELINE per-canary publication artifact. Each canary gets one
- * test that wires the lift→project→re-lift→evaluate plumbing end-to-end
- * and asserts the CURRENT evaluator state (Step 1b skeleton).
+ * per-canary publication artifact. Each canary gets one test that wires
+ * the lift→project→re-lift→evaluate plumbing end-to-end via loadOntology
+ * (API §5.5 ratified at the Step 3 architectural-gap micro-cycle 2026-05-09)
+ * and asserts the actual SLD-resolved evaluator outcome (UPGRADED at
+ * Step 3 from the Step 2 skeleton baseline).
  *
- * STEP 2 BASELINE — what the assertions reflect:
+ * STEP 3 OUTCOMES — what the assertions now reflect:
  *
- *   The Step 1b skeleton evaluator (committed c2a9867) returns
- *   { result: 'undetermined', reason: 'open_world_undetermined', steps: 0 }
- *   for every valid EvaluableQuery, regardless of session state. Actual
- *   SLD resolution against the lifted FOL state lands at Step 3
- *   (`EvaluableQuery` evaluation against built-in OWL with three-state
- *   result + reason enum). At Step 3, this file's assertions UPGRADE to
- *   assert the canary's expected stub-result (matching the
- *   discriminatingQueryStubResult / discriminatingQueriesAllStubResult
- *   fields on each fixture).
+ *   At Step 1b skeleton (commits c2a9867 + 8b4fb77), evaluate() returned
+ *   'undetermined' uniformly. At Step 3 (this commit + ADR-007 §11
+ *   FOL→Prolog translation), evaluate() runs Tau Prolog SLD against
+ *   the session's loaded clause database and produces actual three-state
+ *   results per spec §6.3 default OWA.
  *
- * Per-canary Step 2 baseline outcomes:
+ * Per-canary Step 3 outcomes (UPGRADED from Step 2 baseline):
  *
- * | Canary | Stub result (Phase 2) | Skeleton result (Step 1b) | Disposition |
+ * | Canary | Stub result (Phase 2) | Step 3 SLD result | Disposition |
  * |---|---|---|---|
- * | parity_canary_query_preservation | 'true' | 'undetermined' | ⏸ skeleton-deferred-to-step-3 |
- * | parity_canary_negative_query | 'undetermined' | 'undetermined' | ✓ survived |
- * | parity_canary_visual_equivalence_trap (Tier 1, Q_1+Q_2) | 'true'/'true' | 'undetermined'/'undetermined' | ⏸ skeleton-deferred-to-step-3 |
+ * | parity_canary_query_preservation | 'true' | 'true' / 'consistent' | ✓ SURVIVED |
+ * | parity_canary_negative_query | 'undetermined' | 'undetermined' / 'open_world_undetermined' | ✓ SURVIVED |
+ * | parity_canary_visual_equivalence_trap (Tier 1, Q_1+Q_2) | 'true'/'true' | 'true'/'true' | ✓ SURVIVED |
  *
  * Tier 2 of visual_equivalence_trap (the existential-conjunction-negation
  * enhanced discriminator) is OUT OF v0.1 EvaluableQuery scope per API §7.5
@@ -50,6 +48,11 @@ import { owlToFol } from "../src/kernel/lifter.js";
 import { folToOwl } from "../src/kernel/projector.js";
 import { evaluate } from "../src/composition/evaluate.js";
 import {
+  loadOntology,
+  registerTauPrologFactory,
+  __resetLoadOntologyCacheForTesting,
+} from "../src/composition/load-ontology.js";
+import {
   createSession,
   __resetSessionCounterForTesting,
 } from "../src/composition/session.js";
@@ -60,6 +63,7 @@ import type { OWLOntology } from "../src/kernel/owl-types.js";
 import { readFile } from "node:fs/promises";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import pl from "tau-prolog";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -117,8 +121,10 @@ async function loadCanaryFixture(filename: string): Promise<ParityCanaryFixture>
 
 /**
  * Run a canary's lift→project→re-lift pipeline and call evaluate() against
- * its discriminating query. Returns the evaluator outcome for assertion
- * + the F_3 axiom count for plumbing verification.
+ * its discriminating query. UPGRADED at Step 3 to load the re-lifted F_3
+ * ontology into the session via loadOntology (API §5.5) so SLD has the
+ * actual FOL state to resolve against. Returns the evaluator outcome for
+ * assertion + the F_3 axiom count for plumbing verification.
  */
 async function reExerciseCanary(
   fixture: ParityCanaryFixture,
@@ -134,6 +140,10 @@ async function reExerciseCanary(
   const f3 = await owlToFol(projected.ontology);
 
   const session = createSession();
+  // Step 3 upgrade: load the re-lifted ontology into the session via
+  // loadOntology so the Tau Prolog clause database is populated before
+  // evaluate runs SLD per ADR-007 §11.
+  await loadOntology(session, projected.ontology);
   const evalResult = await evaluate(session, query);
 
   return {
@@ -146,7 +156,11 @@ async function reExerciseCanary(
 
 async function main(): Promise<void> {
   __resetSessionCounterForTesting();
+  __resetLoadOntologyCacheForTesting();
   registerTauPrologProbe(() => "0.3.4");
+  // Step 3 upgrade: register real Tau Prolog factory so loadOntology
+  // can allocate sessions for SLD resolution per ADR-007 §11.
+  registerTauPrologFactory(() => pl.create(1000));
 
   // -----------------------------------------------------------
   // Canary 1: parity_canary_query_preservation
@@ -170,22 +184,23 @@ async function main(): Promise<void> {
   );
 
   await checkAsync(
-    "Step 2 / parity_canary_query_preservation: skeleton returns 'undetermined' (Step 3 will assert 'true')",
+    "Step 3 / parity_canary_query_preservation: ✓ SURVIVED — real evaluate() returns 'true' / 'consistent' (matches stub)",
     async () => {
       const fixture = await loadCanaryFixture(
         "parity_canary_query_preservation.fixture.js"
       );
       const outcome = await reExerciseCanary(fixture, fixture.discriminatingQuery!);
-      // Phase 2 stub returned 'true' for this entailed query. Step 1b
-      // skeleton uniformly returns 'undetermined'. Disposition:
-      // skeleton-deferred-to-step-3. At Step 3 SLD landing, this assertion
-      // UPGRADES to strictEqual(outcome.evaluatorResult, "true").
-      strictEqual(outcome.evaluatorResult, "undetermined");
-      strictEqual(outcome.evaluatorReason, REASON_CODES.open_world_undetermined);
+      // UPGRADED at Step 3 from skeleton-baseline to SLD outcome:
+      // Phase 2 stub returned 'true' for the entailed Person(alice) query.
+      // Step 3 SLD via Tau Prolog Horn-rule chain (Mother(alice) +
+      // ∀x. Mother(x) → Female(x) + ∀x. Female(x) → Person(x))
+      // resolves to 'true' / 'consistent', matching the stub.
+      strictEqual(outcome.evaluatorResult, "true");
+      strictEqual(outcome.evaluatorReason, REASON_CODES.consistent);
       strictEqual(
         fixture.expectedOutcome.discriminatingQueryStubResult,
         "true",
-        "fixture's stub-result is 'true' (this is the upgrade target at Step 3)"
+        "fixture's stub-result is 'true'; Step 3 SLD matches per Q-Frank-4 publication artifact"
       );
     }
   );
@@ -258,37 +273,37 @@ async function main(): Promise<void> {
   );
 
   await checkAsync(
-    "Step 2 / parity_canary_visual_equivalence_trap Q_1 (Person(bob)?): skeleton 'undetermined' (Step 3 will assert 'true')",
+    "Step 3 / parity_canary_visual_equivalence_trap Q_1 (Person(bob)?): ✓ SURVIVED — real evaluate() returns 'true' / 'consistent' (matches stub)",
     async () => {
       const fixture = await loadCanaryFixture(
         "parity_canary_visual_equivalence_trap.fixture.js"
       );
       const q1 = fixture.discriminatingQueries![0];
       const outcome = await reExerciseCanary(fixture, q1.query);
-      strictEqual(outcome.evaluatorResult, "undetermined");
-      strictEqual(outcome.evaluatorReason, REASON_CODES.open_world_undetermined);
+      strictEqual(outcome.evaluatorResult, "true");
+      strictEqual(outcome.evaluatorReason, REASON_CODES.consistent);
       strictEqual(
         q1.expectedStubResult,
         "true",
-        "Q_1 stub-result is 'true' (Step 3 upgrade target)"
+        "Q_1 stub-result is 'true'; Step 3 SLD matches per Q-Frank-4 publication artifact"
       );
     }
   );
 
   await checkAsync(
-    "Step 2 / parity_canary_visual_equivalence_trap Q_2 (hasChild(alice, bob)?): skeleton 'undetermined' (Step 3 will assert 'true')",
+    "Step 3 / parity_canary_visual_equivalence_trap Q_2 (hasChild(alice, bob)?): ✓ SURVIVED — real evaluate() returns 'true' / 'consistent' (matches stub)",
     async () => {
       const fixture = await loadCanaryFixture(
         "parity_canary_visual_equivalence_trap.fixture.js"
       );
       const q2 = fixture.discriminatingQueries![1];
       const outcome = await reExerciseCanary(fixture, q2.query);
-      strictEqual(outcome.evaluatorResult, "undetermined");
-      strictEqual(outcome.evaluatorReason, REASON_CODES.open_world_undetermined);
+      strictEqual(outcome.evaluatorResult, "true");
+      strictEqual(outcome.evaluatorReason, REASON_CODES.consistent);
       strictEqual(
         q2.expectedStubResult,
         "true",
-        "Q_2 stub-result is 'true' (Step 3 upgrade target)"
+        "Q_2 stub-result is 'true'; Step 3 SLD matches per Q-Frank-4 publication artifact"
       );
     }
   );
@@ -298,13 +313,16 @@ async function main(): Promise<void> {
   // -----------------------------------------------------------
 
   check(
-    "Step 2 baseline: 1 of 3 canaries SURVIVED at skeleton-only evaluator (parity_canary_negative_query)",
+    "Step 3 outcome: 3 of 3 canaries SURVIVED at SLD-resolved evaluator (Q-Frank-4 publication baseline)",
     () => {
-      // Documented in phase-3-entry.md §3.6 Step 2 baseline outcomes table.
-      // The assertion here is a no-op placeholder that codifies the count
-      // for future-step regression: when Step 3 SLD ships, this number
-      // must move from 1 to 3 (or surface a real divergence).
-      ok(true, "Step 2 baseline summary recorded");
+      // UPGRADED at Step 3 from skeleton-baseline (1/3 survived) to
+      // SLD outcome (3/3 survived). Documented in phase-3-entry.md §3.6
+      // Step 3 outcomes table per Q-3-F publication-artifact format.
+      // Note: parity_canary_visual_equivalence_trap Tier 2 (existential-
+      // conjunction-negation enhanced discriminator) remains deferred to
+      // v0.2 via I8 cycle-2 routing per Step 1a finding 2026-05-08
+      // (FOLExistential + FOLNegation outside v0.1 EvaluableQuery per API §7.5).
+      ok(true, "Step 3 outcome summary recorded");
     }
   );
 

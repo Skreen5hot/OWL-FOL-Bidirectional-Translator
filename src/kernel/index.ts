@@ -52,6 +52,20 @@ export type {
   QueryParameters,
 } from "./evaluate-types.js";
 
+// --- Phase 3 Step 3: FOL → Tau Prolog clause translation per ADR-007 §11.
+//     Pure (kernel-Layer-0) string translator. Composition-layer
+//     loadOntology() calls these and assertz's the resulting clauses
+//     into the session's Tau Prolog state. ---
+export {
+  translateFOLToPrologClauses,
+  translateEvaluableQueryToPrologGoal,
+  iriToPrologAtom,
+} from "./fol-to-prolog.js";
+export type {
+  PrologTranslation,
+  SkippedAxiom,
+} from "./fol-to-prolog.js";
+
 // --- Phase 0.4: version surfacing + Tau Prolog verification (API spec §9) ---
 export { getVersionInfo, verifyTauPrologVersion } from "./version.js";
 export type { VersionInfo, TauPrologVerification } from "./version.js";
