@@ -103,19 +103,40 @@ jobs:
              arc/upstream-canonical/owl-axiomatization.clif.SOURCE \
              arc/upstream-canonical/README.md \
              gh-pages-deploy/upstream-canonical/
-          # Tau Prolog peer dependency — staged for demo_p3 (Phase 3 demo
-          # is the first per-phase demo to exercise composition layer that
-          # imports tau-prolog; browser ESM cannot resolve bare module
-          # specifiers per the Pages static-deploy convention; the import
-          # map in demo_p3.html maps these paths). Phase 4+ demos that
-          # exercise Session / loadOntology / checkConsistency / evaluate
-          # inherit this dependency; the canonical pattern is import-map
-          # in the demo HTML + staging here. Source: src/composition/
-          # load-ontology.ts lines 45-47 import tau-prolog + lists.js to
-          # register member/2 for ADR-013 visited-ancestor cycle-guard.
+          # Tau Prolog peer dependency — UMD-to-ESM bridge per Phase 3
+          # Step 9.4-amendment-2 (2026-05-09; sibling to 9.4-amendment).
+          #
+          # Phase 3 demo is the first per-phase demo to exercise the
+          # composition layer that imports tau-prolog. Browser ESM cannot
+          # resolve bare module specifiers, AND tau-prolog ships as UMD
+          # with no ESM default export — so a two-pronged bridge is
+          # required:
+          #
+          #   (a) Stage the UMD source files (core.js + lists.js) so the
+          #       demo HTML's sync `<script>` tags run their UMD
+          #       browser-direct-load branches, setting globalThis.pl
+          #       and registering the lists Module on it.
+          #   (b) Stage the ESM bridge shims (esm-shim.js +
+          #       lists-esm-shim.js) so the demo HTML's import map
+          #       routes the bundle's `import pl from "tau-prolog"` and
+          #       `import listsModule from "tau-prolog/modules/lists.js"`
+          #       to shims that re-export globalThis.pl / a no-op
+          #       function (since the sync-load already registered).
+          #
+          # Phase 4+ demos that exercise Session / loadOntology /
+          # checkConsistency / evaluate inherit this bridge-shim
+          # discipline; the canonical pattern is documented at
+          # demo/README.md "Adding a new phase demo" step 3.
+          #
+          # Source pointers:
+          #   - src/composition/load-ontology.ts:45-47 (the imports)
+          #   - demo/tau-prolog-shims/{esm,lists-esm}-shim.js (the shims)
+          #   - demo/demo_p3.html `<head>` (sync-script + importmap order)
           mkdir -p gh-pages-deploy/tau-prolog
           cp node_modules/tau-prolog/modules/core.js \
              node_modules/tau-prolog/modules/lists.js \
+             demo/tau-prolog-shims/esm-shim.js \
+             demo/tau-prolog-shims/lists-esm-shim.js \
              gh-pages-deploy/tau-prolog/
           # Sanity-check the staged tree before upload.
           ls -la gh-pages-deploy

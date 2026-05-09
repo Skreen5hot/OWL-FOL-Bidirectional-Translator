@@ -7,39 +7,59 @@
   <link rel="stylesheet" href="demo.css" />
 
   <!--
-    Import map for the tau-prolog peer dependency. Phase 3's composition
-    layer (src/composition/load-ontology.ts) imports tau-prolog at module
-    load to register the lists module on globalThis.pl per ADR-013
-    visited-ancestor cycle-guard pattern requirements. Phase 1 + Phase 2
-    demos did not exercise this path (lifter + projector are pure with
-    respect to Tau Prolog); Phase 3 is the first per-phase demo whose
-    bundle import transitively pulls a bare tau-prolog specifier into
-    the browser ESM context.
+    Tau Prolog UMD-to-ESM bridge — Phase 3 Step 9.4-amendment-2 per
+    Aaron's routing dispatch 2026-05-09 (sibling to 9.4-amendment per
+    SME pre-anticipation note in 06ce193 commit body).
 
-    Browser ESM cannot resolve bare module specifiers — they must map
-    to relative paths via this import map. The deploy workflow
-    (.github/workflows/pages.yml) stages tau-prolog's core.js + lists.js
-    flat under gh-pages-deploy/tau-prolog/; this map points the bundle's
-    `import pl from "tau-prolog"` and `import listsModule from
-    "tau-prolog/modules/lists.js"` at those staged paths.
+    Phase 3's composition layer (src/composition/load-ontology.ts:45-47)
+    imports tau-prolog at module load to register the lists module on
+    globalThis.pl per ADR-013 visited-ancestor cycle-guard pattern.
+    Phase 1 + Phase 2 demos did not exercise this path; Phase 3 is the
+    first per-phase demo whose bundle import transitively pulls a bare
+    tau-prolog specifier into the browser ESM context.
 
-    Phase 4+ demos that exercise Session / loadOntology / checkConsistency /
-    evaluate inherit this dependency. The import-map + staging discipline
-    is the canonical pattern for any per-phase demo invoking the
-    composition layer; per-phase walkthrough's pre-flight checklist
-    references the deploy-readiness gate.
+    Three-step bridge required because tau-prolog ships as UMD with no
+    ESM default export:
+
+      1. Sync <script src="./tau-prolog/core.js"> — runs the UMD
+         browser-direct-load branch, sets globalThis.pl.
+      2. Sync <script src="./tau-prolog/lists.js"> — runs the UMD
+         browser-direct-load branch, registers the lists Module on
+         globalThis.pl via `new pl.type.Module("lists", ...)`.
+      3. Importmap routes the ESM bare specifiers to bridge shims at
+         demo/tau-prolog-shims/{esm-shim,lists-esm-shim}.js. The shims
+         re-export globalThis.pl as default (for tau-prolog) and a
+         no-op function (for tau-prolog/modules/lists.js, since the
+         sync-load already registered the module).
+
+    Sequencing is load-bearing: the sync scripts MUST execute before
+    the module-script context evaluates, otherwise the shims'
+    globalThis.pl reference is undefined.
+
+    The 9.4-amendment's import-map alone (pointing tau-prolog →
+    ./tau-prolog/core.js directly) was insufficient because the bundle
+    expects a default export and core.js has none. The bridge shim
+    closes the gap.
+
+    Phase 4+ demos that exercise Session / loadOntology /
+    checkConsistency / evaluate inherit this bridge-shim discipline
+    per demo/README.md "Adding a new phase demo" step 3 banking.
 
     Cross-references:
-      - src/composition/load-ontology.ts lines 45-47 (the tau-prolog imports)
+      - src/composition/load-ontology.ts:45-47 (the tau-prolog imports)
+      - demo/tau-prolog-shims/esm-shim.js (parent-package bridge)
+      - demo/tau-prolog-shims/lists-esm-shim.js (lists-module bridge)
       - .github/workflows/pages.yml staging block (the cp commands)
-      - demo/README.md "Adding a new phase demo" — staging extension step
-      - p3-walkthrough.md §0 pre-flight checklist
+      - demo/README.md "Adding a new phase demo" step 3 (canonical pattern)
+      - p3-walkthrough.md §0 pre-flight checklist (deploy-readiness gate)
   -->
+  <script src="./tau-prolog/core.js"></script>
+  <script src="./tau-prolog/lists.js"></script>
   <script type="importmap">
   {
     "imports": {
-      "tau-prolog": "./tau-prolog/core.js",
-      "tau-prolog/modules/lists.js": "./tau-prolog/lists.js"
+      "tau-prolog": "./tau-prolog/esm-shim.js",
+      "tau-prolog/modules/lists.js": "./tau-prolog/lists-esm-shim.js"
     }
   }
   </script>
