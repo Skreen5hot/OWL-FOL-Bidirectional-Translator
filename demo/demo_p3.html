@@ -5,6 +5,44 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>OFBT Phase 3 demo &mdash; No-Collapse Guarantee + Layer A consistency-check parity</title>
   <link rel="stylesheet" href="demo.css" />
+
+  <!--
+    Import map for the tau-prolog peer dependency. Phase 3's composition
+    layer (src/composition/load-ontology.ts) imports tau-prolog at module
+    load to register the lists module on globalThis.pl per ADR-013
+    visited-ancestor cycle-guard pattern requirements. Phase 1 + Phase 2
+    demos did not exercise this path (lifter + projector are pure with
+    respect to Tau Prolog); Phase 3 is the first per-phase demo whose
+    bundle import transitively pulls a bare tau-prolog specifier into
+    the browser ESM context.
+
+    Browser ESM cannot resolve bare module specifiers — they must map
+    to relative paths via this import map. The deploy workflow
+    (.github/workflows/pages.yml) stages tau-prolog's core.js + lists.js
+    flat under gh-pages-deploy/tau-prolog/; this map points the bundle's
+    `import pl from "tau-prolog"` and `import listsModule from
+    "tau-prolog/modules/lists.js"` at those staged paths.
+
+    Phase 4+ demos that exercise Session / loadOntology / checkConsistency /
+    evaluate inherit this dependency. The import-map + staging discipline
+    is the canonical pattern for any per-phase demo invoking the
+    composition layer; per-phase walkthrough's pre-flight checklist
+    references the deploy-readiness gate.
+
+    Cross-references:
+      - src/composition/load-ontology.ts lines 45-47 (the tau-prolog imports)
+      - .github/workflows/pages.yml staging block (the cp commands)
+      - demo/README.md "Adding a new phase demo" — staging extension step
+      - p3-walkthrough.md §0 pre-flight checklist
+  -->
+  <script type="importmap">
+  {
+    "imports": {
+      "tau-prolog": "./tau-prolog/core.js",
+      "tau-prolog/modules/lists.js": "./tau-prolog/lists.js"
+    }
+  }
+  </script>
 </head>
 <body>
   <header>

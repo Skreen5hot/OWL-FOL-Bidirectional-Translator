@@ -103,11 +103,26 @@ jobs:
              arc/upstream-canonical/owl-axiomatization.clif.SOURCE \
              arc/upstream-canonical/README.md \
              gh-pages-deploy/upstream-canonical/
+          # Tau Prolog peer dependency — staged for demo_p3 (Phase 3 demo
+          # is the first per-phase demo to exercise composition layer that
+          # imports tau-prolog; browser ESM cannot resolve bare module
+          # specifiers per the Pages static-deploy convention; the import
+          # map in demo_p3.html maps these paths). Phase 4+ demos that
+          # exercise Session / loadOntology / checkConsistency / evaluate
+          # inherit this dependency; the canonical pattern is import-map
+          # in the demo HTML + staging here. Source: src/composition/
+          # load-ontology.ts lines 45-47 import tau-prolog + lists.js to
+          # register member/2 for ADR-013 visited-ancestor cycle-guard.
+          mkdir -p gh-pages-deploy/tau-prolog
+          cp node_modules/tau-prolog/modules/core.js \
+             node_modules/tau-prolog/modules/lists.js \
+             gh-pages-deploy/tau-prolog/
           # Sanity-check the staged tree before upload.
           ls -la gh-pages-deploy
           ls -la gh-pages-deploy/bundles
           ls -la gh-pages-deploy/fixtures
           ls -la gh-pages-deploy/upstream-canonical
+          ls -la gh-pages-deploy/tau-prolog
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

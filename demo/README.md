@@ -49,7 +49,7 @@ When a phase exits and is ready for stakeholder demo:
 
 1. Create `demo/demo_pN.html` per the **two-case demo template** (see below; banked at Phase 1 exit doc pass per the architect's standing demo-workstream ruling).
 2. Update `demo/index.html` — flip the upcoming-phase list item to `class="shipped"` and add the link.
-3. Update `.github/workflows/pages.yml` — extend the staging step to copy any new fixture files the Phase N demo imports + any newly-vendored canonical sources under `arc/upstream-canonical/`.
+3. Update `.github/workflows/pages.yml` — extend the staging step to copy any new fixture files the Phase N demo imports + any newly-vendored canonical sources under `arc/upstream-canonical/`. **If the Phase N demo exercises the composition layer (`createSession`, `loadOntology`, `evaluate`, `checkConsistency`):** the bundle transitively imports `tau-prolog` as a bare specifier; browser ESM cannot resolve bare specifiers, so (a) add an `<script type="importmap">` block to the demo HTML mapping `tau-prolog` → `./tau-prolog/core.js` and `tau-prolog/modules/lists.js` → `./tau-prolog/lists.js`, AND (b) extend the staging block to `cp node_modules/tau-prolog/modules/core.js node_modules/tau-prolog/modules/lists.js gh-pages-deploy/tau-prolog/`. Banked at Phase 3 Step 9.4-amendment 2026-05-09; first instance is `demo_p3.html` (Phase 3 is the first per-phase demo whose bundle pulls tau-prolog into the browser ESM context). Phase 4+ composition-layer-using demos inherit this pattern.
 4. Push. CI deploys.
 
 ### Two-case demo template
