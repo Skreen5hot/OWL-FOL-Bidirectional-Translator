@@ -152,10 +152,17 @@ function atomToProlog(atom: FOLAtom, varMap: Map<string, string>): string {
  *   - FOLAtom → Prolog atom
  *   - FOLConjunction (atoms only) → comma-separated Prolog goals
  *
- * Returns null for variants that fall through to Steps 4/6 forward-tracks
- * (FOLNegation / FOLDisjunction / FOLEquality / FOLFalse / FOLUniversal /
- * FOLExistential / unknown). The caller (translateImplication) records
- * the skip and emits no clause.
+ * Step 4 ACTIVATES (per ADR-007 §11 + Q-3-Step4-A 2026-05-09):
+ *   - FOLNegation around a positive atom → Prolog `\+ <atom>`
+ *     (negation-as-failure). Per spec §6.3 + ADR-007 §11 the closed-
+ *     vs open-predicate semantic mapping is the EVALUATOR's concern at
+ *     evaluate() time (per QueryParameters.closedPredicates per API §2 +
+ *     API §7.1); the translator's job is just to emit the `\+` operator
+ *     so Tau Prolog can resolve under NAF.
+ *
+ * Returns null for variants still forward-tracked to Step 6
+ * (FOLDisjunction / FOLEquality / FOLFalse / FOLUniversal / FOLExistential
+ * / unknown / nested FOLNegation). The caller records the skip.
  */
 function bodyAxiomToProlog(
   ax: FOLAxiom,
@@ -175,9 +182,24 @@ function bodyAxiomToProlog(
       }
       return parts.join(", ");
     }
+    case "fol:Negation": {
+      // Step 4 activation per ADR-007 §11. The inner must be a positive
+      // atom for v0.1 NAF semantics; nested FOLNegation or non-atom inner
+      // forms surface as null (Step 6 forward-track per ADR-007 §11
+      // FOLDisjunction-in-head + FOLEquality + FOLFalse rows).
+      const inner = (ax as { inner?: unknown }).inner;
+      if (
+        inner !== null &&
+        typeof inner === "object" &&
+        (inner as { "@type"?: unknown })["@type"] === "fol:Atom"
+      ) {
+        return "\\+ " + atomToProlog(inner as FOLAtom, varMap);
+      }
+      return null;
+    }
     default:
-      // FOLNegation / FOLDisjunction / FOLEquality / FOLFalse /
-      // FOLUniversal / FOLExistential — Steps 4/6 forward-tracks.
+      // FOLDisjunction / FOLEquality / FOLFalse / FOLUniversal /
+      // FOLExistential — Step 6 forward-tracks per ADR-007 §11.
       return null;
   }
 }

@@ -185,6 +185,38 @@ export async function loadOntology(
   // --- Allocate Tau Prolog session lazily on first loadOntology call ---
   if (session.tauPrologSession === null) {
     session.tauPrologSession = allocateTauPrologSession();
+    // Per ADR-007 §11 + spec §6.3 default OWA framing: undefined
+    // predicates must FAIL (return no proof) rather than throw
+    // existence_error. Tau Prolog defaults to ISO error-on-unknown;
+    // we set the unknown flag to 'fail' so the SLD failure path
+    // applies instead. Then evaluate()'s closedPredicates check
+    // determines whether the failure maps to 'false' (closed) or
+    // 'undetermined' (open) per spec §6.3.2 + Q-3-Step4-A 2026-05-09.
+    await new Promise<void>((resolve, reject) => {
+      const tps = session.tauPrologSession as {
+        consult: (
+          program: string,
+          options?: {
+            file?: boolean;
+            url?: boolean;
+            html?: boolean;
+            script?: boolean;
+            text?: boolean;
+            success?: () => void;
+            error?: (err: unknown) => void;
+          }
+        ) => unknown;
+      };
+      tps.consult(":- set_prolog_flag(unknown, fail).", {
+        file: false,
+        url: false,
+        html: false,
+        script: false,
+        text: true,
+        success: () => resolve(),
+        error: (err) => reject(err instanceof Error ? err : new Error(String(err))),
+      });
+    });
   }
   const tps = session.tauPrologSession as {
     consult: (

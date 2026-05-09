@@ -44,13 +44,12 @@ export const fixture = {
 
   expectedOutcome: {
     summary:
-      "Stub for Step 4 (closedPredicates + per-predicate CWA) authoring. Stub-level contract: " +
-      "query Knows(alice, bob)? without closedPredicates produces 'undetermined' with " +
-      "open_world_undetermined reason (default OWA per spec §6.3 — no proof of Knows, no proof of " +
-      "negation, predicate not closed; canonical reason code per Q-3-Step4-A ruling 2026-05-09).",
+      "Step 4 implementation contract: query Knows(alice, bob)? without closedPredicates " +
+      "produces 'undetermined' with open_world_undetermined reason (default OWA per spec §6.3 " +
+      "— no proof of Knows, no proof of negation, predicate not closed; canonical reason code " +
+      "per Q-3-Step4-A ruling 2026-05-09).",
     fixtureType: "evaluate-default-owa",
     canaryRole: "per-predicate-cwa-open-discriminator",
-    stubStatus: "step-4-authoring-pending",
   },
 
   expectedLossSignatureReasons: [],
@@ -63,26 +62,31 @@ export const fixture = {
     "not a predicate-state semantic).",
 
   "expected_v0.1_verdict": {
-    ringStatus: "ring3-stub-pending-step-4",
+    ringStatus: "ring3-passes-step-4-implementation",
     phaseAuthored: 3,
     phaseActivated: 3,
     expectedResult: "undetermined",
     expectedReason: "open_world_undetermined",
-    stubFilledAt: "step-4-implementation-cycle",
   },
 
   "expected_v0.2_elk_verdict": null,
 
   meta: {
-    verifiedStatus: "Draft",
+    verifiedStatus: "Verified",
     phase: 3,
     activationTiming: "step-N-bind",
     stepBinding: 4,
     authoredAt: "2026-05-08",
-    authoredBy: "SME persona, Pass 2a stub authoring",
-    relatedSpecSections: ["spec §6.3 (default OWA framing)", "spec §6.3.2 (per-predicate CWA)", "API §2 (QueryParameters.closedPredicates field)", "API §7.1 (evaluate consumes QueryParameters)"],
+    authoredBy: "SME persona, Pass 2a stub authoring; Step 4 micro-cycle reason-code correction 2026-05-09; Step 4 implementation cycle stub-fill 2026-05-09",
+    relatedSpecSections: [
+      "spec §6.3 (default OWA framing)",
+      "spec §6.3.2 (per-predicate CWA)",
+      "API §2 (QueryParameters.closedPredicates field)",
+      "API §7.1 (evaluate consumes QueryParameters)",
+      "ADR-007 §11 (FOL → Tau Prolog clause translation; open-predicate reason mapping)",
+    ],
     relatedFixtures: ["cwa_closed_predicate (sibling: closed predicate produces 'false' via CWA)"],
-    architectAuthorization: "Phase 3 entry packet §3.5 ratified 2026-05-08; step-N-bind per Q-3-E split.",
+    architectAuthorization: "Phase 3 entry packet §3.5 ratified 2026-05-08; step-N-bind per Q-3-E split; Q-3-Step4-A option β ratified 2026-05-09.",
   },
 };
 

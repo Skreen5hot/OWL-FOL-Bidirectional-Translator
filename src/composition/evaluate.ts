@@ -167,7 +167,6 @@ async function runSLD(
 export async function evaluate(
   session: Session | null | undefined,
   query: EvaluableQuery,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   params?: QueryParameters
 ): Promise<EvaluationResult> {
   // --- Session lifecycle gates per API §7.4 ---
@@ -187,10 +186,16 @@ export async function evaluate(
   // Matches Step 1b skeleton return for backwards-compat with Step 2
   // re-exercise tests that asserted the skeleton baseline before any
   // loadOntology call.
-  if (
-    session.tauPrologSession === null ||
-    session.cumulativeAxioms.length === 0
-  ) {
+  //
+  // Step 4 refinement (Q-3-Step4-A 2026-05-09): only short-circuit when
+  // NO loadOntology call has happened (tauPrologSession === null). Once
+  // loadOntology is called — even with an empty ontology — the
+  // tauPrologSession is allocated with the unknown=fail directive and
+  // SLD runs (returning failure on any query); closedPredicates
+  // semantics then apply per spec §6.3.2. The earlier check that also
+  // short-circuited on empty cumulativeAxioms incorrectly bypassed
+  // closedPredicates for loaded-but-empty sessions.
+  if (session.tauPrologSession === null) {
     return {
       result: "undetermined",
       reason: REASON_CODES.open_world_undetermined,
@@ -211,21 +216,59 @@ export async function evaluate(
 
   switch (sldResult) {
     case "success":
+      // SLD-success path: positive proof found regardless of
+      // closedPredicates. Three-state result: 'true' / 'consistent'.
       return {
         result: "true",
         reason: REASON_CODES.consistent,
         steps: 0,
       };
-    case "failure":
-      // Default OWA per spec §6.3: SLD failure ≠ provable negation;
-      // maps to 'undetermined' / 'open_world_undetermined'. Step 4
-      // closedPredicates implementation will refine this to 'false' /
-      // 'inconsistent' for closed predicates.
+    case "failure": {
+      // Step 4 (Q-3-Step4-A 2026-05-09 + ADR-007 §11): per-predicate
+      // CWA handling per spec §6.3.2.
+      //
+      // SLD failed to prove the goal. Two semantic sub-cases per
+      // QueryParameters.closedPredicates:
+      //
+      //   (a) The query's top-level predicate IS in closedPredicates →
+      //       CWA refutation: return 'false' / 'inconsistent' per
+      //       ADR-007 §11 (REUSE existing 'inconsistent' reason code,
+      //       not a new 'closed_world_negation' code).
+      //
+      //   (b) The query's top-level predicate is NOT in closedPredicates
+      //       (or closedPredicates is undefined) → default OWA per spec
+      //       §6.3: fail-to-prove ≠ provable-negation; return
+      //       'undetermined' / 'open_world_undetermined' per Q-3-Step4-A
+      //       option (β) ratification (REUSE existing
+      //       'open_world_undetermined'; not a new 'naf_residue' reason
+      //       code despite the LossSignature lossType sharing the
+      //       string).
+      //
+      // For FOLConjunction queries, the top-level predicate is
+      // determined by the first conjunct per spec §6.3.2 application
+      // semantics (the per-predicate CWA contract is per top-level
+      // goal predicate; conjunction goals fail when any conjunct fails,
+      // and the closure decision binds against the failing conjunct's
+      // predicate — Step 4 minimum applies the simpler rule of the
+      // first conjunct's predicate).
+      const queryPredicateIRI = topLevelPredicateOf(query);
+      const isClosed =
+        params?.closedPredicates !== undefined &&
+        queryPredicateIRI !== null &&
+        params.closedPredicates.has(queryPredicateIRI);
+      if (isClosed) {
+        return {
+          result: "false",
+          reason: REASON_CODES.inconsistent,
+          steps: 0,
+        };
+      }
       return {
         result: "undetermined",
         reason: REASON_CODES.open_world_undetermined,
         steps: 0,
       };
+    }
     case "error":
       // Step 3 minimum: any Tau Prolog error surfaces as 'undetermined'
       // with a generic reason. Step 5 cycle detection + Step 8 typed-
@@ -237,4 +280,32 @@ export async function evaluate(
         steps: 0,
       };
   }
+}
+
+/**
+ * Extract the top-level predicate IRI from an EvaluableQuery for
+ * closedPredicates membership lookup per spec §6.3.2.
+ *
+ * - FOLAtom → the atom's predicate IRI
+ * - FOLConjunction → the FIRST conjunct's predicate IRI per Step 4
+ *   minimum semantics (per-conjunct closure-handling is a Step 6
+ *   refinement)
+ *
+ * Returns null defensively for malformed queries (validateEvaluableQuery
+ * should already have caught these; this is belt-and-suspenders).
+ */
+function topLevelPredicateOf(query: EvaluableQuery): string | null {
+  const t = (query as { "@type"?: unknown })["@type"];
+  if (t === "fol:Atom") {
+    const pred = (query as { predicate?: unknown }).predicate;
+    return typeof pred === "string" ? pred : null;
+  }
+  if (t === "fol:Conjunction") {
+    const conjuncts = (query as { conjuncts?: unknown }).conjuncts;
+    if (Array.isArray(conjuncts) && conjuncts.length > 0) {
+      const first = conjuncts[0] as { predicate?: unknown };
+      return typeof first?.predicate === "string" ? first.predicate : null;
+    }
+  }
+  return null;
 }
