@@ -147,7 +147,7 @@ Phase 1 will replace the underlying call (currently the template `transform` ide
 
 **This section is the load-bearing architectural commitment of ADR-007. It routes future lifter/evaluator boundary questions.** Architect Ruling 1 of the Step 5 close cycle: "Lifter outputs classical FOL form per spec §5; evaluator implementation details (cycle guards, tabling, step caps) are evaluator-side concerns and do not appear in lifted FOL."
 
-The lifter emits CLASSICAL FOL semantic axioms (e.g., `∀x,y,z. P(x,y) ∧ P(y,z) → P(x,z)` for Transitive). Cycle-guarded SLD ingestion (visited-ancestor list per ADR-011) is the **Phase 3 evaluator's** concern, not the lifter's. The FOL term tree carries the equivalent encoding per spec §6.2 ("An OWL TransitiveObjectProperty declaration is logically equivalent to its Prolog rule form `p(X,Z) :- p(X,Y), p(Y,Z)`"); the Phase 3 evaluator (when it lands) translates the FOL state into cycle-guarded Prolog rules at ingestion time per ADR-011's visited-ancestor pattern.
+The lifter emits CLASSICAL FOL semantic axioms (e.g., `∀x,y,z. P(x,y) ∧ P(y,z) → P(x,z)` for Transitive). Cycle-guarded SLD ingestion (visited-ancestor list per **ADR-013**, ratified at Phase 3 Step 5 architectural-gap micro-cycle 2026-05-09; pre-ADR-013 references to "ADR-011" reflected the parallel-registry spec §13 ADR-011 entry "SLD termination via cycle-detection guards" which had no implementation-side ADR until ADR-013 filled the gap) is the **Phase 3 evaluator's** concern, not the lifter's. The FOL term tree carries the equivalent encoding per spec §6.2 ("An OWL TransitiveObjectProperty declaration is logically equivalent to its Prolog rule form `p(X,Z) :- p(X,Y), p(Y,Z)`"); the Phase 3 evaluator (when it lands) translates the FOL state into cycle-guarded Prolog rules at ingestion time per ADR-013's visited-ancestor pattern.
 
 This is the only resolution consistent with API §4 (no list primitive in FOLAxiom). Spec §5.4's "lifter rewrites" language refers to the conceptual lifter→evaluator pipeline; the rewrite to visited-list Prolog form happens at evaluator-ingestion time, not in the FOL term tree.
 
@@ -288,7 +288,7 @@ Architect-ratified at the Phase 3 Step 3 architectural-gap micro-cycle 2026-05-0
 
 - The translation runs at `loadOntology` time per API §5.5 (the `loadOntology` composition function ratified at Q-3-Step3-A 2026-05-09): each lifted FOLAxiom in the `FOLConversionResult.axioms` array is translated to a Prolog clause and `assertz`'d into the session's Tau Prolog state.
 - The translation is deterministic per the spec §0.1 + API §6.1.1 byte-stability contract: same FOL state translated in any order produces byte-identical Prolog clause set. The multi-ontology accumulation determinism per Q-3-Step3-A refinement 2 (order-independence across `loadOntology` calls) follows from the per-clause translation determinism.
-- The cycle-guarded SLD ingestion per ADR-011 (visited-ancestor list) wraps the translation: each translated clause carries the visited-ancestor metadata at evaluator time. §1's "Phase 3 evaluator's concern" is operationalized by the ADR-011 wrapping, not by the per-variant translation rules in this section.
+- The cycle-guarded SLD ingestion per **ADR-013** (visited-ancestor list; ratified at Phase 3 Step 5 architectural-gap micro-cycle 2026-05-09 — pre-ADR-013 references to "ADR-011" in this section reflected the parallel-registry spec §13 ADR-011 entry which had no implementation-side ADR) wraps the translation: each translated clause carries the visited-ancestor metadata at evaluator time. §1's "Phase 3 evaluator's concern" is operationalized by the ADR-013 wrapping, not by the per-variant translation rules in this section.
 
 **Step 4 forward-track:** When Step 4 implements `closedPredicates` per API §2 (`QueryParameters.closedPredicates` field, consumed by `evaluate` per API §7.1) + spec §6.3 (open-world default, per-predicate closure) + §6.3.2 (per-predicate CWA mode), the FOLNegation translation rule's closed-predicate branch wires up: predicates in `closedPredicates` get `\+ p` translation with the `inconsistent` reason code on succeeding NAF; predicates outside get the default-OWA `'undetermined'` + `open_world_undetermined` reason (per Q-3-Step4-A refinement 2026-05-09 — the canonical reason code for the OWA-stance semantic).
 
@@ -885,3 +885,105 @@ These three principles bank verbally at the Step 4 spec-binding cycle; formal AU
 - Phase 2 entry packet §3.1 (cardinality fixture regime — provisional `reversible` per architect Q-E banking principle 2; flips to `equivalent` at Step 4b)
 - Step 4 spec-binding routing cycle architect rulings 2026-05-07 (preserved verbatim in cycle transcript; Q-E ruling captured here for traceability)
 - `tests/corpus/p1_restrictions_cardinality.fixture.js` (the canonical exerciser)
+
+---
+
+## ADR-013: Visited-ancestor cycle-guard pattern for cycle-prone predicates
+
+**Date:** 2026-05-09 (drafted at Phase 3 Step 5 architectural-gap micro-cycle; ratified Accepted at this cycle's architect ratification)
+
+**Status:** Accepted (architectural commitment per spec §0.1; routes Phase 3 Step 5 cycle-detection implementation + Phase 4-7 forward-compat for cycle-prone ARC content)
+
+**Decision:** Phase 3 evaluator implements cycle termination for SLD resolution via the visited-ancestor list pattern. At FOL → Tau Prolog translation time (per ADR-007 §11), cycle-prone predicates are rewritten to thread an additional `Visited` list argument; SLD resolution checks before each recursive expansion whether the proposed expansion's binding is already in the visited list. If yes, emit `cycle_detected` reason code (per API §11.1 reason enum) rather than expand. The visited list grows monotonically per resolution path; backtracking does not pollute parallel paths.
+
+### Pattern
+
+For cycle-prone predicate `p(X, Y)` with body `p(X, Z), p(Z, Y)` (transitive closure), the translation rewrites to:
+
+```prolog
+p(X, Y) :- p_guard(X, Y, []).
+p_guard(X, Y, Visited) :-
+  p_orig(X, Y).
+p_guard(X, Y, Visited) :-
+  p_orig(X, Z),
+  \+ member(Z, Visited),
+  p_guard(Z, Y, [Z | Visited]).
+```
+
+Where `p_orig(X, Y)` is the directly-asserted form (per ADR-007 §9 reserved-predicate canonical form discipline + spec §5.5's identity machinery patterns).
+
+### Cycle-prone predicate classification (architect-ratified Phase 3 list)
+
+Predicates eligible for visited-ancestor wrapping:
+
+1. `TransitiveObjectProperty`-derived rules (∀x,y,z. P(x,y) ∧ P(y,z) → P(x,z))
+2. `SymmetricObjectProperty`-derived rules (∀x,y. P(x,y) → P(y,x))
+3. Recursive `SubClassOf` chains where transitive closure can re-enter the chain (e.g., A ⊑ B ⊑ A via EquivalentClasses)
+4. `same_as` identity propagation rules per spec §5.5 + DECISIONS.md ADR-010 / spec §13 ADR-010 (Identity handling via rule-based same_as propagation; parallel-registry references — see Phase 3 exit retro forward-track for broader reconciliation)
+5. `InverseObjectProperties`-derived bidirectional implication pair per ADR-007 §4 (cycle potential when paired with transitive)
+6. Connected-With bridge axiom per spec §3.4.1 (parthood-extension via the inferential closure under the bridge axiom; the bridge is `P(x,y) → ∀z. C(z,x) → C(z,y)` per spec §3.4.1)
+
+Phase 4+ ARC content may surface additional cycle-prone classes; extensions route as their own architect cycles with implementation evidence.
+
+### Detection emission contract
+
+When SLD resolution attempts to expand a goal whose binding-set is already in the visited list, the evaluator returns `cycle_detected` per API §11.1 reason enum + emits no LossSignature for this case (cycle is a termination signal, not an information loss). Closure-truncation cases (resolution depth bound exceeded per spec §5.4) emit `closure_truncated` LossSignature per Step 8 surface (per Q-3-Step5-C item 5 ratification 2026-05-09); cycle-detection cases stay clean.
+
+### Determinism (per spec §0.1 three-tier framing — architect Q-3-Step5-A refinement 1)
+
+The visited-ancestor encoding is **implementation-choice tier per spec §0.1**; the architectural commitment is to **cycle-free inference closure regardless of encoding**. The distinction matters for v0.2 SLG migration: the implementation choice changes; the architectural commitment to "no infinite recursion through cycle-prone predicates" persists.
+
+Within the v0.1 implementation choice, determinism per spec §0.1 + API §6.1.1 byte-stability contract holds:
+- The rewrite at translation time is deterministic per ADR-007 §11
+- The SLD resolution order is bounded by spec §5.4's depth bound
+- The cycle check is order-invariant within a single resolution path
+- Cross-call determinism: same FOL state translated and queried in any order produces byte-identical evaluation results
+
+v0.2 SLG tabling implements the same architectural commitment via memoization rather than visited-ancestor passing; the architectural commitment migrates cleanly across encoding changes.
+
+### v0.2 SLG migration path (per architect Q-3-Step5-A refinement 2)
+
+**v0.2 is the natural SLG migration cycle.** SLG tabling subsumes visited-ancestor encoding (the memoization replaces the explicit visited-ancestor list); the v0.1 visited-ancestor pattern is the bounded predecessor.
+
+**Phase 4-7 escape clause:** if a Phase 4-7 implementation surfaces a need to migrate earlier (e.g., a BFO disjointness chain whose closure exceeds visited-ancestor encoding's practical depth), the migration routes as its own architect cycle with implementation evidence per spec §0.2.3, **without waiting for v0.2**. The migration is not gated by v0.2 cycle timing if production evidence demands earlier escalation.
+
+The architectural commitment (cycle-free inference closure) persists across migrations; only the encoding choice changes.
+
+### Implementation status
+
+Proposed at Phase 3 Step 5 architectural-gap micro-cycle 2026-05-09; implementation lands at Step 5 close per Q-3-Step5-B Strategy (A) ratification. Cross-references from ADR-007 §1 + §11 update from "per ADR-011" (which was the cycle-guard reference inherited from spec §13 ADR-011 "SLD termination via cycle-detection guards" — the pre-ADR-013 spec-side ADR register entry) to "per ADR-013" at the editorial-correction commit per Q-3-Step5-C item 6 ratification.
+
+### Cross-references
+
+- spec §5.4 (resolution depth bound + cycle-detection literal framing)
+- spec §0.1 (three-tier framing — architectural commitment / implementation choice / correctness aspiration)
+- spec §0.2.3 (evidence-gated change discipline for Phase 4-7 migration escape clause)
+- spec §3.4.1 (Connected-With bridge axiom for parthood-extension; cycle-prone class 6)
+- spec §5.5 (identity machinery; cycle-prone class 4)
+- spec §13 ADR-011 (parallel-registry pre-ADR-013 reference; superseded for implementation by this ADR; spec §13 ADR index updates to reference ADR-013 per Q-3-Step5-C item 6 editorial correction)
+- ADR-007 §1 (cycle-guard layer translation — lifter emits classical FOL; evaluator-side concern)
+- ADR-007 §4 (Fresh-allocator-per-direction; InverseObjectProperties bidirectional pair per cycle-prone class 5)
+- ADR-007 §9 (reserved-predicate canonical form; the `p_orig` discipline)
+- ADR-007 §11 (FOL → Tau Prolog clause translation rule set; the translator post-pass that applies the visited-ancestor wrapping)
+- ADR-010 (DECISIONS.md: Vendored canonical source license-verification — distinct from spec §13 ADR-010 which is "Identity handling via rule-based same_as propagation"; parallel-registry; cycle-prone class 4 references the spec §13 ADR-010 substance)
+- API §11.1 (reason enum; `cycle_detected` reason code emission contract; reason enum stability at 16 + Q-3-C `no_strategy_applies` pending = 17 at Phase 3 close; no new reason code introduced by ADR-013)
+- API §6.4.1 (LossSignature taxonomy; `closure_truncated` is depth-bound surface, distinct from cycle-detection `cycle_detected` reason code)
+- Q-3-Step5-A architect ruling 2026-05-09 (this ADR's ratification + two refinements: determinism three-tier framing + SLG migration Phase 4-7 escape clause)
+- Q-3-Step5-B architect ruling 2026-05-09 (Strategy (A) Visited-ancestor encoding ratified)
+
+### Banked principles from this ADR
+
+1. **Cycle termination at SLD ingestion uses the visited-ancestor pattern; spec §5.4 literal framing is binding.** Alternative inference-time strategies (B step-cap-only, C timeout-based) are refused per the reason-code-semantic-distinguishability constraint banked at Q-3-Step5-B reasoning #2.
+
+2. **Cycle-prone predicate classification is an architect-ratified set; Phase 3 ratification covers six classes (transitive, symmetric, recursive subClassOf, same_as, InverseObjectProperties bidirectional pair, Connected-With parthood-extension); Phase 4+ ARC content may extend** with implementation evidence per spec §0.2.3.
+
+3. **The visited-ancestor encoding is implementation-choice tier per spec §0.1; the architectural commitment is to cycle-free inference closure regardless of encoding.** v0.2 SLG migration changes the encoding without changing the commitment; the architectural commitment migrates cleanly across encoding changes. *(Architect Q-3-Step5-A Refinement 1)*
+
+4. **v0.2 is the natural SLG migration cycle, NOT the binding cycle.** Phase 4-7 implementation surfaces of practical-depth issues route as own architect cycles with implementation evidence per spec §0.2.3; v0.1 visited-ancestor encoding is not a hard floor on encoding migration timing. *(Architect Q-3-Step5-A Refinement 2)*
+
+### Consequences
+
+- Future contributors implementing Phase 3 Step 5 (cycle detection) inherit the visited-ancestor pattern + 6-class cycle-prone classification; deviations require a follow-up ADR with implementation evidence.
+- The Phase 3 evaluator's Prolog-rule-emission algorithm has a documented contract: at `loadOntology` time per API §5.5, classify each lifted FOLAxiom against the 6-class cycle-prone list; for cycle-prone axioms, apply the visited-ancestor rewrite per ADR-013 + ADR-007 §11; for non-cycle-prone axioms, emit standard Prolog clauses unchanged.
+- Phase 4+ ARC content with new cycle-prone classes routes as its own architect cycle to extend the classification list; classification is not auto-extended at lift time.
+- v0.2 SLG migration plans against this ADR as the predecessor; the architectural commitment (cycle-free inference closure) persists; the encoding migrates from visited-ancestor list to memoization-based tabling.

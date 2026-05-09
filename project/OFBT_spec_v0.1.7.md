@@ -1403,7 +1403,7 @@ ADRs recorded in this specification:
 | ADR-008 | Property chain regularity check algorithm | Forthcoming (v0.1.1) |
 | ADR-009 | Negation projection rules (correcting `owl:disjointWith` misuse) | Accepted |
 | ADR-010 | Identity handling via rule-based `same_as` propagation (not canonical rewriting) | Accepted |
-| ADR-011 | SLD termination via cycle-detection guards (v0.1.2) with SLG tabling planned for v0.2 | Accepted |
+| ADR-011 | SLD termination via cycle-detection guards (v0.1.2) with SLG tabling planned for v0.2 — implementation-side architectural commitment ratified at `project/DECISIONS.md` ADR-013 (Visited-ancestor cycle-guard pattern, 2026-05-09; per Q-3-Step5-A ruling); broader parallel-registry reconciliation forward-tracked to Phase 3 exit retro per Q-3-Step5 side-finding ruling | Accepted |
 | ADR-012 | Blank node Skolemization via content-hash registry | Accepted |
 | ADR-013 | Projection provenance: preserved ontology IRI, fresh version IRI, PROV-O activity record | Accepted |
 | ADR-014 | Audit artifact separation: Loss Signature / Recovery Payload / Projection Manifest as three distinct artifacts | Accepted |
