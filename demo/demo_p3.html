@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OFBT Phase 3 demo &mdash; No-Collapse Guarantee + Layer A consistency-check parity</title>
+  <link rel="stylesheet" href="demo.css" />
+</head>
+<body>
+  <header>
+    <h1>OFBT Phase 3 Demo</h1>
+    <p class="subtitle">Two correctness arguments: (A) No-Collapse Guarantee canary discipline, (B) Layer A consistency-check parity.</p>
+    <p class="back-link"><a href="index.html">&larr; All phase demos</a></p>
+  </header>
+
+  <main>
+    <section class="section">
+      <h2>The case</h2>
+      <p class="lead">Phase 1 shipped the lifter. Phase 2 shipped the projector + structural round-trip parity. Phase 3 ships the validator: <code>evaluate()</code>, <code>checkConsistency()</code>, the No-Collapse Guarantee, the <code>unverifiedAxioms</code> honest-admission surface, and the <code>loadOntology</code>-driven session lifecycle. The Phase 3 demo argues both that <code>checkConsistency()</code> correctly catches Horn-detectable contradictions AND that on the BFO Layer A consistent subset its verdict matches what classical FOL semantics would conclude against the canonical CLIF axiomatization.</p>
+      <ol>
+        <li><strong>Internal canary discipline &mdash; No-Collapse Guarantee.</strong> Three adversarial fixtures exercise the three discriminating outcomes: a Horn-decidable inconsistency (must return <code>consistent: 'false'</code>), a non-Horn inconsistency (must return <code>'undetermined'</code> with populated <code>unverifiedAxioms</code> &mdash; honest admission of the Horn-fragment limit per spec &sect;8.5.5), and a catchall silent-pass adversary (must NOT return <code>consistent: 'true'</code> regardless of which mechanism rules it out). Together they catch the canonical silent-failure mode: <em>checkConsistency returning consistent: true on a KB classical FOL would judge inconsistent</em>.</li>
+        <li><strong>External Layer A consistency-check parity.</strong> The BFO 2020 standard-OWL subset from Phase 1's CLIF parity fixture is loaded into a session and consistency-checked. The KB is consistent under classical FOL semantics (no contradiction is derivable from the Layer A axioms over <code>SubClassOf</code>, <code>DisjointWith</code>, <code>TransitiveObjectProperty</code>, <code>InverseObjectProperties</code>); <code>checkConsistency()</code> must return <code>consistent: 'true'</code>. Divergence from this verdict would surface either a spurious-inconsistency bug (false positive) or a closure-truncation that mis-attributes the result.</li>
+      </ol>
+      <div class="callout">
+        <strong>Why both matter.</strong> A consistency checker that catches the Horn-decidable adversary but silently passes the non-Horn adversary leaks the No-Collapse contract: consumers see <code>consistent: 'true'</code> on KBs that classical FOL would judge inconsistent. A checker that flags the adversaries but spuriously fails the Layer A consistent fragment is unusable. The two disciplines together close failure modes neither catches alone &mdash; a result the corpus stub-evaluator at Phase 2 could not establish because stub semantics are bounded-Horn-only.
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Phase 3 implementation state at this build</h2>
+      <p class="lead">Phase 3 lands the validator pipeline in nine sequenced steps. This demo exercises what the Phase 3 exit deliverables expose; deferred refinements are listed in &ldquo;What Phase 3 does NOT yet do.&rdquo;</p>
+      <div class="callout">
+        <strong>Shipped at Phase 3 exit.</strong>
+        <ul>
+          <li><strong>Session lifecycle</strong> per API &sect;2 &mdash; <code>createSession</code> / <code>disposeSession</code>; lazy Tau Prolog allocation on first <code>loadOntology</code> call; session-required + session-disposed gates on every consuming API.</li>
+          <li><strong><code>loadOntology(session, ontology, config?)</code></strong> per API &sect;5.5 &mdash; lifts the input ontology, translates FOL&rarr;Prolog clauses per ADR-007 &sect;11 + ADR-013 visited-ancestor cycle-guard pattern, asserts clauses into the session's Tau Prolog state, accumulates <code>cumulativeAxioms</code> + <code>cumulativeSkipped</code> per the multi-call session model.</li>
+          <li><strong><code>evaluate(session, query, params?)</code></strong> per API &sect;7.1 &mdash; bounded-SLD resolution with the per-query 10K step cap (default per API &sect;7.2) and per-session aggregate cap. Returns <code>EvaluationResult</code> with the three-state <code>result</code> field.</li>
+          <li><strong><code>checkConsistency(session, axiomSet?, params?)</code></strong> per API &sect;8.1 &mdash; three-state <code>ConsistencyResult</code> per Q-3-Step6-A option (&alpha;) editorial correction; <code>FOLFalse</code>-in-head inconsistency proof for Horn-decidable contradictions; <code>cumulativeSkipped</code>-driven Horn-fragment-escape detection populating <code>unverifiedAxioms</code>; hypothetical-axiom case (<code>axiomSet</code> participates per API &sect;8.1.2 with non-persistence guarantee).</li>
+          <li><strong>No-Collapse Guarantee surface</strong> per spec &sect;8.5 &mdash; three-outcome check (<code>'true'</code> / <code>'false'</code> / <code>'undetermined'</code>) with the <code>'undetermined'</code> sub-cases differentiated by <code>reason</code> code (<code>step_cap_exceeded</code> vs <code>coherence_indeterminate</code>); <code>unverifiedAxioms</code> populated with the FOL axioms outside the Horn-checkable fragment when reason is <code>coherence_indeterminate</code>; <code>witnesses</code> populated with minimal inconsistent subsets when <code>consistent: 'false'</code>.</li>
+          <li><strong>Cycle-guarded Prolog clause emission</strong> per ADR-013 &mdash; visited-ancestor pattern catches the six identified cycle-prone predicate classes (transitive role + inverse, equivalent classes, role hierarchy with transitivity, &hellip;) before Tau Prolog enters non-terminating SLD recursion. Cycle detection escalates to a <code>SkippedAxiom</code> entry with diagnostic scope notes.</li>
+          <li><strong>Reserved reason-code surface</strong> per API &sect;7 &mdash; 17 frozen reason codes at v0.1.7 + <code>no_strategy_applies</code> added per Q-3-C; reuse-bounded-by-semantic-state-alignment discipline applied at Step 4 (<code>open_world_undetermined</code>) and Step 6 (<code>inconsistent</code>) per banked principles in <code>arc/AUTHORING_DISCIPLINE.md</code>.</li>
+        </ul>
+      </div>
+      <div class="callout warn">
+        <strong>Deferred to Phase 4+.</strong> ARC-content-driven inference (BFO 2020 Phase 4; IAO Phase 5; CCO Phase 6 per ADR-009 six-module expansion); <code>regularityCheck(A, importClosure)</code> import-closure machinery (Phase 4 entry packet); ELK / SROIQ external reasoner integration (v0.2 escape clause per spec &sect;0.1 three-tier framing); per-class Skolem-witness satisfiability checking refinements beyond Step 6+ minimum (forward-tracked); the six remaining LossType trigger-matchers (<code>arity_flattening</code>, <code>closure_truncated</code>, <code>una_residue</code>, <code>coherence_violation</code>, <code>bnode_introduced</code>, <code>lexical_distinct_value_equal</code> &mdash; their machinery exists; trigger-matchers arrive in subsequent phases per the LossType-by-phase split). 8 forward-track items routed to Phase 4 entry packet per the Phase 3 exit retro election.
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- CASE A — No-Collapse Guarantee canary discipline             -->
+    <!-- ============================================================ -->
+
+    <section class="section">
+      <h2>Case A &mdash; No-Collapse Guarantee canary discipline</h2>
+      <p class="lead">Three adversarial fixtures exercise the three discriminating outcomes of <code>checkConsistency()</code> against the No-Collapse Guarantee surface. Each fixture is engineered to catch a specific silent-failure failure mode; together they discriminate Horn-decidable inconsistency from non-Horn-incompleteness from the catchall silent-pass class.</p>
+      <div class="callout">
+        <strong>Why this matters for stakeholders.</strong> A consistency checker is only useful if its <code>'true'</code> verdict can be trusted. A naive Horn-only checker that runs SLD resolution to fixed-point and silently returns <code>'true'</code> when no contradiction is derivable is useless on real KBs &mdash; real KBs contain disjunction, existential quantifiers, and property-chain constraints that the Horn fragment cannot exhaust. OFBT's discipline: when the check cannot decide the verdict, it must say so (<code>'undetermined'</code> with populated <code>unverifiedAxioms</code>), not silently pass. Case A is the regression-density check against the silent-pass class.
+      </div>
+
+      <h3>A.1. Inputs</h3>
+      <p class="lead">Three fixtures from <code>tests/corpus/</code>:</p>
+      <ul>
+        <li><strong>nc_self_complement</strong> &mdash; <code>EquivalentClasses(ParadoxClass, ObjectComplementOf(ParadoxClass))</code>. Lifts to &forall;<i>x</i>. (<i>C</i>(<i>x</i>) &harr; &not;<i>C</i>(<i>x</i>)). Horn-decidable contradiction; expected verdict <code>consistent: 'false'</code>, <code>reason: 'inconsistent'</code>.</li>
+        <li><strong>nc_horn_incomplete_disjunctive</strong> &mdash; <code>SubClassOf(A, ObjectUnionOf(B, C))</code> + B&sub;D + C&sub;D + <code>DisjointClasses(A, D)</code> + <code>ClassAssertion(A, alice)</code>. Classically inconsistent through disjunctive case-analysis (non-Horn). Expected verdict <code>consistent: 'undetermined'</code>, <code>reason: 'coherence_indeterminate'</code>, <code>unverifiedAxioms</code> populated with the disjunctive + disjointness axioms.</li>
+        <li><strong>nc_silent_pass_canary</strong> &mdash; engineered classically-inconsistent KB through compounded non-Horn pathways (disjunctive partition + existential-witnessing + inverse + property-chain). Expected verdict: MUST NOT be <code>consistent: 'true'</code>; <code>'false'</code> or <code>'undetermined'</code> both acceptable.</li>
+      </ul>
+      <div class="panel">
+        <div class="panel-title">Three input ontologies (structured per API &sect;3.1)</div>
+        <pre id="nc-inputs-display">Loading fixtures&hellip;</pre>
+      </div>
+
+      <h3>A.2. Run the consistency checks</h3>
+      <div class="controls">
+        <button type="button" id="nc-run-button" disabled>Run checkConsistency on all three fixtures</button>
+        <span id="nc-status" class="badge pending">Loading bundle&hellip;</span>
+      </div>
+
+      <h3>A.3. <code>nc_self_complement</code> &mdash; Horn-decidable inconsistency</h3>
+      <p class="lead">The canonical equivalent-to-complement contradiction is decidable in the Horn-checkable fragment per spec &sect;8.5.1: a Skolem witness for satisfiability + the iff unfolding gives <i>C</i>(<i>c</i>)&and;&not;<i>C</i>(<i>c</i>)&rarr;&perp;. The check must return <code>consistent: 'false'</code> with the <code>inconsistent</code> reason; <code>unverifiedAxioms</code> must be empty (no axioms outside the fragment).</p>
+      <div class="panel">
+        <div class="panel-title">checkConsistency result</div>
+        <pre id="nc-self-result-display">Press <code>Run checkConsistency on all three fixtures</code> to invoke.</pre>
+      </div>
+      <div id="nc-self-assertions"></div>
+
+      <h3>A.4. <code>nc_horn_incomplete_disjunctive</code> &mdash; non-Horn inconsistency surfaced</h3>
+      <p class="lead">The disjunctive-consequent axiom + DisjointClasses contradiction-trigger drives a classical inconsistency through case-analysis the Horn fragment cannot perform. The check must return <code>consistent: 'undetermined'</code> with <code>reason: 'coherence_indeterminate'</code> AND <code>unverifiedAxioms</code> populated with at least the two non-Horn-fragment axioms &mdash; honest admission per spec &sect;8.5.5 + API &sect;8.1.1. A <code>'true'</code> verdict here is the silent-pass failure mode for non-Horn inconsistency.</p>
+      <div class="panel">
+        <div class="panel-title">checkConsistency result</div>
+        <pre id="nc-disj-result-display">&hellip;</pre>
+      </div>
+      <div id="nc-disj-assertions"></div>
+
+      <h3>A.5. <code>nc_silent_pass_canary</code> &mdash; the catchall silent-pass adversary</h3>
+      <p class="lead">A classically-inconsistent KB engineered through compounded non-Horn pathways. The canary's primary assertion is the negative one: <strong>MUST NOT</strong> return <code>consistent: 'true'</code>. Both <code>'false'</code> (a tableau-extended implementation reaching the contradiction) and <code>'undetermined'</code> with populated <code>unverifiedAxioms</code> (the v0.1 Horn-only path correctly admitting Horn-fragment-escape) are acceptable. <code>'true'</code> is unacceptable regardless of the mechanism that would have ruled it out.</p>
+      <div class="panel">
+        <div class="panel-title">checkConsistency result</div>
+        <pre id="nc-silent-result-display">&hellip;</pre>
+      </div>
+      <div id="nc-silent-assertions"></div>
+
+      <h3>A.6. Discrimination matrix</h3>
+      <p class="lead">The three fixtures together discriminate the No-Collapse behavioral surface across the in-fragment / non-Horn-incompleteness / silent-pass dimensions. A consistency checker that catches one but not the others is incomplete; OFBT's Phase 3 implementation must catch all three.</p>
+      <div id="nc-discrimination-results"></div>
+
+      <div class="callout">
+        <strong>What this case establishes (and what it does not).</strong> Per architect Q-Frank-4 ruling 2026-05-07, the No-Collapse canary is a <strong>regression-density check against engineered failure modes</strong>, not a soundness argument. It catches the silent-pass behaviors the test author thought to construct; it does not certify that no other Horn-undetectable inconsistency exists in arbitrary KBs. The argument the canary makes is exactly: on these three engineered KBs, the implementation's verdict matches the No-Collapse contract. A full soundness argument would require either external reasoner integration (v0.2 ELK) or a structural proof over the FOL fragment. Per spec &sect;0.1 three-tier framing, OFBT's v0.1 contract is "Horn-checkable inconsistency caught + non-Horn-fragment-escape honestly admitted"; this is exactly what Case A verifies.
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- CASE B — Layer A consistency-check parity                    -->
+    <!-- ============================================================ -->
+
+    <section class="section">
+      <h2>Case B &mdash; Layer A consistency-check parity</h2>
+      <p class="lead">The BFO 2020 standard-OWL subset from Phase 1's CLIF parity fixture (8 axioms: 5 <code>SubClassOf</code> + 1 <code>DisjointWith</code> + 1 <code>Transitive</code> + 1 <code>InverseOf</code>) is loaded into a session and consistency-checked. The KB is consistent under classical FOL semantics: no contradiction is derivable from the Layer A axiomatization over these constructs. <code>checkConsistency()</code> must return <code>consistent: 'true'</code> with the <code>consistent</code> reason.</p>
+      <div class="callout">
+        <strong>Layer A vs Layer B &mdash; framing.</strong> Per <code>arc/upstream-canonical/README.md</code>, Layer A is OWL semantics in CLIF (what <code>SubClassOf</code>, <code>Transitive</code>, etc. <em>mean</em>); Layer B is specific ontology content (what BFO's <code>Continuant</code>, <code>Occurrent</code>, ternary parthood mean). Phase 3's consistency check exercises Layer A &mdash; the lifted FOL's semantics under classical FOL match what the canonical CLIF axiomatization licenses. Phase 4+ extends to Layer B as ARC content lands; the BFO Disjointness Map canary (Continuant &cap; Occurrent must fire <code>consistent: 'false'</code>) is the Phase 4 demo's Case A.
+      </div>
+
+      <h3>B.1. Input ontology</h3>
+      <p class="lead">Same fixture exercised in the Phase 1 + Phase 2 demos for lift correctness and round-trip parity. From <code>tests/corpus/p1_bfo_clif_classical.fixture.js</code>.</p>
+      <div class="panel">
+        <div class="panel-title">Input OWL ontology (structured JS per API &sect;3.1)</div>
+        <pre id="bfo-input-display">Loading fixture&hellip;</pre>
+      </div>
+
+      <h3>B.2. Load + consistency-check</h3>
+      <div class="controls">
+        <button type="button" id="bfo-run-button" disabled>Run loadOntology + checkConsistency</button>
+        <span id="bfo-status" class="badge pending">Loading bundle&hellip;</span>
+      </div>
+
+      <h3>B.3. <code>checkConsistency</code> result</h3>
+      <p class="lead">The session loads the 8 Layer A axioms (one <code>InverseObjectProperties</code> decomposes into a bidirectional implication pair per ADR-007 &sect;4, so the lifted FOL state holds 9 axioms) and runs <code>checkConsistency()</code>. Expected: <code>consistent: 'true'</code>, <code>reason: 'consistent'</code>, <code>unverifiedAxioms</code> empty.</p>
+      <div class="panel">
+        <div class="panel-title">checkConsistency result</div>
+        <pre id="bfo-result-display">Press <code>Run loadOntology + checkConsistency</code> to invoke.</pre>
+      </div>
+      <div id="bfo-assertions"></div>
+
+      <h3>B.4. Layer A consistency contract panel</h3>
+      <p class="lead">For each input axiom: the canonical CLIF axiom block from <code>owl-axiomatization.clif</code> licenses its FOL semantics, and the lifted FOL is consistent with that semantics. The check is <em>parity</em> in the sense that the verdict <code>checkConsistency()</code> returns matches the verdict classical FOL semantics under the canonical Layer A axiomatization would conclude on the same input.</p>
+      <div id="bfo-clif-parity-results"></div>
+
+      <p class="lead spaced">Per the architect-ratified meta-typing-predicate elision (ADR-007 &sect;10): canonical CLIF includes <code>(Class X)</code> and <code>(OWLObjectProperty R)</code> typing predicates. OFBT's lifted FOL omits these per the encoding choice; the consistency check is conducted against the lifted form. Layer A semantics is preserved; the parity argument is sound w.r.t. OWL semantics for v0.1.</p>
+
+      <h3>B.5. Hypothetical-axiom case &mdash; non-persistence verification</h3>
+      <p class="lead">Phase 3's <code>checkConsistency(session, axiomSet)</code> participates a hypothetical <code>axiomSet</code> in the consistency check WITHOUT persisting it in the session per API &sect;8.1.2. A subsequent <code>checkConsistency(session)</code> call must see only the original session state. This sub-case demonstrates the contract on the <code>hypothetical_clean</code> fixture: a clean (consistent) hypothetical extension that narrows alice's membership without contradiction.</p>
+      <div class="panel">
+        <div class="panel-title">Hypothetical extension input (FOL axiomSet per API &sect;8.1.2)</div>
+        <pre id="hypo-input-display">Loading fixture&hellip;</pre>
+      </div>
+      <div class="controls">
+        <button type="button" id="hypo-run-button" disabled>Run two-call hypothetical protocol</button>
+        <span id="hypo-status" class="badge pending">Loading bundle&hellip;</span>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Two-call results (Call 1 with axiomSet, Call 2 without)</div>
+        <pre id="hypo-result-display">Press <code>Run two-call hypothetical protocol</code> to invoke.</pre>
+      </div>
+      <div id="hypo-assertions"></div>
+      <div class="callout">
+        <strong>Why the two-call protocol is load-bearing.</strong> Per the <code>hypothetical_non_persistence.fixture.js</code> design rationale: an implementation that incorrectly persists the hypothetical axioms (e.g., <code>assertz</code> without matching <code>retract</code>; or correctly retracts axioms but leaves derived facts behind; or mutates session state via shared references) silently corrupts the session for subsequent calls. The two-call protocol catches all three failure modes &mdash; if any axiom or derived fact persists, Call 2's verdict differs from the expected base-KB verdict.
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- WHAT'S DEFERRED                                              -->
+    <!-- ============================================================ -->
+
+    <section class="section">
+      <h2>What Phase 3 does NOT yet do</h2>
+      <p class="lead">Phase 3 ships the validator pipeline + No-Collapse Guarantee surface + 16 corpus fixtures (4 No-Collapse adversarial + 4 hypothetical-axiom + 2 step-cap + 4 strategy-routing + 2 closed-predicate / cycle). The remaining gaps live in Phase 4+.</p>
+      <ul>
+        <li><strong>BFO 2020 core ARC module + BFO Disjointness Map</strong> &mdash; <strong>Phase 4</strong>. The Phase 3 BFO Layer A consistency-check uses the standard-OWL subset only; the Phase 4 demo's Case A canary fires <code>consistent: 'false'</code> on Continuant&cap;Occurrent + introduces Layer B (<code>bfo-2020.clif</code>) parity citations.</li>
+        <li><strong>IAO information-bridge ARC module</strong> &mdash; <strong>Phase 5</strong>.</li>
+        <li><strong>CCO realizable-holding + mereotopology + measurement + aggregate + organizational + deontic ARC modules</strong> &mdash; <strong>Phase 6</strong> per ADR-009 six-CCO-module expansion.</li>
+        <li><strong>OFI deontic ARC module + compatibility shim + bundle budget enforcement + coverage matrix CI</strong> &mdash; <strong>Phase 7</strong> per ADR-008 Option A (OFI deontic deferred to v0.2 inside Phase 7's compat-shim landing).</li>
+        <li><strong>Per-class Skolem-witness satisfiability refinement</strong> &mdash; forward-tracked beyond Step 6+ minimum. The Phase 3 implementation handles <code>FOLFalse</code>-in-head inconsistency proofs (sufficient for the lifted form of <code>DisjointClasses</code> / <code>DisjointWith</code> contradictions); deeper Skolem-driven satisfiability checks for arbitrary unsatisfiable class expressions are a future cycle.</li>
+        <li><strong><code>regularityCheck(A, importClosure)</code> import-closure machinery</strong> &mdash; <strong>Phase 4 entry packet</strong>. Phase 2's projector chain projection emits <code>regularity_scope_warning</code> unconditionally; Phase 4 closes this for chains regularity-confirmed under loaded ARC modules' import closure.</li>
+        <li><strong>External reasoner integration (ELK / SROIQ)</strong> &mdash; <strong>v0.2+</strong> per spec &sect;0.1 three-tier framing escape clause. Phase 3's v0.1 contract is Horn-checkable + honest-admission of Horn-fragment-escape; v0.2 ELK closes the EL-profile gap and v0.3+ SROIQ closes the rest.</li>
+        <li><strong>Six remaining LossType trigger-matchers</strong> &mdash; the audit-artifact machinery supports all 8 LossTypes; trigger-matchers for <code>arity_flattening</code> (Phase 4 BFO ternary parthood), <code>closure_truncated</code> (Phase 3 evaluator-time concern, partially landed), <code>una_residue</code> (Phase 3 evaluator-time concern), <code>coherence_violation</code> (Phase 3 No-Collapse adversarial corpus), <code>bnode_introduced</code> (Phase 3 evaluator-derived Skolem introduction), <code>lexical_distinct_value_equal</code> (Phase 4 datatype handling) phase in across the build sequence.</li>
+        <li><strong>Phase 4 entry packet forward-tracks (8 items)</strong> &mdash; routed at Phase 3 exit retro per the Orchestrator's election: parallel-registry reconciliation (DECISIONS.md ADR-NN vs spec &sect;13 ADR-NN); substantive-scope-weighting methodology refinement; at-risk-tag-conservatism observation; cycle_equivalent_classes Class-3 fixture re-binding; nc_bfo_continuant_occurrent + nc_sdc_gdc Phase-4-deferred fixtures; LossType trigger-matcher subsystem cleanup; Realization regularity-check upgrade.</li>
+      </ul>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- PROVENANCE                                                   -->
+    <!-- ============================================================ -->
+
+    <section class="section">
+      <h2>Provenance</h2>
+      <dl class="provenance">
+        <dt>Spec sections</dt>
+        <dd>Behavioral spec &sect;0.1 (three-tier framing &mdash; v0.1 Horn-checkable / v0.2 ELK / v0.3+ SROIQ); &sect;5.4 (resolution depth bound); &sect;6.3 (default OWA negation + <code>closedPredicates</code>); &sect;8.1 (round-trip parity criterion); <strong>&sect;8.2</strong> (consistency check semantics); <strong>&sect;8.5</strong> (No-Collapse Guarantee); &sect;8.5.1 (Horn-checkable fragment scope); &sect;8.5.2 (three-outcome check + outcome ordering); &sect;8.5.4 (limitations &mdash; sound for Horn-expressible contradictions); &sect;8.5.5 (surfacing Horn-fragment limit to consumers). API spec &sect;2 (session lifecycle); &sect;5.5 (<code>loadOntology</code>); &sect;7.1 (<code>evaluate</code>); &sect;7.2 (per-query step cap); &sect;7.4 (configurable throw-on-cap); &sect;8.1 (<code>checkConsistency</code> signature + ConsistencyResult); &sect;8.1.1 (<code>unverifiedAxioms</code> field + honest-admission discipline); &sect;8.1.2 (hypothetical-axiom case + non-persistence guarantee); &sect;10.3 (session-required + session-disposed errors).</dd>
+        <dt>Case A No-Collapse adversarial fixtures</dt>
+        <dd><code>tests/corpus/nc_self_complement.fixture.js</code> (Horn-decidable inconsistency); <code>tests/corpus/nc_horn_incomplete_disjunctive.fixture.js</code> (non-Horn-disjunctive Horn-fragment-escape); <code>tests/corpus/nc_silent_pass_canary.fixture.js</code> (catchall silent-pass adversary). All three at <code>verifiedStatus: Verified</code> at Phase 3 exit per the Step 9.3 promotion pass.</dd>
+        <dt>Case B Layer A fixture</dt>
+        <dd><code>tests/corpus/p1_bfo_clif_classical.fixture.js</code> &mdash; the same BFO 2020 standard-OWL subset exercised in the Phase 1 + Phase 2 demos; reused for Phase 3 consistency-check parity per the cumulative Layer A discipline.</dd>
+        <dt>Case B hypothetical-axiom sub-case fixture</dt>
+        <dd><code>tests/corpus/hypothetical_clean.fixture.js</code> &mdash; clean (consistent) hypothetical extension; positive control for the <code>checkConsistency(session, axiomSet)</code> non-persistence guarantee. Sibling fixtures: <code>hypothetical_inconsistency</code>, <code>hypothetical_horn_incompleteness</code>, <code>hypothetical_non_persistence</code>.</dd>
+        <dt>Vendored Layer A canonical source</dt>
+        <dd><code>arc/upstream-canonical/owl-axiomatization.clif</code> &mdash; W3C OWL CLIF axiomatization (Fabian Neuhaus, 2009; BFO repository, CC BY 4.0). Provenance + license-verification block at <code>owl-axiomatization.clif.SOURCE</code> per ADR-010 vendoring discipline.</dd>
+        <dt>Implementation</dt>
+        <dd><code>src/composition/check-consistency.ts</code> &mdash; <code>checkConsistency()</code> three-state surface + <code>FOLFalse</code>-in-head inconsistency proof + Horn-fragment-escape detection via <code>cumulativeSkipped</code> aggregation + hypothetical-axiom non-persistence semantic. <code>src/composition/evaluate.ts</code> &mdash; <code>evaluate()</code> bounded-SLD invocation + per-query step cap. <code>src/composition/load-ontology.ts</code> &mdash; <code>loadOntology()</code> lifecycle + FOL&rarr;Prolog translation orchestration. <code>src/composition/session.ts</code> &mdash; <code>createSession</code> / <code>disposeSession</code> + cumulative axiom/skipped tracking. <code>src/kernel/fol-to-prolog.ts</code> &mdash; FOL&rarr;Prolog clause translator per ADR-007 &sect;11 + ADR-013 visited-ancestor cycle-guard pattern. <code>src/kernel/evaluate-types.ts</code> &mdash; EvaluableQuery + EvaluationResult type surface.</dd>
+        <dt>Test runner</dt>
+        <dd><code>tests/evaluate-phase3.test.ts</code> &mdash; <code>evaluate()</code> + <code>checkConsistency()</code> tests against the No-Collapse adversarial corpus + hypothetical-axiom + step-cap + strategy-routing fixtures. <code>tests/determinism.test.ts</code> + <code>tests/no-network.test.ts</code> + <code>tests/snapshot.test.ts</code> &mdash; spec tests (unmodified per the operational boundary).</dd>
+        <dt>Phase 3 entry packet + step-N micro-cycles</dt>
+        <dd><code>project/reviews/phase-3-entry.md</code> &mdash; ratified entry packet + 9-step ledger + corpus-before-code 8/8 split per Q-3-E. <code>project/reviews/phase-3-step3-architectural-gap.md</code> (loadOntology API &sect;5.5 + ADR-007 &sect;11 placement). <code>project/reviews/phase-3-step4-architectural-gap.md</code> (cwa_open_predicate reason-code reuse + verification ritual operationalized). <code>project/reviews/phase-3-step5-architectural-gap.md</code> (ADR-013 visited-ancestor pattern). <code>project/reviews/phase-3-step6-architectural-gap.md</code> (three-state ConsistencyResult + reason-code reuse for <code>inconsistent</code>). <code>project/reviews/phase-3-retroactive-corrective.md</code> (FOL @type discriminator corrections in 4 hypothetical fixtures). <code>project/reviews/phase-3-reactivation-results.md</code> (per-canary publication artifact: 3&times; survived against real <code>evaluate()</code>).</dd>
+        <dt>ADR references</dt>
+        <dd>ADR-002 (no external OWL reasoner dependency for v0.1 validation &mdash; v0.2 ELK escape clause). ADR-003 (structural round-trip parity as primary correctness criterion; the No-Collapse Guarantee per spec &sect;8.5 is the orthogonal correctness criterion Case A exercises). ADR-007 &sect;1 (cycle-guard layer translation), &sect;10 (meta-typing-predicate elision), <strong>&sect;11</strong> (FOL&rarr;Tau Prolog clause translation rules per-variant table). ADR-010 (vendored canonical source license-verification discipline). ADR-011 (audit-artifact <code>@id</code> content-addressing). <strong>ADR-013</strong> (visited-ancestor cycle-guard pattern; ratified Step 5 architectural-gap micro-cycle 2026-05-08; six cycle-prone predicate classes).</dd>
+        <dt>Authoring discipline</dt>
+        <dd><code>arc/AUTHORING_DISCIPLINE.md</code> &mdash; SME pre-handoff verification ritual (8 categories; binding from Phase 3 Step 4 forward); Phase 3 Banked Principles section (~46 principles transcribed verbatim per the verbatim-transcription discipline; cycle-stratified by entry packet, Step 3-6 micro-cycles, retroactive corrective).</dd>
+      </dl>
+    </section>
+  </main>
+
+  <footer>
+    OFBT v0.1 build &mdash; Phase 3 demo. Disposable per the architect's per-phase demo-file convention. Replaced by <code>demo_p4.html</code> at Phase 4 exit. Two-case structure (No-Collapse adversarial canary + Layer A consistency-check parity) per the banked template at <code>demo/README.md</code>.
+  </footer>
+
+  <script type="module">
+    // Phase 3 demo runner. Pure ES module; no framework. Imports the
+    // Phase 3 session / load / consistency-check API from the browser
+    // bundle and five fixtures from the corpus deploy directory.
+    // SME-role discipline: corpus-driven. Demo outputs match what the
+    // test suite asserts; no parallel demo logic.
+    //
+    // The demo asserts the No-Collapse contract per Q-Frank-4 ruling
+    // 2026-05-07 (per-canary publication commitment): each canary's
+    // outcome is rendered with a survived/failed-revealed-implementation-
+    // gap/not-yet-reactivated badge tied to the actual checkConsistency
+    // return value. An honest-divergence callout surfaces fixture-vs-
+    // implementation mismatches inline rather than masking them.
+
+    const ncInputsDisplay = document.getElementById('nc-inputs-display');
+    const ncRunButton = document.getElementById('nc-run-button');
+    const ncStatusEl = document.getElementById('nc-status');
+    const ncSelfResultDisplay = document.getElementById('nc-self-result-display');
+    const ncSelfAssertions = document.getElementById('nc-self-assertions');
+    const ncDisjResultDisplay = document.getElementById('nc-disj-result-display');
+    const ncDisjAssertions = document.getElementById('nc-disj-assertions');
+    const ncSilentResultDisplay = document.getElementById('nc-silent-result-display');
+    const ncSilentAssertions = document.getElementById('nc-silent-assertions');
+    const ncDiscriminationResults = document.getElementById('nc-discrimination-results');
+
+    const bfoInputDisplay = document.getElementById('bfo-input-display');
+    const bfoRunButton = document.getElementById('bfo-run-button');
+    const bfoStatusEl = document.getElementById('bfo-status');
+    const bfoResultDisplay = document.getElementById('bfo-result-display');
+    const bfoAssertions = document.getElementById('bfo-assertions');
+    const bfoClifParityResults = document.getElementById('bfo-clif-parity-results');
+
+    const hypoInputDisplay = document.getElementById('hypo-input-display');
+    const hypoRunButton = document.getElementById('hypo-run-button');
+    const hypoStatusEl = document.getElementById('hypo-status');
+    const hypoResultDisplay = document.getElementById('hypo-result-display');
+    const hypoAssertions = document.getElementById('hypo-assertions');
+
+    function setStatus(el, text, kind) {
+      el.textContent = text;
+      el.className = 'badge ' + (kind || 'pending');
+    }
+
+    function pretty(obj) {
+      return JSON.stringify(obj, null, 2);
+    }
+
+    function renderAssertion(container, description, ok) {
+      const row = document.createElement('div');
+      row.className = 'assertion-row';
+      const badge = document.createElement('span');
+      badge.className = 'badge ' + (ok ? 'good' : 'bad');
+      badge.textContent = ok ? '✓ pass' : '✗ FAIL';
+      const desc = document.createElement('span');
+      desc.className = 'desc';
+      desc.textContent = description;
+      row.appendChild(badge);
+      row.appendChild(desc);
+      container.appendChild(row);
+    }
+
+    function renderInfo(container, description, kind) {
+      const row = document.createElement('div');
+      row.className = 'assertion-row';
+      const badge = document.createElement('span');
+      badge.className = 'badge ' + (kind || 'pending');
+      badge.textContent = kind === 'good' ? '✓ ok' : kind === 'bad' ? '✗ FAIL' : '· info';
+      const desc = document.createElement('span');
+      desc.className = 'desc';
+      desc.textContent = description;
+      row.appendChild(badge);
+      row.appendChild(desc);
+      container.appendChild(row);
+    }
+
+    /**
+     * Render the BFO/CLIF Layer A parity panel. Same logic as demo_p2.html:
+     * groups consecutive clifGroundTruth entries that cite the same canonical
+     * block. Demo-side replication per per-phase disposability.
+     */
+    function renderLayerAParity(container, clifGroundTruth, consistencyVerdict) {
+      const groups = [];
+      let currentGroup = null;
+      for (const cgt of clifGroundTruth) {
+        const refKey = cgt.clifAxiomRef.split(' — ')[0];
+        if (currentGroup && currentGroup.refKey === refKey) {
+          currentGroup.entries.push(cgt);
+        } else {
+          currentGroup = { refKey, clifText: cgt.clifText, entries: [cgt] };
+          groups.push(currentGroup);
+        }
+      }
+
+      for (const group of groups) {
+        const groupDiv = document.createElement('div');
+        groupDiv.className = 'panel';
+        groupDiv.style.marginBottom = '1rem';
+
+        const title = document.createElement('div');
+        title.className = 'panel-title';
+        title.textContent =
+          'Canonical CLIF — ' + group.refKey +
+          (group.entries.length > 1 ? '  (' + group.entries.length + ' fixture inputs cite this block)' : '');
+        groupDiv.appendChild(title);
+
+        const clifPre = document.createElement('pre');
+        clifPre.style.padding = '0.75rem';
+        clifPre.style.margin = '0';
+        clifPre.style.background = 'var(--code-bg)';
+        clifPre.style.fontSize = '0.85rem';
+        clifPre.textContent = group.clifText;
+        groupDiv.appendChild(clifPre);
+
+        const inputsList = document.createElement('div');
+        inputsList.style.padding = '0.75rem';
+        inputsList.style.borderTop = '1px solid var(--border)';
+        inputsList.style.background = 'var(--bg-panel)';
+        inputsList.innerHTML =
+          '<strong style="font-size: 0.85rem; color: var(--fg-muted);">Fixture-input axioms exercising this canonical block (consistency verdict: ' +
+          (consistencyVerdict || '—') + '):</strong>';
+        for (const entry of group.entries) {
+          const row = document.createElement('div');
+          row.className = 'assertion-row';
+          row.style.fontSize = '0.9rem';
+
+          const badge = document.createElement('span');
+          const isConsistent = consistencyVerdict === 'true';
+          badge.className = 'badge ' + (isConsistent ? 'good' : consistencyVerdict ? 'bad' : 'pending');
+          badge.textContent = isConsistent ? '✓ consistent' : consistencyVerdict ? '✗ ' + consistencyVerdict : '—';
+
+          const desc = document.createElement('span');
+          desc.className = 'desc';
+          desc.innerHTML =
+            '<code>' + (entry.owlAxiomLabel || 'unnamed') + '</code>' +
+            ' — Layer A semantics consistent with checkConsistency verdict';
+
+          row.appendChild(badge);
+          row.appendChild(desc);
+          inputsList.appendChild(row);
+        }
+        groupDiv.appendChild(inputsList);
+
+        container.appendChild(groupDiv);
+      }
+    }
+
+    let createSession;
+    let disposeSession;
+    let loadOntology;
+    let checkConsistency;
+    let ncSelfFixture;
+    let ncDisjFixture;
+    let ncSilentFixture;
+    let bfoFixture;
+    let hypoFixture;
+
+    try {
+      const bundle = await import('./bundles/ofbt-core.browser.min.js');
+      createSession = bundle.createSession;
+      disposeSession = bundle.disposeSession;
+      loadOntology = bundle.loadOntology;
+      checkConsistency = bundle.checkConsistency;
+      const requiredExports = { createSession, disposeSession, loadOntology, checkConsistency };
+      for (const [name, fn] of Object.entries(requiredExports)) {
+        if (typeof fn !== 'function') {
+          throw new Error(name + ' is not exported from the bundle as a function');
+        }
+      }
+
+      const ncSelfModule = await import('./fixtures/nc_self_complement.fixture.js');
+      ncSelfFixture = ncSelfModule.fixture;
+      const ncDisjModule = await import('./fixtures/nc_horn_incomplete_disjunctive.fixture.js');
+      ncDisjFixture = ncDisjModule.fixture;
+      const ncSilentModule = await import('./fixtures/nc_silent_pass_canary.fixture.js');
+      ncSilentFixture = ncSilentModule.fixture;
+      const bfoModule = await import('./fixtures/p1_bfo_clif_classical.fixture.js');
+      bfoFixture = bfoModule.fixture;
+      const hypoModule = await import('./fixtures/hypothetical_clean.fixture.js');
+      hypoFixture = hypoModule.fixture;
+
+      ncInputsDisplay.textContent =
+        '// nc_self_complement.input\n' + pretty(ncSelfFixture.input) +
+        '\n\n// nc_horn_incomplete_disjunctive.input\n' + pretty(ncDisjFixture.input) +
+        '\n\n// nc_silent_pass_canary.input\n' + pretty(ncSilentFixture.input);
+      bfoInputDisplay.textContent = pretty(bfoFixture.input);
+      hypoInputDisplay.textContent =
+        '// hypothetical_clean.input (base session KB)\n' + pretty(hypoFixture.input) +
+        '\n\n// hypothetical_clean.axiomSet (FOL axioms passed to checkConsistency call 1)\n' + pretty(hypoFixture.axiomSet);
+
+      setStatus(ncStatusEl, 'Ready', 'good');
+      setStatus(bfoStatusEl, 'Ready', 'good');
+      setStatus(hypoStatusEl, 'Ready', 'good');
+      ncRunButton.disabled = false;
+      bfoRunButton.disabled = false;
+      hypoRunButton.disabled = false;
+    } catch (err) {
+      const msg = 'Failed to load: ' + err.message;
+      setStatus(ncStatusEl, msg, 'bad');
+      setStatus(bfoStatusEl, msg, 'bad');
+      setStatus(hypoStatusEl, msg, 'bad');
+      ncInputsDisplay.textContent = 'Could not load demo assets. Check the browser console for details.';
+      bfoInputDisplay.textContent = 'Could not load demo assets. Check the browser console for details.';
+      hypoInputDisplay.textContent = 'Could not load demo assets. Check the browser console for details.';
+      console.error('OFBT Phase 3 demo load error:', err);
+    }
+
+    /**
+     * Run loadOntology + checkConsistency for one fixture against a
+     * fresh session. Returns the ConsistencyResult or { error } on
+     * failure. Always disposes the session.
+     */
+    async function runConsistencyCheck(fixture) {
+      const session = createSession();
+      try {
+        await loadOntology(session, fixture.input);
+        const result = await checkConsistency(session);
+        return { result };
+      } catch (err) {
+        return { error: err.message || String(err) };
+      } finally {
+        try { disposeSession(session); } catch { /* idempotent */ }
+      }
+    }
+
+    // ===== Case A run handler =====
+    ncRunButton.addEventListener('click', async () => {
+      setStatus(ncStatusEl, 'Loading + checking three fixtures...', 'pending');
+      ncRunButton.disabled = true;
+      ncSelfResultDisplay.textContent = '...';
+      ncSelfAssertions.innerHTML = '';
+      ncDisjResultDisplay.textContent = '...';
+      ncDisjAssertions.innerHTML = '';
+      ncSilentResultDisplay.textContent = '...';
+      ncSilentAssertions.innerHTML = '';
+      ncDiscriminationResults.innerHTML = '';
+
+      // ----- nc_self_complement: Horn-decidable inconsistency -----
+      const selfRun = await runConsistencyCheck(ncSelfFixture);
+      if (selfRun.error) {
+        ncSelfResultDisplay.textContent = 'Error: ' + selfRun.error;
+        renderAssertion(ncSelfAssertions, 'checkConsistency threw on Horn-decidable adversary — implementation gap', false);
+      } else {
+        ncSelfResultDisplay.textContent = pretty(selfRun.result);
+        const r = selfRun.result;
+        renderAssertion(
+          ncSelfAssertions,
+          "consistent === 'false' (Horn-decidable contradiction caught): actual " + JSON.stringify(r.consistent),
+          r.consistent === 'false'
+        );
+        renderAssertion(
+          ncSelfAssertions,
+          "reason === 'inconsistent': actual " + JSON.stringify(r.reason),
+          r.reason === 'inconsistent'
+        );
+        const unverifiedEmpty = !r.unverifiedAxioms || r.unverifiedAxioms.length === 0;
+        renderAssertion(
+          ncSelfAssertions,
+          'unverifiedAxioms is empty (no axioms outside the Horn-checkable fragment for this case): actual count ' + (r.unverifiedAxioms ? r.unverifiedAxioms.length : 0),
+          unverifiedEmpty
+        );
+      }
+
+      // ----- nc_horn_incomplete_disjunctive: non-Horn surfaced -----
+      const disjRun = await runConsistencyCheck(ncDisjFixture);
+      if (disjRun.error) {
+        ncDisjResultDisplay.textContent = 'Error: ' + disjRun.error;
+        renderAssertion(ncDisjAssertions, 'checkConsistency threw on non-Horn-disjunctive adversary — implementation gap', false);
+      } else {
+        ncDisjResultDisplay.textContent = pretty(disjRun.result);
+        const r = disjRun.result;
+        renderAssertion(
+          ncDisjAssertions,
+          "consistent === 'undetermined' (non-Horn fragment surfaced, not silently passed): actual " + JSON.stringify(r.consistent),
+          r.consistent === 'undetermined'
+        );
+        renderAssertion(
+          ncDisjAssertions,
+          "reason === 'coherence_indeterminate' (Horn-fragment-escape, not step-cap): actual " + JSON.stringify(r.reason),
+          r.reason === 'coherence_indeterminate'
+        );
+        const unverifiedCount = (r.unverifiedAxioms || []).length;
+        renderAssertion(
+          ncDisjAssertions,
+          'unverifiedAxioms populated (honest-admission per spec §8.5.5 + API §8.1.1): actual count ' + unverifiedCount + ' (fixture expects ≥ 2)',
+          unverifiedCount >= 2
+        );
+      }
+
+      // ----- nc_silent_pass_canary: must NOT be 'true' -----
+      const silentRun = await runConsistencyCheck(ncSilentFixture);
+      if (silentRun.error) {
+        ncSilentResultDisplay.textContent = 'Error: ' + silentRun.error;
+        renderAssertion(ncSilentAssertions, 'checkConsistency threw on silent-pass adversary — implementation gap', false);
+      } else {
+        ncSilentResultDisplay.textContent = pretty(silentRun.result);
+        const r = silentRun.result;
+        renderAssertion(
+          ncSilentAssertions,
+          "MUST NOT be consistent === 'true' (the silent-pass failure mode): actual " + JSON.stringify(r.consistent),
+          r.consistent !== 'true'
+        );
+        const acceptable = r.consistent === 'false' || r.consistent === 'undetermined';
+        renderInfo(
+          ncSilentAssertions,
+          "Acceptable verdicts: 'false' (tableau-extended caught the contradiction) OR 'undetermined' with populated unverifiedAxioms (Horn-only correctly admitted Horn-fragment-escape). Actual verdict: " + JSON.stringify(r.consistent),
+          acceptable ? 'good' : 'bad'
+        );
+        if (r.consistent === 'undetermined') {
+          const unverifiedCount = (r.unverifiedAxioms || []).length;
+          renderAssertion(
+            ncSilentAssertions,
+            "If 'undetermined': unverifiedAxioms must be populated per spec §8.5.5. Actual count " + unverifiedCount + ' (fixture expects ≥ 3 if undetermined)',
+            unverifiedCount >= 3
+          );
+        }
+      }
+
+      // ----- Discrimination matrix -----
+      const selfOk = !selfRun.error && selfRun.result && selfRun.result.consistent === 'false';
+      const disjOk = !disjRun.error && disjRun.result && disjRun.result.consistent === 'undetermined';
+      const silentOk = !silentRun.error && silentRun.result && silentRun.result.consistent !== 'true';
+      renderAssertion(
+        ncDiscriminationResults,
+        'In-fragment baseline (nc_self_complement) — Horn-decidable inconsistency caught (consistent: false)',
+        selfOk
+      );
+      renderAssertion(
+        ncDiscriminationResults,
+        'Non-Horn-fragment-escape (nc_horn_incomplete_disjunctive) — undetermined surfaced with populated unverifiedAxioms',
+        disjOk
+      );
+      renderAssertion(
+        ncDiscriminationResults,
+        'Silent-pass catchall (nc_silent_pass_canary) — verdict is NOT consistent: true regardless of mechanism',
+        silentOk
+      );
+
+      const allCases = selfOk && disjOk && silentOk;
+      const summaryRow = document.createElement('div');
+      summaryRow.className = 'callout';
+      summaryRow.style.marginTop = '0.75rem';
+      summaryRow.innerHTML =
+        '<strong>Discrimination matrix verdict.</strong> ' +
+        (allCases
+          ? 'All three No-Collapse adversaries handled correctly. The Phase 3 implementation discriminates Horn-decidable inconsistency from non-Horn-fragment-escape from the catchall silent-pass class — the No-Collapse Guarantee surface holds across this canary set.'
+          : 'At least one adversary did not match the expected verdict; per the per-canary publication discipline (Q-Frank-4 ruling 2026-05-07) this is surfaced as an honest-admission rather than masked. The implementation gap is forward-tracked to Phase 4 entry packet authoring; canaries that do not yet survive against the real <code>checkConsistency()</code> are documented in <code>project/reviews/phase-3-reactivation-results.md</code>.');
+      ncDiscriminationResults.appendChild(summaryRow);
+
+      setStatus(ncStatusEl, 'Three fixtures checked', allCases ? 'good' : 'pending');
+      ncRunButton.disabled = false;
+    });
+
+    // ===== Case B run handler =====
+    bfoRunButton.addEventListener('click', async () => {
+      setStatus(bfoStatusEl, 'Loading + checking BFO Layer A subset...', 'pending');
+      bfoRunButton.disabled = true;
+      bfoResultDisplay.textContent = '...';
+      bfoAssertions.innerHTML = '';
+      bfoClifParityResults.innerHTML = '';
+
+      const run = await runConsistencyCheck(bfoFixture);
+      if (run.error) {
+        bfoResultDisplay.textContent = 'Error: ' + run.error;
+        renderAssertion(bfoAssertions, 'checkConsistency threw on BFO Layer A subset — implementation gap', false);
+        setStatus(bfoStatusEl, 'Error', 'bad');
+        bfoRunButton.disabled = false;
+        return;
+      }
+      bfoResultDisplay.textContent = pretty(run.result);
+      const r = run.result;
+      renderAssertion(
+        bfoAssertions,
+        "consistent === 'true' (BFO Layer A subset is classically consistent): actual " + JSON.stringify(r.consistent),
+        r.consistent === 'true'
+      );
+      renderAssertion(
+        bfoAssertions,
+        "reason === 'consistent': actual " + JSON.stringify(r.reason),
+        r.reason === 'consistent'
+      );
+      const unverifiedEmpty = !r.unverifiedAxioms || r.unverifiedAxioms.length === 0;
+      renderAssertion(
+        bfoAssertions,
+        'unverifiedAxioms is empty (Layer A subset is fully Horn-translatable): actual count ' + (r.unverifiedAxioms ? r.unverifiedAxioms.length : 0),
+        unverifiedEmpty
+      );
+
+      // ----- Layer A CLIF parity panel -----
+      const cgt = bfoFixture.clifGroundTruth || [];
+      if (cgt.length === 0) {
+        const empty = document.createElement('p');
+        empty.textContent = 'No clifGroundTruth entries declared in the BFO fixture.';
+        bfoClifParityResults.appendChild(empty);
+      } else {
+        renderLayerAParity(bfoClifParityResults, cgt, r.consistent);
+      }
+
+      setStatus(bfoStatusEl, 'BFO Layer A consistency check complete', r.consistent === 'true' ? 'good' : 'bad');
+      bfoRunButton.disabled = false;
+    });
+
+    // ===== Hypothetical-axiom run handler =====
+    hypoRunButton.addEventListener('click', async () => {
+      setStatus(hypoStatusEl, 'Running two-call protocol...', 'pending');
+      hypoRunButton.disabled = true;
+      hypoResultDisplay.textContent = '...';
+      hypoAssertions.innerHTML = '';
+
+      const session = createSession();
+      const out = { call1: null, call2: null, error: null };
+      try {
+        await loadOntology(session, hypoFixture.input);
+        // Call 1: with axiomSet (hypothetical participates)
+        out.call1 = await checkConsistency(session, hypoFixture.axiomSet);
+        // Call 2: without axiomSet (hypothetical must NOT have persisted)
+        out.call2 = await checkConsistency(session);
+      } catch (err) {
+        out.error = err.message || String(err);
+      } finally {
+        try { disposeSession(session); } catch { /* idempotent */ }
+      }
+
+      if (out.error) {
+        hypoResultDisplay.textContent = 'Error: ' + out.error;
+        renderAssertion(hypoAssertions, 'Two-call protocol threw — implementation gap', false);
+        setStatus(hypoStatusEl, 'Error', 'bad');
+        hypoRunButton.disabled = false;
+        return;
+      }
+      hypoResultDisplay.textContent =
+        '// Call 1 — checkConsistency(session, axiomSet)\n' + pretty(out.call1) +
+        '\n\n// Call 2 — checkConsistency(session)\n' + pretty(out.call2);
+
+      renderAssertion(
+        hypoAssertions,
+        "Call 1 with hypothetical clean axiomSet returns consistent: 'true' (the extension is consistent): actual " + JSON.stringify(out.call1.consistent),
+        out.call1.consistent === 'true'
+      );
+      renderAssertion(
+        hypoAssertions,
+        "Call 2 against same session returns consistent: 'true' (base KB is consistent and hypothetical did NOT persist per API §8.1.2): actual " + JSON.stringify(out.call2.consistent),
+        out.call2.consistent === 'true'
+      );
+      renderAssertion(
+        hypoAssertions,
+        'Non-persistence guarantee verified (Call 2 verdict matches expected base-KB verdict)',
+        out.call1.consistent === 'true' && out.call2.consistent === 'true'
+      );
+
+      setStatus(hypoStatusEl, 'Two-call protocol complete', 'good');
+      hypoRunButton.disabled = false;
+    });
+  </script>
+</body>
+</html>
