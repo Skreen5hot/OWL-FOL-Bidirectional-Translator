@@ -130,7 +130,7 @@ export const fixture = {
   },
 
   meta: {
-    verifiedStatus: "Draft",
+    verifiedStatus: "Verified",
     phase: 3,
     activationTiming: "corpus-before-code",
     stepBinding: 6,
