@@ -46,6 +46,12 @@ export const REASON_CODES = Object.freeze({
 
   // Configuration mismatch failures (added in v0.1.7, additive per §11.2)
   arc_manifest_version_mismatch: "arc_manifest_version_mismatch",
+
+  // Configuration mismatch failures (added in v0.1.8 per Step 8
+  // implementation cycle 2026-05-09 — pre-ratified at Step 6 Finding 4
+  // disposition + ratified at Q-3-Step8-A routing 2026-05-09 option 1
+  // proceed-under-pre-ratification; additive per §11.2)
+  structural_annotation_mismatch: "structural_annotation_mismatch",
 } as const);
 
 /**

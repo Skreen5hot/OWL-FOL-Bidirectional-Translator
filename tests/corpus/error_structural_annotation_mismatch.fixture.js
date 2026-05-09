@@ -56,7 +56,7 @@ export const fixture = {
   "expected_v0.2_elk_verdict": null,
 
   meta: {
-    verifiedStatus: "Draft",
+    verifiedStatus: "Verified",
     phase: 3,
     activationTiming: "step-N-bind",
     stepBinding: 8,

@@ -2,7 +2,10 @@
  * Phase 0.4 — Version Surfacing & Tau Prolog Verification Tests
  *
  * Verifies per API spec §9:
- *   - getVersionInfo returns the documented shape with apiSpecVersion: '0.1.7'
+ *   - getVersionInfo returns the documented shape with apiSpecVersion: '0.1.8'
+ *     (bumped at Phase 3 Step 8 implementation cycle 2026-05-09 per
+ *     Q-3-Step8-A routing pre-ratified at Step 6 Finding 4 disposition;
+ *     reflects additive REASON_CODES extension structural_annotation_mismatch)
  *   - getVersionInfo omits buildTimestamp in the default (published-build) path
  *   - verifyTauPrologVersion returns {match: true, expected: '0.3.4', found: '0.3.4'}
  *     when v0.3.4 is loaded
@@ -39,8 +42,8 @@ check("getVersionInfo returns documented shape", () => {
   ok(typeof v.apiSpecVersion === "string");
 });
 
-check("getVersionInfo reports apiSpecVersion === '0.1.7'", () => {
-  strictEqual(getVersionInfo().apiSpecVersion, "0.1.7");
+check("getVersionInfo reports apiSpecVersion === '0.1.8' (Phase 3 Step 8 minor-version bump per Q-3-Step8-A)", () => {
+  strictEqual(getVersionInfo().apiSpecVersion, "0.1.8");
 });
 
 check("getVersionInfo reports tauPrologVersion === '0.3.4' (pinned)", () => {

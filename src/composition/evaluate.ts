@@ -44,6 +44,7 @@
 import {
   SessionRequiredError,
   SessionDisposedError,
+  SessionStepCapExceededError,
 } from "../kernel/errors.js";
 import { REASON_CODES } from "../kernel/reason-codes.js";
 import {
@@ -182,6 +183,26 @@ export async function evaluate(
     );
   }
 
+  // --- Phase 3 Step 8: SessionStepCapExceededError per API §2.1 + §7.4 ---
+  // Pre-check: if the session's aggregate step counter has already
+  // exceeded the configured cap (from prior queries), throw immediately.
+  // Per API §2.1: maxAggregateSteps default is unbounded; when set,
+  // exceeding it always throws (NOT configurable to non-throwing per
+  // API §7.4 — this is the runaway-protection mechanism).
+  const maxAggregate = session.config.maxAggregateSteps;
+  if (
+    maxAggregate !== undefined &&
+    session.aggregateSteps >= maxAggregate
+  ) {
+    throw new SessionStepCapExceededError(
+      `Session aggregate step cap exceeded: ${session.aggregateSteps} >= ${maxAggregate} (configured via SessionConfiguration.maxAggregateSteps per API §2.1).`,
+      {
+        aggregateSteps: session.aggregateSteps,
+        maxAggregateSteps: maxAggregate,
+      }
+    );
+  }
+
   // --- Query validation gate per API §7.5 ---
   validateEvaluableQuery(query);
 
@@ -199,6 +220,12 @@ export async function evaluate(
   // short-circuited on empty cumulativeAxioms incorrectly bypassed
   // closedPredicates for loaded-but-empty sessions.
   if (session.tauPrologSession === null) {
+    // Phase 3 Step 8: increment aggregate step counter even on the
+    // empty-state path. Per API §2.1 the counter tracks ALL evaluate()
+    // calls; an empty-state evaluate() still consumed the API surface.
+    // Step 8 minimum uses a placeholder per-call increment of 1; richer
+    // per-query step extraction from Tau Prolog is forward-tracked.
+    session.aggregateSteps += 1;
     return {
       result: "undetermined",
       reason: REASON_CODES.open_world_undetermined,
@@ -236,6 +263,14 @@ export async function evaluate(
     CYCLE_DETECTED_MARKER_PREDICATE + "."
   );
   const cycleDetected = cycleCheckResult === "success";
+
+  // Phase 3 Step 8: increment session aggregate step counter per API §2.1.
+  // Step 8 minimum uses a placeholder per-call increment of 1000 (an
+  // order-of-magnitude approximation of the per-query default cap per
+  // API §7.2 — DEFAULT_PER_QUERY_STEP_CAP). Real per-query step extraction
+  // from Tau Prolog is forward-tracked alongside the steps field
+  // refinement (currently steps: 0 placeholder).
+  session.aggregateSteps += 1000;
 
   switch (sldResult) {
     case "success":

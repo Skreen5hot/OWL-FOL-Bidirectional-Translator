@@ -33,6 +33,7 @@ import { stableStringify } from "../kernel/canonicalize.js";
 import {
   SessionRequiredError,
   SessionDisposedError,
+  OFBTError,
 } from "../kernel/errors.js";
 import type { OWLOntology } from "../kernel/owl-types.js";
 import type { FOLAxiom } from "../kernel/fol-types.js";
@@ -177,6 +178,41 @@ export async function loadOntology(
     throw new SessionDisposedError(
       "loadOntology() called against a disposed session. Create a new session via createSession() before loading."
     );
+  }
+
+  // --- Phase 3 Step 8: arc_manifest_version_mismatch + structural_annotation_mismatch
+  //     per API §5.5 throws + §2.1.1 + §2.1.2 ---
+  // When loadOntology config supplies arcManifestVersion that diverges
+  // from the session's, throw OFBTError with code 'arc_manifest_version_mismatch'
+  // per API §5.5 throws contract. Same shape for structuralAnnotations.
+  // Both detections fire at load time; per spec §2.1.1 + §2.1.2 the
+  // evaluate-time detection (against FOL state's conversion metadata)
+  // is the symmetric path for cross-call mismatches — Step 8 minimum
+  // ships the load-time path.
+  if (config !== undefined) {
+    if (
+      config.arcManifestVersion !== undefined &&
+      config.arcManifestVersion !== session.config.arcManifestVersion
+    ) {
+      throw new OFBTError(
+        `loadOntology config.arcManifestVersion '${config.arcManifestVersion}' diverges from session.config.arcManifestVersion '${session.config.arcManifestVersion}'. ` +
+          "Reconvert ontology under matching ARC version, or recreate session with matching version per API §2.1.2.",
+        "arc_manifest_version_mismatch"
+      );
+    }
+    if (config.structuralAnnotations !== undefined) {
+      const sessionSet = session.config.structuralAnnotations ?? new Set<string>();
+      const configSet = config.structuralAnnotations;
+      const divergent = setSymmetricDifference(configSet, sessionSet);
+      if (divergent.length > 0) {
+        throw new OFBTError(
+          `loadOntology config.structuralAnnotations diverges from session.config.structuralAnnotations. ` +
+            `Mismatched IRIs: ${divergent.slice(0, 3).join(", ")}${divergent.length > 3 ? ` (+${divergent.length - 3} more)` : ""}. ` +
+            "Use a single SessionConfiguration object across createSession + loadOntology calls per API §2.1.1 to avoid drift.",
+          "structural_annotation_mismatch"
+        );
+      }
+    }
   }
 
   // --- Idempotency check per API §5.5 ---
@@ -348,6 +384,25 @@ async function sha256Hex(input: string): Promise<string> {
 export function __resetLoadOntologyCacheForTesting(): void {
   ontologyResultCache.clear();
   registeredFactory = null;
+}
+
+/**
+ * Phase 3 Step 8 helper: compute the symmetric difference of two
+ * string sets (members in either but not both). Used by the
+ * structural_annotation_mismatch detection at loadOntology time.
+ *
+ * Returns a sorted array for deterministic error messages per the
+ * spec §0.1 byte-stability discipline.
+ */
+function setSymmetricDifference(
+  a: ReadonlySet<string>,
+  b: ReadonlySet<string>
+): string[] {
+  const out: string[] = [];
+  for (const x of a) if (!b.has(x)) out.push(x);
+  for (const x of b) if (!a.has(x)) out.push(x);
+  out.sort((p, q) => (p < q ? -1 : p > q ? 1 : 0));
+  return out;
 }
 
 // Re-export the FOL-translation surface for downstream use; provides

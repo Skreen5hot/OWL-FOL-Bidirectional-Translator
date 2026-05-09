@@ -1716,10 +1716,16 @@ type ReasonCode =
   | 'tau_prolog_version_mismatch'      // peer-dependency version mismatch
 
   // Configuration mismatch failures (added in v0.1.7, additive per §11.2)
-  | 'arc_manifest_version_mismatch';   // session/conversion ARC version drift (§2.1.2)
+  | 'arc_manifest_version_mismatch'    // session/conversion ARC version drift (§2.1.2)
+
+  // Configuration mismatch failures (added in v0.1.8 per Phase 3 Step 8
+  // implementation cycle 2026-05-09; pre-ratified at Step 6 Finding 4
+  // disposition + ratified at Q-3-Step8-A routing 2026-05-09; additive
+  // per §11.2)
+  | 'structural_annotation_mismatch';  // session/conversion structuralAnnotations divergence (§2.1.1)
 ```
 
-**Sixteen members in v0.1.7** (fifteen in v0.1.6 plus `arc_manifest_version_mismatch` added for the session/conversion mismatch detection per §2.1.2).
+**Seventeen members in v0.1.8** (sixteen in v0.1.7 plus `structural_annotation_mismatch` added for the session/conversion structuralAnnotations mismatch detection per §2.1.1, pre-ratified at Phase 3 Step 6 Finding 4 disposition 2026-05-09 + ratified at Q-3-Step8-A routing 2026-05-09).
 
 ### 11.2 Stability commitment
 

@@ -2,7 +2,9 @@
  * Phase 0.3 — Frozen REASON_CODES Enum Tests
  *
  * Verifies per API spec §11:
- *   - Sixteen members exactly
+ *   - Seventeen members exactly (v0.1.8: structural_annotation_mismatch
+ *     added at Phase 3 Step 8 implementation cycle 2026-05-09 per
+ *     Q-3-Step8-A routing pre-ratified at Step 6 Finding 4 disposition)
  *   - Every member is exported with key === value
  *   - The object is frozen (mutation throws in strict mode)
  *   - The type guard isReasonCode behaves correctly
@@ -48,10 +50,11 @@ const EXPECTED_MEMBERS: readonly ReasonCode[] = [
   "parse_error",
   "tau_prolog_version_mismatch",
   "arc_manifest_version_mismatch",
+  "structural_annotation_mismatch",
 ];
 
-check("REASON_CODES has exactly 16 members per API spec §11", () => {
-  strictEqual(Object.keys(REASON_CODES).length, 16);
+check("REASON_CODES has exactly 17 members per API spec §11 (v0.1.8: structural_annotation_mismatch added)", () => {
+  strictEqual(Object.keys(REASON_CODES).length, 17);
 });
 
 check("Every expected member is present and key === value", () => {
