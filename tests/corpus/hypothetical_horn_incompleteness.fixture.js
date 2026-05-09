@@ -52,12 +52,41 @@ export const fixture = {
   },
 
   axiomSet: [
+    // OWL SubClassOf(Person, ObjectUnionOf(Adult, Minor)) lifted to FOL:
+    //   ∀x. Person(x) → (Adult(x) ∨ Minor(x))
+    // The Disjunction-in-consequent is the canonical Horn-fragment-escape shape per
+    // spec §8.5.4 + ADR-007 §11 FOLDisjunction-in-head per-variant table row
+    // (architect-ratified 2026-05-09). This is THE shape that exercises the
+    // unverifiedAxioms surface in the No-Collapse Guarantee Horn-fragment classifier.
+    // Per ADR-007 §11 + API §8.1.2: axiomSet is FOLAxiom[]; FOL Disjunction is the
+    // canonical shape, not OWL ObjectUnionOf (which would not exercise the FOL-layer
+    // Horn-fragment classifier).
+    // Corrected per Q-3-Step6 retroactive corrective routing 2026-05-09 Finding 2.
     {
-      "@type": "fol:SubClassOfAxiom",
-      subClass: PERSON,
-      superClass: {
-        "@type": "fol:ObjectUnionOf",
-        classes: [ADULT, MINOR],
+      "@type": "fol:Universal",
+      variable: "x",
+      body: {
+        "@type": "fol:Implication",
+        antecedent: {
+          "@type": "fol:Atom",
+          predicate: PERSON,
+          arguments: [{ "@type": "fol:Variable", name: "x" }],
+        },
+        consequent: {
+          "@type": "fol:Disjunction",
+          disjuncts: [
+            {
+              "@type": "fol:Atom",
+              predicate: ADULT,
+              arguments: [{ "@type": "fol:Variable", name: "x" }],
+            },
+            {
+              "@type": "fol:Atom",
+              predicate: MINOR,
+              arguments: [{ "@type": "fol:Variable", name: "x" }],
+            },
+          ],
+        },
       },
     },
   ],

@@ -55,7 +55,7 @@ export const fixture = {
     ringStatus: "ring3-stub-pending-step-8",
     phaseAuthored: 3,
     phaseActivated: 3,
-    expectedThrows: "SessionStepCapExceededError",
+    expectedThrows: "aggregate_step_cap_exceeded",
     stubFilledAt: "step-8-implementation-cycle",
   },
 

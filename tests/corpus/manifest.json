@@ -995,7 +995,7 @@
         "phaseAuthored": 3,
         "phaseActivated": 3,
         "expectedConsistencyResult": "false",
-        "expectedReason": "horn_inconsistency_proven",
+        "expectedReason": "inconsistent",
         "expectedUnverifiedAxiomsCount": 0,
         "stepBinding": 6,
         "activationTiming": "corpus-before-code"
@@ -1380,7 +1380,7 @@
         "ringStatus": "ring3-stub-pending-step-8",
         "phaseAuthored": 3,
         "phaseActivated": 3,
-        "expectedThrows": "SessionStepCapExceededError",
+        "expectedThrows": "aggregate_step_cap_exceeded",
         "stepBinding": 8,
         "activationTiming": "step-N-bind"
       },

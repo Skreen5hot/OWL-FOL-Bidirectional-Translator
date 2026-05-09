@@ -54,10 +54,34 @@ export const fixture = {
   },
 
   axiomSet: [
-    // Hypothetical axiom that introduces inconsistency
+    // Hypothetical axiom that introduces inconsistency.
+    // OWL DisjointClasses(Adult, Person) lifted to FOL: ∀x. (Adult(x) ∧ Person(x)) → ⊥
+    // Per ADR-007 §11 (per-variant translation rules ratified 2026-05-09): API §8.1.2
+    // axiomSet is FOLAxiom[]; DisjointClasses lifts to a Universal-Implication-Conjunction-
+    // False composition per the canonical lifting + spec §6.3 OWA framing.
+    // Corrected per Q-3-Step6 retroactive corrective routing 2026-05-09 Finding 2.
     {
-      "@type": "fol:DisjointClassesAxiom",
-      classes: [ADULT, PERSON],
+      "@type": "fol:Universal",
+      variable: "x",
+      body: {
+        "@type": "fol:Implication",
+        antecedent: {
+          "@type": "fol:Conjunction",
+          conjuncts: [
+            {
+              "@type": "fol:Atom",
+              predicate: ADULT,
+              arguments: [{ "@type": "fol:Variable", name: "x" }],
+            },
+            {
+              "@type": "fol:Atom",
+              predicate: PERSON,
+              arguments: [{ "@type": "fol:Variable", name: "x" }],
+            },
+          ],
+        },
+        consequent: { "@type": "fol:False" },
+      },
     },
   ],
 

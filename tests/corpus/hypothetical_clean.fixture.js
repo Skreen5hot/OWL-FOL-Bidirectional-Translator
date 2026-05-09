@@ -51,10 +51,17 @@ export const fixture = {
   },
 
   axiomSet: [
+    // OWL ClassAssertion(Mother, alice) lifted to FOL Atom Mother(alice).
+    // Per ADR-007 §11 (visited-ancestor + per-variant translation rules ratified
+    // 2026-05-09): API §8.1.2 axiomSet is FOLAxiom[]; ClassAssertion at the FOL
+    // layer is just an atomic predicate application.
+    // Corrected per Q-3-Step6 retroactive corrective routing 2026-05-09 Finding 2
+    // (Pass 2a authoring used OWL-axiom-shape @type discriminators in axiomSet;
+    // canonical FOL @types per src/kernel/evaluate-types.ts + fol-to-prolog.ts).
     {
-      "@type": "fol:ClassAssertionAxiom",
-      class: MOTHER,
-      individual: ALICE,
+      "@type": "fol:Atom",
+      predicate: MOTHER,
+      arguments: [{ "@type": "fol:Constant", iri: ALICE }],
     },
   ],
 

@@ -90,7 +90,7 @@ export const fixture = {
       "is decidable in the Horn-checkable fragment per spec §8.5.1).",
     fixtureType: "consistency-check",
     expectedConsistencyResult: "false",
-    expectedReason: "horn_inconsistency_proven",
+    expectedReason: "inconsistent",
     canaryRole: "no-collapse-adversarial-horn-detectable-inconsistency",
   },
 
@@ -110,7 +110,7 @@ export const fixture = {
     phaseAuthored: 3,
     phaseActivated: 3,
     expectedConsistencyResult: "false",
-    expectedReason: "horn_inconsistency_proven",
+    expectedReason: "inconsistent",
     expectedUnverifiedAxiomsCount: 0,
     expectedWitnessPattern:
       "witness names ParadoxClass + the EquivalentClasses-with-ObjectComplementOf axiom; " +
