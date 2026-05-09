@@ -227,6 +227,21 @@ Per Q-Frank-4 ruling 2026-05-07: each Phase 2 stub-validated parity canary is ta
 
 If Step 1 pre-emptive review reveals genuine semantic divergence requiring corpus amendment of either at-risk canary's primary assertion, that surfaces as a Phase 3 entry-cycle micro-cycle for architect ratification BEFORE Step 2 reactivation runs. This is the Q-3-B-ratified pre-emptive-vs-reactive cycle pattern.
 
+**Step 2 baseline publication outcomes per Q-Frank-4 publication commitment** (filled at Step 2; updated at each subsequent Step that meaningfully changes evaluator capability; final binding at Phase 3 exit summary per Q-3-F):
+
+| Canary | Stub result (Phase 2) | Skeleton result (Step 1b `c2a9867`) | Step 2 disposition | Upgrade target |
+|---|---|---|---|---|
+| `parity_canary_query_preservation` | `'true'` (Person(alice) entailed via SubClassOf chain) | `'undetermined'` (skeleton uniform) | ⏸ **skeleton-deferred-to-step-3** — gap is skeleton, not canary; Phase 3 SLD landing produces stub-matching `'true'` | Step 3 SLD: `'true'` |
+| `parity_canary_negative_query` | `'undetermined'` (OWA, no Knows facts/rules) | `'undetermined'` (skeleton matches stub trivially) | ✓ **survived** at Step 2 | Step 3 SLD: `'undetermined'` (must still hold under SLD) |
+| `parity_canary_visual_equivalence_trap` Tier 1 (Q_1: `Person(bob)?` + Q_2: `hasChild(alice, bob)?`) | `'true'`/`'true'` (asserted ABox facts) | `'undetermined'`/`'undetermined'` (skeleton uniform) | ⏸ **skeleton-deferred-to-step-3** — gap is skeleton, not canary | Step 3 SLD: `'true'`/`'true'` |
+| `parity_canary_visual_equivalence_trap` Tier 2 (`∃y. hasChild(alice,y) ∧ ¬Person(y)?`) | n/a (Phase 3 enhanced; SME-authored at Phase 2 close) | n/a (out of v0.1 EvaluableQuery — `FOLExistential` + `FOLNegation` throw `UnsupportedConstructError` per API §7.5) | ⏭ **deferred to v0.2** via I8 cycle-2 routing (Step 1a finding 2026-05-08) | v0.2 ELK-integration or richer EvaluableQuery subset |
+
+**Step 2 baseline summary:** 1 of 3 canaries (`parity_canary_negative_query`) **survived** at the skeleton-only evaluator. 2 of 3 canaries (`parity_canary_query_preservation` + `parity_canary_visual_equivalence_trap` Tier 1) are **skeleton-deferred-to-step-3** — the gap is the Step 1b skeleton's uniform `'undetermined'` return, NOT a canary failure. Step 3 SLD landing produces actual stub-matching outcomes for the deferred canaries. `parity_canary_visual_equivalence_trap` Tier 2 is **deferred to v0.2** via I8 cycle-2 routing per Step 1a (commit `b7e5686`).
+
+**Step 2 plumbing verification** (`tests/evaluate-phase3-step2-reexercise.test.ts`): each canary's full lift→project→re-lift→evaluate pipeline succeeds end-to-end (lifter + projector + evaluate skeleton all wired correctly). Skeleton-disposition outcomes are expected and asserted; Step 3 will UPGRADE the assertions to expect SLD-resolved stub-matching results.
+
+**Per Q-3-F publication-artifact format ratification:** the canonical publication artifact location at Phase 3 exit is appended to the exit summary (cross-referenced to risk-estimate tags). At intermediate Steps (this section is the Step 2 binding), the §3.6 baseline outcomes table serves as the running publication; each Step's commit updates the outcome column as evaluator capability advances.
+
 ### 3.7 Total Phase 3 corpus
 
 - **Phase 1 + Phase 2 carryforward:** 27 fixtures (re-exercised through Ring 3)
