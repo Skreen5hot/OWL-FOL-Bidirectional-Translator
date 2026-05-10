@@ -55,6 +55,7 @@ import type {
   FOLAxiom,
   FOLConjunction,
   FOLImplication,
+  FOLNegation,
   FOLUniversal,
 } from "../kernel/fol-types.js";
 import type {
@@ -242,8 +243,23 @@ export async function checkConsistency(
     // For each FOLFalse-in-head axiom, query its body against the
     // (session + temporarily-asserted) clause database. If any body
     // succeeds, contradiction detected.
+    //
+    // Q-3-Step9-A Refinement 1 hypothesis (b) bounded extension: when
+    // the axiom shape is the equivalent-to-complement self-referential
+    // pattern `∀x. P(x) → ¬P(x)` (lifted from EquivalentClasses(C,
+    // ObjectComplementOf(C))), the inconsistency follows directly from
+    // the axiom itself — body query is short-circuited to an immediate
+    // witness without consulting the Tau Prolog state. This avoids the
+    // generic-Skolem-witness-assertion over-firing on benign "this class
+    // is empty" axioms (e.g., `∀x. Mammal(x) → False` alone is satisfiable
+    // by the empty Mammal extension). Scope-bounded per architect's
+    // "no expansion beyond nc_self_complement arm closure" guard.
     const witnesses: InconsistencyWitness[] = [];
     for (const falseHeadAxiom of allFalseHeadAxioms) {
+      if (isEquivalentToComplementAxiom(falseHeadAxiom)) {
+        witnesses.push({ axioms: [falseHeadAxiom] });
+        continue;
+      }
       const bodyAtoms = extractBodyAtoms(falseHeadAxiom);
       if (bodyAtoms === null) continue; // unsupported body shape; skip
       const bodyQuery: EvaluableQuery =
@@ -373,6 +389,13 @@ export async function checkConsistency(
  * is the canonical contradiction-detection signal per ADR-007 §11
  * FOLFalse row + spec §8.5.2 ("inconsistent provable" derivation).
  *
+ * Per Q-3-Step9-A architect ruling 2026-05-09 (Frame I + Refinement 1
+ * hypothesis (b) bounded extension): also recognizes the equivalent
+ * shape ∀x. A → ¬B (Negation-of-Atom in consequent), which is
+ * logically identical to ∀x. A ∧ B → False per classical FOL. This
+ * closes the nc_self_complement gap (EquivalentClasses(C, complementOf(C))
+ * lifts to ∀x. C(x) → ¬C(x), which Step 7's prior shape check missed).
+ *
  * Per API §8.1.2: detected in both session.cumulativeAxioms and
  * axiomSet — both contribute to the inconsistency check.
  */
@@ -385,13 +408,84 @@ function isFalseHeadAxiom(ax: FOLAxiom): boolean {
     return false;
   }
   const impl = inner as FOLImplication;
-  return (impl.consequent as { "@type"?: unknown })["@type"] === "fol:False";
+  const consT = (impl.consequent as { "@type"?: unknown })["@type"];
+  if (consT === "fol:False") return true;
+  // Q-3-Step9-A Refinement 1 hypothesis (b): A → ¬B ≡ A ∧ B → False.
+  if (consT === "fol:Negation") {
+    const innerNeg = (impl.consequent as FOLNegation).inner;
+    return (innerNeg as { "@type"?: unknown })["@type"] === "fol:Atom";
+  }
+  return false;
 }
 
 function collectFalseHeadAxioms(
   axioms: ReadonlyArray<FOLAxiom>
 ): FOLAxiom[] {
   return axioms.filter(isFalseHeadAxiom);
+}
+
+/**
+ * Q-3-Step9-A Refinement 1 hypothesis (b) helper: detect the
+ * equivalent-to-complement self-referential pattern `∀x. P(x) → ¬P(x)`
+ * (lifted from EquivalentClasses(C, ObjectComplementOf(C))).
+ *
+ * The axiom's shape ALONE proves inconsistency under the standard
+ * non-empty-domain assumption: any individual would have to satisfy
+ * both P and ¬P, contradicting the law of non-contradiction. The
+ * detection requires the body atom and the negated-consequent atom
+ * to share both predicate IRI and argument shape — non-self-referential
+ * patterns like `Person → ¬Mammal` are NOT detected here (they remain
+ * Horn-fragment-escapes per spec §8.5.4 honest-admission, since
+ * inconsistency would require a fact bridging both classes).
+ *
+ * Per architect's "no expansion beyond nc_self_complement arm" guard
+ * (Q-3-Step9-A 2026-05-09): only this specific pattern fires; broader
+ * Skolem-witness machinery for general FOLFalse-in-head bodies remains
+ * a v0.2 refinement.
+ */
+function isEquivalentToComplementAxiom(ax: FOLAxiom): boolean {
+  let inner: FOLAxiom = ax;
+  while ((inner as { "@type"?: unknown })["@type"] === "fol:Universal") {
+    inner = (inner as FOLUniversal).body;
+  }
+  if ((inner as { "@type"?: unknown })["@type"] !== "fol:Implication") {
+    return false;
+  }
+  const impl = inner as FOLImplication;
+  if ((impl.consequent as { "@type"?: unknown })["@type"] !== "fol:Negation") {
+    return false;
+  }
+  const negInner = (impl.consequent as FOLNegation).inner;
+  if ((negInner as { "@type"?: unknown })["@type"] !== "fol:Atom") {
+    return false;
+  }
+  const negAtom = negInner as FOLAtom;
+  const body = impl.antecedent;
+  const bodyT = (body as { "@type"?: unknown })["@type"];
+  if (bodyT === "fol:Atom") {
+    return atomsStructurallyMatch(body as FOLAtom, negAtom);
+  }
+  if (bodyT === "fol:Conjunction") {
+    return (body as FOLConjunction).conjuncts.some(
+      (c) =>
+        (c as { "@type"?: unknown })["@type"] === "fol:Atom" &&
+        atomsStructurallyMatch(c as FOLAtom, negAtom)
+    );
+  }
+  return false;
+}
+
+function atomsStructurallyMatch(a: FOLAtom, b: FOLAtom): boolean {
+  if (a.predicate !== b.predicate) return false;
+  if (a.arguments.length !== b.arguments.length) return false;
+  for (let i = 0; i < a.arguments.length; i++) {
+    const ta = a.arguments[i] as { "@type"?: unknown; name?: unknown; iri?: unknown };
+    const tb = b.arguments[i] as { "@type"?: unknown; name?: unknown; iri?: unknown };
+    if (ta["@type"] !== tb["@type"]) return false;
+    if (ta["@type"] === "fol:Variable" && ta.name !== tb.name) return false;
+    if (ta["@type"] === "fol:Constant" && ta.iri !== tb.iri) return false;
+  }
+  return true;
 }
 
 /**
@@ -402,6 +496,11 @@ function collectFalseHeadAxioms(
  * body shape is not supported (Step 7 minimum supports FOLAtom and
  * FOLConjunction-of-FOLAtoms; richer body shapes — FOLNegation,
  * FOLDisjunction, nested implications — are forward-tracked).
+ *
+ * Per Q-3-Step9-A Refinement 1 hypothesis (b): when the consequent is
+ * fol:Negation of a FOLAtom (the rewrite from `A → ¬B` to `A ∧ B →
+ * False`), the negated atom is appended to the returned body atoms so
+ * the body query treats both as conjuncts to prove.
  */
 function extractBodyAtoms(ax: FOLAxiom): FOLAtom[] | null {
   let inner: FOLAxiom = ax;
@@ -414,21 +513,30 @@ function extractBodyAtoms(ax: FOLAxiom): FOLAtom[] | null {
   const impl = inner as FOLImplication;
   const body = impl.antecedent;
   const bodyType = (body as { "@type"?: unknown })["@type"];
+  let atoms: FOLAtom[];
   if (bodyType === "fol:Atom") {
-    return [body as FOLAtom];
-  }
-  if (bodyType === "fol:Conjunction") {
+    atoms = [body as FOLAtom];
+  } else if (bodyType === "fol:Conjunction") {
     const conj = body as FOLConjunction;
-    const atoms: FOLAtom[] = [];
+    atoms = [];
     for (const c of conj.conjuncts) {
       if ((c as { "@type"?: unknown })["@type"] !== "fol:Atom") {
-        return null; // non-atom conjunct → forward-track
+        return null;
       }
       atoms.push(c as FOLAtom);
     }
-    return atoms;
+  } else {
+    return null;
   }
-  return null;
+  const consT = (impl.consequent as { "@type"?: unknown })["@type"];
+  if (consT === "fol:Negation") {
+    const innerNeg = (impl.consequent as FOLNegation).inner;
+    if ((innerNeg as { "@type"?: unknown })["@type"] !== "fol:Atom") {
+      return null;
+    }
+    atoms.push(innerNeg as FOLAtom);
+  }
+  return atoms;
 }
 
 /**
