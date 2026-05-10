@@ -241,16 +241,15 @@ async function main(): Promise<void> {
         result.unverifiedAxioms!.length > 0,
         "unverifiedAxioms is non-empty (Horn-fragment-escape detected per API §8.1.1)"
       );
-      // Note: fixture's expectedUnverifiedAxiomsMinCount: 2 expects BOTH
-      // the SubClassOf-with-ObjectUnionOf-consequent AND the
-      // DisjointClasses(A, D) axioms. The Phase 1 lifter currently
-      // recognizes "DisjointWith" but not "DisjointClasses" (spec
-      // §5.3 lifter case at lifter.ts line 587 — fixture uses the
-      // newer plural name; the older binary "DisjointWith" name is what
-      // the lifter actually handles). DiscoveredSurface: forward-track
-      // candidate for either lifter extension OR fixture amendment.
-      // Step 6 minimum verifies only the API §8.1.1 contract: at least
-      // one Horn-fragment-escape surfaced.
+      // Per Q-Frank-Step9-A Ask 2 corrective ruling 2026-05-10: the
+      // fixture's expectedUnverifiedAxiomsMinCount was amended 2 → 1
+      // because the implementation is correct on the merits — the
+      // disjointness DisjointWith(A, D) is Horn-expressible per spec
+      // §8.5.1 (∀x. A(x) ∧ D(x) → False is a Horn clause), so only the
+      // disjunctive-consequent SubClassOf is the non-Horn-fragment-escape.
+      // See nc_horn_incomplete_disjunctive.fixture.js audit-trail header
+      // (a/b/c/d) for the architect's reasoning. This test's loose
+      // length > 0 assertion remains correct under the amended count.
     }
   );
 

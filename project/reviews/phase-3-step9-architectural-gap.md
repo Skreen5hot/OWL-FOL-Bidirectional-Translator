@@ -1,9 +1,74 @@
-# Phase 3 Step 9 Architectural-Gap Micro-Cycle — Q-3-Step9-A — RATIFIED
+# Phase 3 Step 9 Architectural-Gap Micro-Cycle — Q-3-Step9-A + Q-Frank-Step9-A corrective overlay — RATIFIED
 
-**Date:** 2026-05-09 (initial DRAFT — Aaron's stakeholder-feedback dispatch surfacing live-deploy divergences); 2026-05-10 (architect ruling on Q-3-Step9-A: Frame I + D2 disposition + 3 structural refinements + 5 banked principles)
-**Cycle type:** Phase 3 in-Step architectural-gap micro-cycle (FIFTH instance; Steps 3 + 4 + 5 + 6 micro-cycles preceded; this surfaced at the exit boundary, distinguishing it from the prior in-Step micro-cycles which surfaced during their respective Step framings)
-**Surfaced by:** Aaron's stakeholder feedback 2026-05-09 — browser smoke-check on commit 7216cd4 (deployed Phase 3 demo, Case A.3 + Case B.3) post-9.4-amendment-3 probe-fix that restored a clean console
-**Status:** **RATIFIED 2026-05-10.** Cycle history: (1) Aaron stakeholder smoke-check 2026-05-09 surfaced three substantive divergences from fixture contracts → (2) SME path-fence-authored Q-3-Step9-A routing dispatch with two interpretive frames + four disposition options + three hypothesized root causes + load-bearing question → (3) **architect ruling 2026-05-10:** Frame I governs (implementation gap, not fixture-discriminator overscope); D2 disposition (fix-as-amendment-4 minimal nc_self_complement + Layer A forward-track + count-divergence forward-track); three structural refinements; five banked principles → (4) Step 9.4-amendment-4 implementation commit lands the bounded fix; this packet (RATIFIED) captures the audit-trail record.
+**Date:** 2026-05-09 (initial DRAFT — Aaron's stakeholder-feedback dispatch surfacing live-deploy divergences); 2026-05-10 (architect ruling on Q-3-Step9-A: Frame I + D2 disposition + 3 structural refinements + 5 banked principles); **2026-05-10 (same day, Q-Frank-Step9-A corrective ruling: 3 banking withdrawals + 7 new bankings + 1 meta-banking + 4 Asks executed in corrective commit, in response to Frank's stakeholder critique)**
+**Cycle type:** Phase 3 in-Step architectural-gap micro-cycle (FIFTH instance) + first stakeholder-routing corrective sub-cycle (Q-Frank-Step9-A); surfaced at the exit boundary by the original Q-3-Step9-A finding, then corrected at the same-day Q-Frank-Step9-A ruling.
+**Surfaced by:** Aaron's stakeholder feedback 2026-05-09 — browser smoke-check on commit 7216cd4 (deployed Phase 3 demo, Case A.3 + Case B.3) post-9.4-amendment-3 probe-fix that restored a clean console; **Q-Frank-Step9-A corrective ruling surfaced by Frank's stakeholder critique 2026-05-10 ([`demo/Phase3DemoCritique.md`](../../demo/Phase3DemoCritique.md))**
+**Status:** **RATIFIED 2026-05-10 (with Q-Frank-Step9-A corrective overlay).** Cycle history: (1) Aaron stakeholder smoke-check 2026-05-09 surfaced three substantive divergences from fixture contracts → (2) SME path-fence-authored Q-3-Step9-A routing dispatch with two interpretive frames + four disposition options + three hypothesized root causes + load-bearing question → (3) **architect ruling 2026-05-10 (original):** Frame I governs; D2 disposition; three structural refinements; five banked principles → (4) Step 9.4-amendment-4 implementation commit lands the bounded fix → (5) **Frank's stakeholder critique 2026-05-10** flagged the Layer A "documented v0.1 spec-divergence" framing as procedural language papering over a real gap, the disposition-split discipline as post-hoc rationalization, the count-divergence forward-tracking as shipping mutually inconsistent fixtures and code → (6) **Q-Frank-Step9-A architect corrective ruling 2026-05-10 (same day):** 3 banking withdrawals + 7 new bankings + 1 meta-banking; 4 Asks executed in corrective commit (pull Case B + amend count + promote ADR-007 §10 + author v0.2-roadmap.md). This packet captures the audit-trail record with the corrective overlay applied.
+
+---
+
+## CORRECTIVE OVERLAY — Q-Frank-Step9-A ruling 2026-05-10
+
+**Frank's stakeholder critique surfaced concerns that hold on the merits.** The architect issued a corrective ruling same-day. This overlay records the withdrawals + new dispositions + new bankings; the original Q-3-Step9-A ruling text below is preserved for audit-trail integrity, but the dispositions named in §5.3-§5.4 below have been REVISED per the corrective ruling. Read the overlay first, then the original; treat the overlay as governing where they conflict.
+
+### Overlay 1 — Frame ruling preserved; Layer A disposition REVISED
+
+**Frame I governance stands** (the original ruling's spec-literal-framing reasoning was correct: spec §8.5.1 covers equivalent-to-complement and Layer A consistency-affirmation; corpus discriminators align with the literal framing; Frame II readings are refused on corpus-as-contract grounds). The two preserved bankings stand on their own merits:
+
+1. ✅ **Spec interpretation framing rulings on exit-blocking findings default to spec-literal framing when corpus discriminators align with the literal framing** (preserved)
+2. ✅ **Simple disjointness assertions per spec §8.5.1 are Horn-checkable** (preserved)
+
+**Layer A disposition REVISED from forward-track-with-soft-framing to PULL-FROM-DEMO.** The original Refinement 2 ("Layer A forward-tracked as documented v0.1 spec-divergence") used soft-language framing in a consumer-facing artifact (the demo). Frank's §2 critique correctly identified this as the soft-language-of-schedule-pressure pattern. The corrective ruling **pulls Case B from the demo entirely**: the v0.1 implementation does not yet satisfy spec §8.5.1's required affirmative verdict on the canonical positive control; per banked principle "demos do not claim what the implementation cannot demonstrate," the case is pulled. The Layer A closure path is forward-tracked via the consolidated [`project/v0.2-roadmap.md`](../v0.2-roadmap.md), not via soft demo framing. Honest-admission framing for spec-non-compliance applies to internal exit-summary artifacts, not to consumer-facing demo artifacts.
+
+### Overlay 2 — Count-divergence disposition REVISED from forward-track to RESOLVE-NOW
+
+The original Refinement 3 ("count divergence forward-tracked to Phase 4 entry-cycle as corpus-discriminator-scope question") was **withdrawn** per Frank's §4.1 critique: forward-tracking the choice ships mutually inconsistent fixtures and code. The corrective ruling RESOLVES-NOW: the architect ruled the implementation is correct on the merits (only the disjunctive-consequent SubClassOf is non-Horn; the disjointness is Horn-expressible). The fixture's `expectedUnverifiedAxiomsMinCount` was amended 2 → 1 in the corrective commit. The withdrawn forward-track also withdraws from the Phase 4 entry-packet inheritance.
+
+### Overlay 3 — Disposition-split discipline WITHDRAWN as banked principle
+
+The original ruling's three bankings related to the disposition-split discipline (BP 3, BP 4, BP 5) were **withdrawn** per Frank's §3 critique: the discipline was invented in the same cycle as its founding case, lacked an exclusion criterion, and had no test for in-scope vs out-of-scope beyond "the architect rules." The corrective ruling refuses the discipline as banked principle. Withdrawals listed:
+
+- ❌ **WITHDRAWN:** "Disposition spectrum rulings on exit-blocking findings split scopes when the finding's distinct components have different fix-cost profiles" (was BP 3)
+- ❌ **WITHDRAWN:** "Frame I ruling does not extend to non-Horn-fragment fixtures' unverifiedAxioms count semantics, which require their own analysis" (was BP 4)
+- ❌ **WITHDRAWN:** "Phase exit packet's deferred-with-structural-requirements bucket inherits exit-blocking finding components per the disposition-split discipline" (was BP 5)
+
+**The Q-3-Step9-A resolution stands as case-specific reasoning** (the `nc_self_complement` arm closed pre-exit; the Layer A arm pulled from demo per the corrective ruling), **but the discipline is not banked as architectural-commitment-tier methodology.** The Phase 4 entry-packet "disposition-split discipline as Phase-4-entry methodology candidate" forward-track is also withdrawn.
+
+### Overlay 4 — New bankings from Q-Frank-Step9-A corrective ruling
+
+Seven new bankings + one meta-banking issued at the corrective ruling:
+
+1. ✅ **NEW:** When a phase's implementation does not yet satisfy a spec requirement on a canonical positive control, the demo does not claim what the implementation cannot demonstrate. Pulling the case from the demo is preferable to soft-language framing. (Ask 1)
+2. ✅ **NEW:** Honest-admission framing for spec-non-compliance applies to internal exit-summary artifacts, not to consumer-facing demo artifacts. Demos pull cases that the implementation does not yet establish. (Ask 1 distinction)
+3. ✅ **NEW:** When fixture-vs-implementation count divergences surface at exit boundaries, the resolution requires architect ruling on which is correct. Forward-tracking ships mutually inconsistent fixtures and code, which is refused. (Ask 2)
+4. ✅ **NEW:** Stakeholder-flagged demo gaps that span multiple phase cycles get explicit phase-deliverable commitments at the next phase entry packet, not soft "v0.X may include this" framing. Three-cycle drift is sufficient evidence. (Ask 4)
+5. ✅ **NEW:** Disciplines invented in response to specific findings do not get banked as architectural-commitment-tier methodology in the same cycle. Banking requires the discipline to have been tested against at least one independent case; pre-banking would canonize rationalization. (Ask 5)
+6. ✅ **NEW:** Disciplines that absorb findings without exclusion criteria are schedule-protection mechanisms, not quality-protection mechanisms; they are refused as banked principles. (Ask 5 second)
+7. ✅ **NEW:** When deferred-closure-path framing accumulates across phases, a consolidated roadmap artifact at the next phase boundary lists every commitment with scope/owner/timeline. (Ask 6)
+8. ✅ **META-BANKING:** Frank's Phase 3 letter is the canonical articulation of the post-hoc-discipline-canonization risk pattern. Future cycles facing pressure to bank disciplines invented in response to specific findings reference [`demo/Phase3DemoCritique.md`](../../demo/Phase3DemoCritique.md) as the cautionary precedent. The architect issues banking corrections (withdrawals and new bankings) when stakeholder critique surfaces concerns that hold on the merits. The architectural-commitment surface is preserved by clean revision when prior rulings were structurally incorrect, not by procedural defense of prior rulings.
+
+### Overlay 5 — Eight Asks executed in corrective commit
+
+| Ask | Disposition | Action |
+|---|---|---|
+| Ask 1 | Pull Case B from Phase 3 demo | `demo/demo_p3.html` Case B section + Case B JS handlers + Layer A parity render function removed; hypothetical-axiom sub-case relocated under Case A as A.7. `demo/p3-walkthrough.md` §4 (Case B) removed; framing revised to single-argument Case A; A.7 narration added. |
+| Ask 2 | Resolve count divergence now | `tests/corpus/nc_horn_incomplete_disjunctive.fixture.js` `expectedUnverifiedAxiomsMinCount: 2 → 1`; audit-trail header (a/b/c/d) added; manifest mirror update. |
+| Ask 3 | Promote ADR-007 §10 to Accepted | `project/DECISIONS.md` ADR-007 §10 status header revised to "ACCEPTED with Q-Frank-2 boundary-statement refinement, promoted at Q-Frank-Step9-A Ask 3 ruling 2026-05-10"; boundary-statement section added; promotion audit trail. |
+| Ask 4 | Commit Case C to Phase 4 explicitly | Phase 4 entry-packet inheritance: Case C — Lossy round-trip — as Phase 4 exit deliverable, not forward-track. Documented in `project/reviews/phase-3-exit.md` §6 Forward-Tracks + this overlay. |
+| Ask 5 | Withdraw disposition-split discipline | `arc/AUTHORING_DISCIPLINE.md` Step 9 architectural-gap subsection: 3 bankings withdrawn (BP 3, 4, 5) + 7 new bankings + 1 meta-banking added. |
+| Ask 6 | Author v0.2-roadmap.md | New artifact `project/v0.2-roadmap.md` consolidating every "v0.X closes Y" commitment from across Phases 1-3 with source / scope / owner / timeline. |
+| Ask 7 | Surface Phase 2 reactivation results | SME elected Phase 4 demo inclusion path (vs Phase 3 demo update). Phase 4 entry-packet inherits the reactivation surface as cumulative-discipline-credibility opening. |
+| Ask 8 | Purpose-built Phase 3 Layer A fixture | Phase 4 entry-packet question; not a Phase 3 close action. Forward-track to Phase 4 entry-cycle deliberation. |
+
+### Overlay 6 — Cycle accounting (revised)
+
+Phase 3 mid-phase counter remains at **5** (closed at Q-3-Step9-A original ruling); Q-Frank-Step9-A is a stakeholder-routing corrective sub-cycle that does NOT increment mid-phase or entry-cycle counters per the prior banking ("stakeholder-routing cycles after phase close are corrective sub-cycles in the exit-cycle bucket"). Phase 3 stakeholder-routing cycles increment a separate corrective sub-cycle counter (currently at 1, this cycle).
+
+The Phase 3 exit retro forward-tracked methodology refinement item gains additional data: the Q-Frank-Step9-A cycle issues banking corrections, which is itself a methodological data point for the retro analysis. Banking-correction discipline (the architect's clean revision in response to stakeholder critique that holds on the merits) is the **fourth** Phase 3 exit retro candidate (alongside parallel-registry, substantive-scope-weighting methodology, at-risk-tag-conservatism).
+
+---
+
+## ORIGINAL Q-3-Step9-A RULING TEXT (preserved for audit-trail integrity; superseded by overlay above where dispositions diverge)
 
 **Post-ratification SME work (in order):**
 1. Step 9.4-amendment-4 commit (Developer-domain) — bounded fix per the Developer hypothesis investigation; CI green on 7526973 (LANDED)

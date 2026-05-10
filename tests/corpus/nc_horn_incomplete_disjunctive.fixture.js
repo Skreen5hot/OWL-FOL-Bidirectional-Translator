@@ -8,9 +8,56 @@
  *    tableau reasoning the Horn fragment cannot reach; MUST return 'undetermined'
  *    with populated unverifiedAxioms, NOT silently consistent: true"
  *
- * Status: Draft. Authored corpus-before-code at Pass 2a 2026-05-08. Promotes to
- * Verified at Phase 3 exit when checkConsistency() handles `'undetermined'` outcome
- * + `coherence_indeterminate` reason + `unverifiedAxioms` population correctly.
+ * Status: Verified. Authored corpus-before-code at Pass 2a 2026-05-08. Promoted
+ * Draft → Verified at Phase 3 Step 9.3 (2026-05-09); count-discriminator amended
+ * at Q-Frank-Step9-A Ask 2 corrective ruling 2026-05-10 — see audit-trail header
+ * (a/b/c/d) below.
+ *
+ * ════════════════════════════════════════════════════════════════════════════
+ * AMENDMENT AUDIT TRAIL — count-discriminator correction, 2026-05-10
+ * ════════════════════════════════════════════════════════════════════════════
+ *
+ * (a) The amendment. `expectedUnverifiedAxiomsMinCount: 2` → `: 1`. The
+ *     `expectedUnverifiedAxiomsContains` field's documentation tightened to
+ *     name the disjunctive-consequent SubClassOf as the SOLE non-Horn axiom
+ *     (the disjointness DisjointWith(A, D) is Horn-expressible and is NOT
+ *     part of the non-Horn-fragment-escape).
+ *
+ * (b) The substantive ruling. Per Q-Frank-Step9-A Ask 2 (architect ruling
+ *     2026-05-10), the implementation is correct on the merits and the
+ *     fixture over-specified. Reasoning: the non-Horn shape is
+ *     `SubClassOf(A, ObjectUnionOf(B, C))` — that axiom alone is what the
+ *     Horn-checkable fragment cannot express; the disjointness is
+ *     Horn-expressible per spec §8.5.1 (its FOL translation
+ *     `∀x. A(x) ∧ D(x) → False` is a Horn clause); the indeterminacy
+ *     arises from the case-analysis the disjunctive consequent forces, not
+ *     from the disjointness itself. Surfacing both axioms in
+ *     unverifiedAxioms would conflate "this axiom is non-Horn" with "this
+ *     axiom transitively contributes to indeterminacy." The former is the
+ *     load-bearing claim per API §8.1.1; the latter is a derived property
+ *     downstream tooling can compute.
+ *
+ * (c) The withdrawn forward-track. The earlier framing that this count
+ *     divergence routed to Phase 4 entry-cycle as a "corpus-discriminator-
+ *     scope question" (Q-3-Step9-A Refinement 3, 2026-05-10 morning ruling)
+ *     was withdrawn at the same-day Q-Frank-Step9-A corrective ruling per
+ *     Frank's §4.1 critique: forward-tracking ships mutually inconsistent
+ *     fixtures and code, which the corrective ruling refused. Banked
+ *     principle: when fixture-vs-implementation count divergences surface
+ *     at exit boundaries, the resolution requires architect ruling on which
+ *     is correct on inspection; routing to a future cycle is reserved for
+ *     cases where neither side is clearly correct.
+ *
+ * (d) Audit-trail unity. The amendment lands in the same corrective commit
+ *     as the Case B pull from `demo/demo_p3.html` (Q-Frank-Step9-A Ask 1)
+ *     + ADR-007 §10 promotion (Ask 3) per the architect's audit-trail-
+ *     unity-per-surface ruling. Cross-references:
+ *     `project/reviews/phase-3-step9-architectural-gap.md` §5 + corrective
+ *     overlay; `arc/AUTHORING_DISCIPLINE.md` Step 9 architectural-gap
+ *     subsection's withdrawn-bankings list; `demo/Phase3DemoCritique.md`
+ *     §4.1 (the surfacing critique); `project/reviews/phase-3-exit.md` §7
+ *     Item 11 disposition.
+ * ════════════════════════════════════════════════════════════════════════════
  *
  * ── Why this is non-Horn-inconsistent ─────────────────────────────────────
  *
@@ -142,15 +189,22 @@ export const fixture = {
     phaseActivated: 3,
     expectedConsistencyResult: "undetermined",
     expectedReason: "coherence_indeterminate",
-    expectedUnverifiedAxiomsMinCount: 2,
+    // Count amended 2 → 1 at Q-Frank-Step9-A Ask 2 corrective ruling
+    // 2026-05-10 — see audit-trail header (a)/(b). The implementation is
+    // correct: only the disjunctive-consequent SubClassOf is non-Horn;
+    // the disjointness is Horn-expressible per spec §8.5.1 and is NOT
+    // part of the non-Horn-fragment-escape.
+    expectedUnverifiedAxiomsMinCount: 1,
     expectedUnverifiedAxiomsContains: [
-      "SubClassOf(A, ObjectUnionOf(B, C)) — the disjunctive consequent axiom",
-      "DisjointClasses(A, D) — the contradiction trigger requiring both branches of the disjunction",
+      "SubClassOf(A, ObjectUnionOf(B, C)) — the disjunctive-consequent axiom; the SOLE non-Horn axiom in this fixture (per Q-Frank-Step9-A Ask 2). Indeterminacy arises from the case-analysis the disjunctive consequent forces, not from the disjointness, which is Horn-expressible.",
     ],
     discriminatesAgainst:
       "any checkConsistency implementation that returns consistent: true (silent pass on non-Horn " +
       "inconsistency); any implementation that returns 'undetermined' with empty unverifiedAxioms " +
-      "(violates spec §8.5.5 honest-admission discipline)",
+      "(violates spec §8.5.5 honest-admission discipline); any implementation that surfaces the " +
+      "Horn-expressible DisjointClasses(A, D) axiom in unverifiedAxioms (would conflate " +
+      "transitively-implicating Horn axioms with non-Horn axioms — fails the API §8.1.1 honest-" +
+      "admission contract per Q-Frank-Step9-A Ask 2 ruling 2026-05-10)",
   },
 
   "expected_v0.2_elk_verdict": {

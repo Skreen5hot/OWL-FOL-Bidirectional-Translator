@@ -1015,21 +1015,21 @@
       "arcEntries": [],
       "regime": "equivalent",
       "expectedOutcome": {
-        "summary": "checkConsistency returns consistent: 'undetermined' with reason: 'coherence_indeterminate'. unverifiedAxioms populated with the SubClassOf-with-ObjectUnionOf-consequent axiom + DisjointClasses(A, D) axiom. Classical FOL judges KB inconsistent; v0.1's Horn-only check correctly reports 'undetermined' rather than silently passing.",
+        "summary": "checkConsistency returns consistent: 'undetermined' with reason: 'coherence_indeterminate'. unverifiedAxioms populated with the SubClassOf-with-ObjectUnionOf-consequent axiom (the SOLE non-Horn axiom; the DisjointClasses is Horn-expressible per spec §8.5.1 and not part of the non-Horn-fragment-escape, per Q-Frank-Step9-A Ask 2 ruling 2026-05-10). Classical FOL judges KB inconsistent; v0.1's Horn-only check correctly reports 'undetermined' rather than silently passing.",
         "fixtureType": "consistency-check",
         "expectedConsistencyResult": "undetermined",
         "expectedReason": "coherence_indeterminate",
         "canaryRole": "no-collapse-adversarial-non-horn-disjunctive-incompleteness"
       },
       "expectedLossSignatureReasons": [],
-      "intendedToCatch": "checkConsistency silently returning consistent: true when input requires disjunctive case-analysis the Horn fragment cannot perform. Discrimination: returning 'undetermined' with empty unverifiedAxioms also fails (violates spec §8.5.5).",
+      "intendedToCatch": "checkConsistency silently returning consistent: true when input requires disjunctive case-analysis the Horn fragment cannot perform. Discrimination: returning 'undetermined' with empty unverifiedAxioms also fails (violates spec §8.5.5); surfacing the Horn-expressible DisjointClasses(A, D) in unverifiedAxioms also fails (violates API §8.1.1 — would conflate transitively-implicating Horn axioms with non-Horn axioms per Q-Frank-Step9-A Ask 2 ruling 2026-05-10).",
       "expected_v0.1_verdict": {
         "ringStatus": "ring3-passes-with-horn-incompleteness-surfaced",
         "phaseAuthored": 3,
         "phaseActivated": 3,
         "expectedConsistencyResult": "undetermined",
         "expectedReason": "coherence_indeterminate",
-        "expectedUnverifiedAxiomsMinCount": 2,
+        "expectedUnverifiedAxiomsMinCount": 1,
         "stepBinding": 6,
         "activationTiming": "corpus-before-code"
       },
