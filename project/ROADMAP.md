@@ -373,67 +373,71 @@ Lift, project, re-lift, then evaluate a query (via Phase 2 stub-evaluator harnes
 
 **Goal:** Implement validator and evaluation/consistency-check API. Closes Ring 3 against built-in OWL content. **First phase exit where the full validation pipeline operates against real content.**
 
-**Status:** Not Started
+**Status:** ✅ Complete (closed 2026-05-09; see [`project/reviews/phase-3-exit.md`](reviews/phase-3-exit.md))
 
 **Plan reference:** §3.4
 
 ### Deliverables Checklist
-- [ ] `evaluate()` per API spec §7.1 with `EvaluableQuery = FOLAtom | FOLConjunction` restriction per §7.5
-- [ ] Three-state result per API spec §7.2; full reason enum producing correct codes
-- [ ] Step caps per API spec §7.2 and §7.4: per-query default 10K; optional aggregate session cap; configurable throw-on-cap
-- [ ] `UnsupportedConstructError` thrown for FOLAxiom variants outside `EvaluableQuery` subset, with `suggestion` field populated
-- [ ] `checkConsistency()` per API spec §8.1 with No-Collapse Guarantee per spec §8.5
-- [ ] `unverifiedAxioms` populated per API spec §8.1.1 when `reason === 'coherence_indeterminate'`
-- [ ] Hypothetical-axiom case per API spec §8.1.2: `axiomSet` participates, contributes to `unverifiedAxioms`, does not persist
-- [ ] Cycle detection per spec §5.4 and ADR-011 (visited-ancestor list); `cycle_detected` reason code; optional throw
-- [ ] Per-predicate CWA per spec §6.3.2 and API spec §6.3 — `closedPredicates` parameter operational
-- [ ] Structural annotation declaration consistency per API spec §2.1.1 — `structural_annotation_mismatch` thrown on detection
-- [ ] ARC manifest version mismatch per API spec §2.1.2 — `arc_manifest_version_mismatch` thrown when session and conversion versions diverge
-- [ ] Session-aggregate step cap per API spec §2.1 — `SessionStepCapExceededError` thrown when `maxAggregateSteps` exceeded
+- [x] `evaluate()` per API spec §7.1 with `EvaluableQuery = FOLAtom | FOLConjunction` restriction per §7.5
+- [x] Three-state result per API spec §7.2; full reason enum producing correct codes (17 frozen at v0.1.7 + `no_strategy_applies` per Q-3-C 2026-05-08)
+- [x] Step caps per API spec §7.2 and §7.4: per-query default 10K; optional aggregate session cap; configurable throw-on-cap
+- [x] `UnsupportedConstructError` thrown for FOLAxiom variants outside `EvaluableQuery` subset, with `suggestion` field populated
+- [x] `checkConsistency()` per API spec §8.1 with No-Collapse Guarantee per spec §8.5 — three-state `ConsistencyResult` per Q-3-Step6-A option (α) editorial correction 2026-05-09; FOLFalse-in-head inconsistency proof per spec §8.5.2 outcome ordering at Step 7
+- [x] `unverifiedAxioms` populated per API spec §8.1.1 when `reason === 'coherence_indeterminate'` (via `cumulativeSkipped` aggregation)
+- [x] Hypothetical-axiom case per API spec §8.1.2: `axiomSet` participates, contributes to `unverifiedAxioms`, does not persist
+- [x] Cycle detection per spec §5.4 and ADR-013 (visited-ancestor cycle-guard pattern; six cycle-prone predicate classes; ratified Step 5 architectural-gap micro-cycle 2026-05-08); `cycle_detected` reason code; optional throw
+- [x] Per-predicate CWA per spec §6.3.2 and API spec §6.3 — `closedPredicates` parameter operational; `open_world_undetermined` reason-code reuse for `cwa_open_predicate` per Q-3-Step4-A 2026-05-08
+- [x] Structural annotation declaration consistency per API spec §2.1.1 — `structural_annotation_mismatch` thrown on detection
+- [x] ARC manifest version mismatch per API spec §2.1.2 — `arc_manifest_version_mismatch` thrown when session and conversion versions diverge
+- [x] Session-aggregate step cap per API spec §2.1 — `SessionStepCapExceededError` thrown when `maxAggregateSteps` exceeded
 
 ### Phase 3 Test Corpus
 Every fixture below MUST be registered in `tests/corpus/manifest.json` per Phase 0.8. Both `expected_v0.1_verdict` and `expected_v0.2_elk_verdict` columns MUST be populated — `'undetermined'` fixtures with definite v0.2 verdicts will be the regression-suite signal that ELK has been integrated correctly.
 
-- [ ] Phase 1 + Phase 2 corpus continues
-- [ ] Consistent KBs (consistency check returns `true`)
-- [ ] Inconsistent KBs (e.g., `Class equivalent to ObjectComplementOf(Class)`) — returns `false` with witnesses
-- [ ] Horn-incomplete KBs — returns `'undetermined'` with populated `unverifiedAxioms`
-- [ ] Cycle fixtures: class hierarchy with `EquivalentClasses` cycle; recursive predicate definition
-- [ ] Per-predicate CWA fixtures: queries with `closedPredicates` set producing `false` results that the same query without closure produces as `'undetermined'`
-- [ ] Step cap fixtures: queries exhausting 10K default; sessions exhausting aggregate cap
+- [x] Phase 1 + Phase 2 corpus continues (Ring 1 + Ring 2 green throughout Phase 3)
+- [x] Consistent KBs (consistency check returns `true`) — `hypothetical_clean` + Layer A consistent fragment via `p1_bfo_clif_classical` parity
+- [x] Inconsistent KBs (e.g., `Class equivalent to ObjectComplementOf(Class)`) — returns `false` with witnesses (`nc_self_complement`, `hypothetical_inconsistency`)
+- [x] Horn-incomplete KBs — returns `'undetermined'` with populated `unverifiedAxioms` (`nc_horn_incomplete_disjunctive`, `nc_horn_incomplete_existential`, `hypothetical_horn_incompleteness`)
+- [x] Cycle fixtures: class hierarchy with `EquivalentClasses` cycle; recursive predicate definition (`cycle_recursive_predicate` Verified; `cycle_equivalent_classes` Class-3 forward-tracked beyond Step 5 minimum per Q-3-Step5-B)
+- [x] Per-predicate CWA fixtures: queries with `closedPredicates` set producing `false` results that the same query without closure produces as `'undetermined'` (`cwa_closed_predicate`, `cwa_open_predicate` with `open_world_undetermined` per Q-3-Step4-A)
+- [x] Step cap fixtures: queries exhausting 10K default; sessions exhausting aggregate cap (`step_cap_per_query`, `step_cap_aggregate`)
 
 #### Phase 3 No-Collapse Adversarial Corpus
 The canonical adversarial set the SME role exists to author. Each fixture is engineered to expose a specific class of silent-pass failure in the No-Collapse Guarantee machinery. Fixtures with BFO-vocabulary dependencies are gated on Phase 4 ARC content and re-exercised at Phase 4 exit (noted inline).
 
-- [ ] `nc_self_complement.fixture.js` — class equivalent to its own complement; MUST return `consistent: false` with the equivalent-to-complement witness chain
-- [ ] `nc_horn_incomplete_disjunctive.fixture.js` — non-Horn inconsistency requiring tableau reasoning the Horn fragment cannot reach; MUST return `'undetermined'` with populated `unverifiedAxioms`, NOT silently `consistent: true`
-- [ ] `nc_horn_incomplete_existential.fixture.js` — similar to disjunctive but the incompleteness arises from existential quantification the Horn fragment cannot witness; MUST return `'undetermined'` with a different reason than the disjunctive case
-- [ ] `nc_silent_pass_canary.fixture.js` — engineered specifically to catch the wrong silent-pass behavior: a KB that classical FOL would judge inconsistent but a naive Horn-only check would judge `true`; MUST NOT return `consistent: true`
-- [ ] `nc_bfo_continuant_occurrent.fixture.js` — **gated on Phase 4 BFO ARC**; Continuant ⊓ Occurrent disjointness from BFO Disjointness Map; MUST return `consistent: false` once BFO ARC loaded; held as Draft fixture in Phase 3 corpus, activated in Phase 4
+- [x] `nc_self_complement.fixture.js` — class equivalent to its own complement; MUST return `consistent: 'false'` with the equivalent-to-complement witness chain (`reason: 'inconsistent'` per Q-3-Step6-B reason-code reuse 2026-05-09)
+- [x] `nc_horn_incomplete_disjunctive.fixture.js` — non-Horn inconsistency requiring tableau reasoning the Horn fragment cannot reach; MUST return `'undetermined'` with populated `unverifiedAxioms`, NOT silently `consistent: 'true'`
+- [x] `nc_horn_incomplete_existential.fixture.js` — similar to disjunctive but the incompleteness arises from existential quantification the Horn fragment cannot witness; MUST return `'undetermined'` with `coherence_indeterminate` reason + different `unverifiedAxioms` content from the disjunctive case
+- [x] `nc_silent_pass_canary.fixture.js` — engineered specifically to catch the wrong silent-pass behavior: a KB that classical FOL would judge inconsistent but a naive Horn-only check would judge `true`; MUST NOT return `consistent: 'true'`
+- [ ] `nc_bfo_continuant_occurrent.fixture.js` — **gated on Phase 4 BFO ARC**; Continuant ⊓ Occurrent disjointness from BFO Disjointness Map; MUST return `consistent: 'false'` once BFO ARC loaded; held as deferred Phase 4 fixture per Phase 3 exit forward-track 2026-05-09
 - [ ] `nc_sdc_gdc.fixture.js` — **gated on Phase 4 BFO ARC (or Phase 7 if SDC/GDC distinction lives in OFI deontic content)**; SDC ∩ GDC disjointness via property-chain decomposition
 
 #### Phase 3 Hypothetical-Axiom Set (API §8.1.2)
 Three fixtures pinning down the canonical hypothetical-reasoning cases plus an explicit non-persistence verification.
 
-- [ ] `hypothetical_inconsistency.fixture.js` — base KB consistent; `axiomSet` introduces inconsistency; `checkConsistency(session, axiomSet)` returns `consistent: false` with witnesses
-- [ ] `hypothetical_horn_incompleteness.fixture.js` — base KB consistent; `axiomSet` introduces Horn-incompleteness without inconsistency; `checkConsistency(session, axiomSet)` returns `consistent: 'undetermined'` with populated `unverifiedAxioms`
-- [ ] `hypothetical_clean.fixture.js` — base KB consistent; `axiomSet` extends consistently; `checkConsistency(session, axiomSet)` returns `consistent: true`
-- [ ] `hypothetical_non_persistence.fixture.js` — runs `checkConsistency(session, axiomSet)` then `checkConsistency(session)` against the same session; second call MUST see the original session state, not the hypothetical extension; verifies the API §8.1.2 non-persistence guarantee
+- [x] `hypothetical_inconsistency.fixture.js` — base KB consistent; `axiomSet` introduces inconsistency; `checkConsistency(session, axiomSet)` returns `consistent: 'false'` with witnesses (canonical FOL @types per ADR-007 §11 + retroactive corrective ratification 2026-05-09)
+- [x] `hypothetical_horn_incompleteness.fixture.js` — base KB consistent; `axiomSet` introduces Horn-incompleteness without inconsistency; `checkConsistency(session, axiomSet)` returns `consistent: 'undetermined'` with populated `unverifiedAxioms`
+- [x] `hypothetical_clean.fixture.js` — base KB consistent; `axiomSet` extends consistently; `checkConsistency(session, axiomSet)` returns `consistent: 'true'`
+- [x] `hypothetical_non_persistence.fixture.js` — runs `checkConsistency(session, axiomSet)` then `checkConsistency(session)` against the same session; second call MUST see the original session state, not the hypothetical extension; verifies the API §8.1.2 non-persistence guarantee
 
 ### Exit Criteria — Rings 1, 2, and 3 all passing on built-in OWL
-- [ ] All Phase 1 and Phase 2 exit criteria continue to hold
-- [ ] Spec §12 acceptance criteria 1-15 pass on built-in OWL corpus where applicable
-- [ ] API spec §14 acceptance criteria API-1 through API-7 pass
-- [ ] Every unsupported FOLAxiom variant throws `UnsupportedConstructError` with documented `suggestion` field
+- [x] All Phase 1 and Phase 2 exit criteria continue to hold
+- [x] Spec §12 acceptance criteria 1-15 pass on built-in OWL corpus where applicable (per `phase-3-exit.md` §3 coverage matrix)
+- [x] API spec §14 acceptance criteria API-1 through API-7 pass
+- [x] Every unsupported FOLAxiom variant throws `UnsupportedConstructError` with documented `suggestion` field
 
 ### Phase 3 Entry Review
-- [ ] Entry criteria confirmed met (Phase 2 exited; Rings 1 and 2 passing on built-in OWL)
-- [ ] Entry summary committed to repo
+- [x] Entry criteria confirmed met (Phase 2 exited; Rings 1 and 2 passing on built-in OWL)
+- [x] Entry summary committed to repo — [`project/reviews/phase-3-entry.md`](reviews/phase-3-entry.md) (RATIFIED + AMENDED 2026-05-08)
 
 ### Phase 3 Exit Review
-- [ ] All listed exit criteria pass in CI
-- [ ] Risk retrospective recorded (per plan §6.3)
-- [ ] Exit summary committed to repo
+- [x] All listed exit criteria pass in CI (per `phase-3-exit.md` §3 + §4 coverage)
+- [x] Risk retrospective recorded (per plan §6.3) — `phase-3-exit.md` Section 7 (10 banked items including Pass 2a OWL @type errors, Step 4 reason-code error, Step 5 ADR collision, Step 6 ConsistencyResult shape correction, retroactive ritual catch on 4 hypothetical fixtures, mid-phase cycle cadence, at-risk-tag-conservatism observation)
+- [x] Exit summary committed to repo — [`project/reviews/phase-3-exit.md`](reviews/phase-3-exit.md) (this commit)
+
+**Forward-tracks for Phase 4 entry and v0.2 surfaced post-Phase-3 (after exit):**
+- [x] **Phase 4 entry forward-tracks (10 items: 8 per Orchestrator election 2026-05-09 + 2 from Q-3-Step9-A 2026-05-10):** `cycle_equivalent_classes` Class-3 fixture re-binding; `nc_bfo_continuant_occurrent` + `nc_sdc_gdc` Phase-4-deferred fixtures; parallel-registry reconciliation (DECISIONS.md ADR-NN ↔ spec §13 ADR-NN); substantive-scope-weighting methodology refinement (now with full Phase 3 data: ~3 projected vs 5 actual); at-risk-tag-conservatism observation; LossType trigger-matcher subsystem cleanup; Realization regularity-check upgrade; **`nc_horn_incomplete_disjunctive` `unverifiedAxioms` count-semantics corpus-discriminator-scope question per Q-3-Step9-A Refinement 3**; **disposition-split discipline as Phase-4-entry methodology candidate per Q-3-Step9-A Refinement 3 + 5 banked principles**
+- [x] **v0.2:** ELK reasoner integration (closes EL-profile gap on `nc_horn_incomplete_disjunctive`); **Layer A consistency-affirmation gap per Q-3-Step9-A Refinement 2 (documented v0.1 spec-divergence; v0.2 ELK closure absorbs Horn-fragment classifier refinement — distinguishing Horn-expressible-but-not-exercised from non-Horn-expressible)**; SROIQ reasoner integration (closes Horn-fragment-escape surface); SLG tabling for SLD termination (replaces ADR-013 visited-ancestor cycle-guard per ADR-013 Phase 4-7 SLG migration escape clause); per-class Skolem-witness satisfiability checking refinement
 
 ---
 
