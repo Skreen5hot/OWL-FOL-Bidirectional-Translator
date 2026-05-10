@@ -709,3 +709,276 @@ Manifestation: Phase 2 Step 9.1 micro-cycle (this cycle) resolves the conformanc
 The bucket logic for entry-cycle corrective sub-cycles (banked at the license-verification corrective action 2026-05-06) generalizes to exit-cycle resolution work. Future cycles touching the same shape inherit the bucket-bounded cadence treatment.
 
 **Distinction from substance-ratifying cycles:** if a future micro-cycle ratifies the substantive closure of a documented gap (e.g., Phase 3 entry packet ratifies Option (a) or Option (b) for the no-strategy-applies closure), THAT cycle is an entry-cycle architectural item (substantive ratification), not a corrective sub-cycle. The bucket distinction tracks substance-ratification vs deferral-with-structural-requirements.
+
+---
+
+## Phase 3 Banked Principles (folded in at Phase 3 exit doc-pass)
+
+[Folded in at Phase 3 Step 9.5 doc pass. Captures architect-banked principles + SME-banked observations across Phase 3's cycles: entry packet ratification (initial review + final ratification both 2026-05-08), four in-Step architectural-gap micro-cycles (Steps 3 + 4 + 5 + 6 all 2026-05-09), and the retroactive corrective cycle (2026-05-09). Per architect cycle-accounting refinement 2026-05-09: Phase 3 mid-phase counter at 4 hits the entry-packet substantive-scope-weighting projection of ~3 at Step 6 with 3 Steps remaining; methodology refinement question forward-tracked to Phase 3 exit retro per the cycle-accounting-projection-accuracy banking. Approximately 46 banked principles transcribed verbatim per the §11-verbatim-transcription discipline.]
+
+### Phase 3 entry packet — initial review (2026-05-08)
+
+[Architect-banked at Q-3-A through Q-3-G initial-review cycle, 2026-05-08. Folded from `project/reviews/phase-3-entry.md` §12.]
+
+#### At-risk-tagged stub-validated assertions warrant pre-emptive review at next phase entry
+
+When stub-validated assertions are tagged at-risk-horn-fragment-closure or analogous risk tier, the next phase's entry cycle includes pre-emptive review BEFORE re-exercise gate runs. Pre-emptive review converts reactive cycle pressure into proactive cycle work, which compounds favorably. (Q-3-B operationalization)
+
+#### Cross-phase deferred architectural closures resolve at the next phase's entry packet ratification cycle
+
+When the deferral language explicitly named that target. The closing cycle's ratification updates the deferring cycle's exit packet to reflect closure, completing the deferral round-trip. (Q-3-C)
+
+#### Defer to the phase whose corpus or content demands the work, not the phase whose cycle is next
+
+When the natural surfacing-context for deferred work spans multiple candidate phases. Cycle-proximity is not corpus-demand. (Q-3-D)
+
+#### Corpus-before-code applies to fixtures that exercise architectural-commitment-tier contracts
+
+(e.g., spec-named guarantees, API-spec-named behavior contracts). Implementation-detail fixtures bind to Step-N. The split is binary at corpus authoring time; mixed shapes require routing. (Q-3-E)
+
+#### Per-canary publication artifact schemas inherit from their forward-tracking origin
+
+(Q-Frank-4 risk-estimate schema, in this case). The publication artifact is the resolution of the risk-estimate forward-track, not a fresh schema design. (Q-3-F)
+
+#### Cycle 2 architect-mediated work splits by ratification surface
+
+Entry-packet-internal amendments land with the entry packet final ratification commit; ADR promotions, prior-phase exit packet updates, and fixture amendments land in their own routing cycles. The audit-trail-unity-per-surface discipline applies. (Q-3-G)
+
+#### Verified-fixture vs implementation drift discovered at phase close routes to the next phase's entry packet
+
+Not to silent SME edit. The cycle-discipline preserves the Verified-status-as-architect-ratified guarantee. (I7 disposition; ratified at Q-3-G)
+
+#### Per-phase entry packet ratification cycles operate in their own bucket and do not interact with prior-phase mid-phase counters
+
+(cycle-accounting principle, initial-review cycle)
+
+### Phase 3 entry packet — final ratification (2026-05-08)
+
+[Architect-banked at amendment-shape verification cycle 2026-05-08. Folded from `project/reviews/phase-3-entry.md` §12 additional banked principles + cycle-accounting refinement.]
+
+#### Pre-emptive review disposition ladders should include a bounded-amendment tier
+
+Between confirmed-survives and architect-routing-required. The bounded tier is where the discipline pays its dividend; without it, pre-emptive review collapses to a binary that loses the proactive-conversion benefit. (Three-way disposition ladder banking)
+
+#### Banked principle phrasing transmits verbatim across cycles until formal AUTHORING_DISCIPLINE folding-in
+
+Paraphrasing at intermediate transmissions risks drift; verbatim preserves load-bearing language. Preserves load-bearing phrasing across the architect's banking → entry packet §11 → Phase 3 exit doc-pass formalization → AUTHORING_DISCIPLINE permanent record chain. (§11 transcription discipline)
+
+#### Cycle-accounting refinement: per-phase entry-cycle counters increment per ratification cycle within the phase entry
+
+Initial review + amendment ratification + corrective sub-cycles each count toward the entry-cycle counter, not toward mid-phase or cumulative counters.
+
+### Step 3 architectural-gap micro-cycle (2026-05-09)
+
+[Architect-banked at Q-3-Step3-A/B/C ratification cycle, 2026-05-09. Folded from `project/reviews/phase-3-step3-architectural-gap.md` §5.]
+
+#### Architectural commitments adjacent to existing ADR architectural surfaces fold into the existing ADR as numbered sections rather than spawn new ADRs
+
+Single-SHA audit-trail-per-architectural-surface preserves through ADR section growth. (Q-3-Step3-B framing — ADR-007 §11 placement; generalization of Q-3-G audit-trail-unity-per-surface)
+
+#### Editorial corrections within v0.1.7 freeze include both terminology sharpening and language tightening to reflect newly-introduced API surfaces that were architecturally implicit but not textually explicit
+
+The substance-preserving criterion governs both cases. (Editorial-correction ruling — generalization of Q-Frank-1)
+
+### Step 3 Pass 2b confirmation cycle (2026-05-09)
+
+[Architect-banked at Pass 2b ratification cycle, 2026-05-09. Folded from `project/reviews/phase-3-step3-architectural-gap.md` §5 additional banked principles.]
+
+#### Ratified ADR text includes explicit statements of any architectural commitments the section preserves
+
+(e.g., enum stability counts, version-bump dispositions, cross-section invariants) so future readers can verify the architectural claim without re-deriving it from cycle history. (Pass 2b banking — explicit-reason-enum-stability-statement discipline)
+
+#### When ADR architectural surfaces grow through numbered section additions across cycles, the ADR's closing sections (Context, Consequences, Cross-references) update to reflect the accumulated architectural surface
+
+Self-containedness preserves through architectural-surface growth. (Pass 2b banking — ADR-closing-section-update discipline)
+
+#### Pass 2b architect-mediated cycles for ratifying path-fence-authored artifacts whose substance was ratified at the prior architect cycle do not increment cycle-cadence counters
+
+They are completion of the prior cycle's resolution per the audit-trail-unity-per-surface discipline. (Pass 2b cycle-accounting note)
+
+### Step 4 architectural-gap micro-cycle (2026-05-09)
+
+[Architect-banked at Q-3-Step4-A ratification cycle, 2026-05-09. Folded from `project/reviews/phase-3-step4-architectural-gap.md` §7.]
+
+#### Among options that preserve the same architectural commitment, the smaller-blast-radius option wins absent asymmetric benefit
+
+Blast radius is a load-bearing comparator. (Q-3-Step4-A reasoning #3)
+
+#### Reason-code reuse is bounded by semantic-state alignment, not just textual fit
+
+When two existing reason codes plausibly fit a new case, choose the one whose canonical semantic exactly matches the case; refuse the looser fit even if the textual fit is closer. (Q-3-Step4-A Option (γ) refusal reasoning)
+
+#### Editorial corrections within v0.1.7 freeze include reason-code label corrections in ratified ADR text
+
+When the canonical enum value differs from the as-written label and the ADR's substantive intent is unchanged. (Editorial-correction generalization of Pass 2b banking)
+
+#### SME pre-handoff verification rituals are mechanical canonical-source checks against artifact text references
+
+Scoped to the canonical enums, type discriminators, section references, and cross-reference anchors that path-fence-authored artifacts reference. The ritual operationalizes the architect's trust posture by catching reference-correctness issues at SME-handoff time rather than post-ratification. (SME pre-handoff verification ritual banking)
+
+#### Pass 2b banked principles bind subsequent cycles' ratifications
+
+Explicit-statement discipline is not just documentation polish; it is a load-bearing constraint. (Reason-enum-stability binding effect)
+
+#### Pre-handoff verification ritual is mechanical, not architectural-judgment-exercising
+
+Mechanical character is the load-bearing operational property. (Verification-ritual character banking)
+
+#### Discipline tightenings follow the same routing pattern as architectural commitments
+
+Surfaced gap → proposed tightening → ratification → AUTHORING_DISCIPLINE folding-in. Speculative discipline-tightening is refused. (Discipline-tightening-cycle banking)
+
+#### Verification ritual eight check categories (architect-ratified scope)
+
+(1) Reason-code references → `src/kernel/reason-codes.ts`; (2) LossType references → API §6.4.1 enumeration; (3) FOLAxiom @type discriminators → `src/kernel/fol-types.ts` (or `evaluate-types.ts` + `fol-to-prolog.ts`); (4) OWLAxiom @type discriminators → `src/kernel/owl-types.ts`; (5) Reason enum stability statements → count canonical enum; (6) Spec section references → `project/OFBT_spec_v0.1.7.md`; (7) API spec section references → `project/OFBT_API_v0.1.7.md`; (8) ADR section references → `project/DECISIONS.md` + Q-rulings traceable.
+
+### Step 5 architectural-gap micro-cycle (2026-05-09)
+
+[Architect-banked at Q-3-Step5-A/B/C ratification cycle, 2026-05-09. Folded from `project/reviews/phase-3-step5-architectural-gap.md` §5.]
+
+#### Reason-code semantic distinguishability is a binding constraint on inference-time strategy choice
+
+When alternative strategies cannot produce the canonical reason codes, they are refused regardless of implementation simplicity. (Q-3-Step5-B reasoning #2 — visited-ancestor encoding produces `cycle_detected` cleanly while alternative strategies cannot distinguish from `step_cap_exceeded`)
+
+#### When multiple inference-time strategies serve the same architectural commitment, the strategy with the cleanest forward-compatibility path to known v0.2+ work wins absent asymmetric Phase 1 benefit
+
+Forward-compatibility is a load-bearing comparator. (Q-3-Step5-B reasoning #3 — SLG tabling subsumes visited-ancestor encoding cleanly)
+
+#### Verification ritual categories expand to surface multi-canonical-source states as findings for routing rather than confirming on a single source
+
+Multi-source states are themselves discipline gaps requiring architect routing. (Side-finding ruling — Cat 8 expansion to surface parallel-registry disconnects)
+
+#### Disciplines ratified after surfaced production gaps validate their effectiveness at the next production cadence catch
+
+(Verification-ritual production-catch banking — Step 4 binding-immediately discipline's first production dividend at Step 5: spec §3.4.4 → §3.4.1 correction caught pre-routing)
+
+#### Verification ritual catches and fixes are disclosed in the routing artifact's verification-ritual section, surfacing the discipline's operation rather than burying it
+
+Disclosure preserves the discipline-effectiveness audit trail. (SME transparent disclosure banking)
+
+#### Methodology refinements (substantive-scope-weighting projection accuracy, cycle-counter operational definitions, etc.) surface at phase exit retros with complete phase data, not mid-phase
+
+Mid-phase methodology critique is premature; exit retro reflection is the natural cycle. (Methodology-refinement-cycle banking — cycle-accounting projection-exceedance observation routes to Phase 3 exit retro)
+
+### Step 5 Pass 2b confirmation cycle (2026-05-09)
+
+[Architect-banked at ADR-013 promotion Pass 2b cycle, 2026-05-09. Folded from `project/reviews/phase-3-step5-architectural-gap.md` §5 additional banked principles.]
+
+#### The visited-ancestor encoding is implementation-choice tier per spec §0.1; the architectural commitment is to cycle-free inference closure regardless of encoding
+
+v0.2 SLG migration changes the encoding without changing the commitment; the architectural commitment migrates cleanly across encoding changes. (ADR-013 Refinement 1)
+
+#### v0.2 is the natural SLG migration cycle, NOT the binding cycle
+
+Phase 4-7 implementation surfaces of practical-depth issues route as own architect cycles with implementation evidence per spec §0.2.3; v0.1 visited-ancestor encoding is not a hard floor on encoding migration timing. (ADR-013 Refinement 2)
+
+### Step 6 architectural-gap micro-cycle (2026-05-09)
+
+[Architect-banked at Q-3-Step6-A/B/C ratification cycle, 2026-05-09. Folded from `project/reviews/phase-3-step6-architectural-gap.md` §9.]
+
+#### Cross-API vocabulary alignment for semantically identical state shapes is binding when the alternative produces multiple mental models for the same state
+
+(Q-3-Step6-A reasoning #1 — `ConsistencyResult.consistent: boolean` → `ConsistencyResult.result: 'true' | 'false' | 'undetermined'` aligning with `EvaluationResult.result`)
+
+#### Boolean-type-suggesting field names with non-boolean values invite consumer-side truthiness gotchas — rename or retype removes the boolean-association cue
+
+(Q-3-Step6-A reasoning #3)
+
+#### Phase exit retro forward-tracked items accumulate evidence across mid-phase cycles between forward-track creation and exit retro execution
+
+Concrete-data observations during this window strengthen the retro's analysis foundation without re-routing the methodology question mid-phase. (Q-3-Step6-C reinforcement)
+
+#### Retroactive ritual scope extends to all artifacts whose ratified text references canonical-source artifacts the ritual would cover at current authoring discipline
+
+The retroactive scope mirrors the forward scope; both are bounded by the canonical-source-reference criterion. (Side-finding scope ruling)
+
+#### Retroactive ritual batch findings route as a single corrective cycle
+
+Per-finding routing fragments the audit trail and defeats the consolidation purpose of the retroactive ritual. (Side-finding routing ruling)
+
+#### Corpus-before-code fixtures bind their owning Step's implementation as a whole-set contract; subset implementation is refused
+
+(Step 6 implementation strategy ruling)
+
+#### Witness extraction returns proof-tree-axioms for v0.1; algorithmic set-minimization defers to v0.2+ as optimization
+
+Both readings of "minimal inconsistent subset" satisfy the API §8.1 contract; the v0.1 reading is operationally sufficient for downstream triage. (Witness extraction minimum-viable ruling)
+
+#### Verification rituals serve dual operational purposes: surfacing errors that become routing substance, and validating that path-fence-authored content is clean against canonical sources
+
+Both purposes are load-bearing; neither subsumes the other. (Verification ritual dual-purpose banking)
+
+#### Verification rituals ratified mid-phase do NOT retroactively apply by default
+
+They operate forward only; pre-ratification content surfaces errors at next production cadence catch. (Default-forward-only banking)
+
+#### Verification rituals MAY be applied retroactively via one-shot batch runs scoped to the artifacts the ritual would cover
+
+(Retroactive-batch-option banking; operationalized at Phase 3 retroactive corrective cycle 2026-05-09)
+
+### Step 9 architectural-gap micro-cycle — Q-3-Step9-A exit-blocking finding (2026-05-10)
+
+[Architect-banked at Q-3-Step9-A ruling, 2026-05-10. Folded from `project/reviews/phase-3-step9-architectural-gap.md` (the routing artifact). Cycle type: fifth Phase 3 mid-phase architectural-gap micro-cycle, surfaced at the exit boundary by Aaron's stakeholder feedback on the live-deployed demo's `checkConsistency()` divergences from fixture contracts.]
+
+#### Spec interpretation framing rulings on exit-blocking findings default to spec-literal framing when corpus discriminators align with the literal framing
+
+Frame II readings narrowing the spec post-hoc are refused on corpus-as-contract grounds. The fixture corpus's `discriminatesAgainst` field is the architect-ratified canary-discrimination contract (per Q-3-E corpus-before-code at Phase 3 entry); accepting Frame II to relax that scope to permit `'undetermined'` where Horn-checkable fragment requires `'false'` / `'true'` corrupts the corpus-as-contract discipline. **Why:** spec §8.5.1's literal framing is binding (per ADR-012 banked principle 1, "spec interpretation defaults to literal framing"); narrowing the spec post-hoc to accommodate implementation gaps is the inverse of the discipline. **How to apply:** when an exit-blocking finding surfaces an implementation/corpus divergence, audit whether the corpus's discriminator framing aligns with the spec's literal framing first; if yes, the implementation is incomplete (Frame I); if no, the corpus may be overscoped and corpus-amendment is the disposition. The Q-3-Step9-A finding's nc_self_complement and Layer A arms both passed the corpus/spec-literal alignment test, so Frame I governed.
+
+#### Simple disjointness assertions per spec §8.5.1 are Horn-checkable
+
+The FOL translation `∀x. C(x) ∧ D(x) → False` is a Horn clause (negative-head form per ADR-007 §11). Satisfiability checks on individual named classes do not require consulting the disjointness axiom unless some individual is asserted to both classes. **Why:** spec §8.5.1's Horn-checkable fragment definition explicitly includes "simple disjointness assertions"; the FOL translation produces a Horn-clause-expressible form. The implementation must distinguish "this axiom is non-Horn" from "this axiom is Horn-expressible but not exercised on this subset"; conflating the two over-classifies as `coherence_indeterminate` and corrupts the affirmative-arm verdict. **How to apply:** when a `FOLFalse`-in-head clause is loaded, the Horn-fragment classifier must classify it as Horn-translatable; the consistency check then runs Horn resolution to either prove the contradiction (per spec §8.5.2 outcome 1) OR affirm consistency by exhausting the body without proof (per spec §8.5.2 outcome 2). Defaulting to `coherence_indeterminate` for FOLFalse-in-head clauses regardless of whether any individual triggers the body is the canonical Layer A affirmation gap.
+
+#### Disposition spectrum rulings on exit-blocking findings split scopes when the finding's distinct components have different fix-cost profiles
+
+Bounded-fix-scope components close before exit; forward-track-scope components route to next-phase-exit-retro or next-phase-entry per natural cycle context. **Why:** D1 (close all components before exit) risks indefinite slip when one component is substantive; D3 (corpus-relax) corrupts corpus-as-contract discipline; D4 (document-and-forward-track all components) corrupts spec/implementation alignment when a bounded fix is available. D2-with-disposition-split preserves both close cadence and discipline integrity. **How to apply:** at exit-blocking findings, audit the SME's hypothesis-list per component for fix-cost; bounded components close in the corrective sub-cycle pre-exit; substantive components forward-track with documented honest-admission framing per the Phase 2 Step 9.1 precedent. The Q-3-Step9-A disposition split nc_self_complement (bounded → amendment-4) from Layer A affirmation (substantive → v0.1 spec-divergence + v0.2 ELK closure path) from disjunctive count divergence (corpus-discriminator-scope question → Phase 4 entry-cycle).
+
+#### Frame I rulings cover affirmative-arm correctness gaps; non-Horn-fragment fixtures' unverifiedAxioms count semantics require their own analysis
+
+Frame I governance is bounded to decidable cases producing `'undetermined'` instead of `'false'` / `'true'` (the affirmative-arm gaps). It does not extend to non-Horn-fragment fixtures' `unverifiedAxioms` count semantics — those are corpus-discriminator-scope questions distinct from the spec-literal-framing question Frame I addresses. **Why:** the disjunctive fixture's count divergence (live: count = 1; fixture: count ≥ 2) surfaces a question the corpus discriminator did not precisely specify — should the implementation always emit all non-Horn axioms regardless of transitive implications, or only the minimal subset that drove the indeterminacy? This is corpus-amendment-scope, not spec-interpretation-scope. **How to apply:** when an exit-blocking finding has affirmative-arm components (Frame I) AND non-Horn-count components, route the components separately. The architect's ruling on Frame I/II governs the affirmative components; the count semantics need their own ratification (typically routed to next-phase-entry-cycle for architect ratification on the canonical contract).
+
+#### Phase exit packet's deferred-with-structural-requirements bucket inherits exit-blocking finding components per the disposition-split discipline
+
+Honest-admission framing per the Phase 2 Step 9.1 banking applies to the forward-tracked components. The exit packet's §6 forward-tracks gain entries naming the v0.X closure path explicitly; the §7 risk retrospective gains an Item with the disposition; the per-canary publication artifact (per Q-Frank-4) gains tags reflecting the disposition (`survived-post-fix`, `survived-with-count-divergence-forward-tracked`, `failed-revealed-implementation-gap-forward-tracked`). **Why:** the disposition-split discipline produces multi-component dispositions that must thread through the exit packet's audit-trail surfaces consistently. Without explicit cross-references, the audit trail fragments — the exit packet doesn't reflect the per-canary publication, the per-canary publication doesn't reflect the forward-tracks, the forward-tracks don't reflect the spec-divergence framing. **How to apply:** at exit-packet authoring, every disposition-split component lands in three audit surfaces (exit packet §6 forward-tracks + §7 risk retrospective Item + per-canary publication tag) with explicit cross-references between them. The Q-3-Step9-A disposition is the canonical example: nc_self_complement closes in §7 Item N + per-canary `survived-post-fix`; Layer A forward-tracks in §6 + per-canary `failed-revealed-implementation-gap`; count-divergence forward-tracks in §6 + per-canary `survived-with-count-divergence`.
+
+### Phase 3 retroactive corrective cycle (2026-05-09)
+
+[Architect-banked at retroactive-corrective Pass 2b cycle, 2026-05-09. Folded from `project/reviews/phase-3-retroactive-corrective.md` §7.]
+
+#### Hypothetical-axiom fixtures testing Horn-fragment escape must use the canonical FOL Disjunction-in-consequent shape per spec §8.5.4 to exercise the unverifiedAxioms surface correctly
+
+OWL-axiom-shape disjunction (ObjectUnionOf) does not exercise the FOL-layer Horn-fragment classifier. (Finding 2 substantive banking)
+
+#### Machine-readable identifier conventions across surfaces (reason codes, error codes, expectedThrows fixture fields, audit-artifact discriminators) align to snake_case per OFBT convention
+
+PascalCase is reserved for TypeScript class names. (Finding 3 ruling banking)
+
+#### The retroactive ritual's first production batch dividend confirms the discipline-tightening pattern
+
+Future retroactive ritual runs at phase boundaries inherit the same batch-dividend expectation. Discipline-tightening pattern (banked at Pass 2b 2026-05-09) confirmed at production cadence: ratification → operationalization → first batch run → catches expected error class as single consolidated cycle. (Retroactive ritual production-dividend banking)
+
+### Cross-cycle banking summary
+
+Phase 3 banked the verification ritual as a discipline-tightening pattern + operationalized it within-cycle (Step 4 ratification → Step 5 first production catch → Step 6 retroactive batch run → first production dividend confirmation). The pattern's load-bearing properties:
+
+- **Mechanical character** — grep-based canonical-source checks; not architectural judgment
+- **Dual operational purpose** — surfacing errors as routing substance + validating path-fence-authored content clean
+- **Forward-only by default** — but retroactively applicable via one-shot batch runs per architect ruling
+- **Disclosed in routing artifacts** — surfacing the discipline's operation preserves the audit trail
+
+Future phases inherit the verification ritual as binding-from-Step-4-of-Phase-3-forward; phase boundaries are natural retroactive-batch-run scope when discipline ratifications occur mid-phase.
+
+Phase 3 also banked the **disposition-split discipline** at Step 9 architectural-gap micro-cycle (Q-3-Step9-A 2026-05-10): exit-blocking findings whose distinct components have different fix-cost profiles split into bounded-fix-scope (closes pre-exit) + forward-track-scope (routes to next-phase-exit-retro or next-phase-entry per natural cycle context). The pattern's load-bearing property: it preserves both close cadence AND discipline integrity by refusing the false dichotomy between D1 (close all → indefinite slip) and D3/D4 (relax-corpus / document-all-as-divergence → discipline corruption). The Q-3-Step9-A disposition is the canonical example: nc_self_complement (bounded → amendment-4) + Layer A affirmation (substantive → v0.1 spec-divergence + v0.2 ELK closure) + count-divergence (corpus-discriminator-scope → Phase 4 entry-cycle).
+
+### Phase 3 exit retro forward-track candidates
+
+Four methodology-refinement candidates for Phase 3 exit retro per the architect-banked methodology-refinement-cycle banking (Step 5 micro-cycle + Q-3-Step9-A 2026-05-10):
+
+1. **Parallel-registry reconciliation** — spec §13 ADR table (22 entries post-ADR-013 update) vs `project/DECISIONS.md` (13 ADRs post-ADR-013 promotion) diverge across ADR-001 through ADR-012 numbering and titles. SME hypothesis: spec §13 is v0.1.4-era aspirational behavioral-spec-decision register; DECISIONS.md is implementation-side register that grew in parallel. Phase 3 exit retro routes the reconciliation as its own architect cycle with three options: (a) merge into a single canonical register, (b) document parallel framing with cross-references, (c) migrate one register's content into the other.
+
+2. **Substantive-scope-weighting methodology refinement** — Phase 3 mid-phase counter closed at **5 of 5** Steps (3 + 4 + 5 + 6 + 9 architectural-gap micro-cycles). Substantive-scope-weighting projection at Phase 3 entry was ~3; Phase 3 exceeds projection by 2. Methodology refinement question for retro now has full Phase 3 data: (i) was the under-projection systematic across phase types or specific to Phase 3's evaluator+consistency+cycle-detection scope, (ii) what refinement to substantive-scope-weighting methodology applies at Phase 4+ entry, (iii) does the retroactive ritual's phase-boundary discipline tool generalize to absorbing some of the cycle pressure that would otherwise surface as mid-phase escalations?
+
+3. **At-risk-tag-conservatism observation** — 2 of 2 at-risk-horn-fragment-closure parity canaries survived at Step 2 reactivation; conservative tagging preserved the integrity of the publication contract but did not manifest as actual divergence. Methodology refinement question for retro: should at-risk tagging methodology refine to distinguish structural-shape-bounded-Horn from semantic-content-bounded-Horn? Should "expected-to-survive after pre-emptive review" become a recognized risk-estimate transition state?
+
+4. **Disposition-split discipline as canonical pattern for exit-blocking findings** — Q-3-Step9-A 2026-05-10 banked the disposition-split discipline (bounded-fix-scope closes pre-exit + forward-track-scope routes to next-phase context) as the canonical pattern when an exit-blocking finding's distinct components have different fix-cost profiles. Methodology refinement question for retro: (a) does the disposition-split pattern generalize to non-exit-blocking findings (e.g., Step-N findings mid-phase whose components diverge in cost)? (b) does the per-canary publication artifact's tag taxonomy (`survived` / `failed-revealed-stub-limit` / `not-yet-reactivated`) need extension to cover disposition-split outcomes (`survived-post-fix`, `survived-with-X-forward-tracked`, `failed-revealed-implementation-gap-forward-tracked`)? (c) what is the right exit-packet section structure when a single finding contributes multiple forward-tracks of different tier (v0.1 spec-divergence vs v0.2 ELK closure vs Phase 4 entry-cycle architect ratification)?
+
+These four exit-retro candidates are documented in `project/reviews/phase-3-exit.md` deferred-with-structural-requirements bucket; the broader 8 forward-track items (parallel-registry, substantive-scope-weighting, retroactive-ritual-pattern, DisjointClasses lifter case, per-class Skolem-witness, closure_truncated emission, Tau Prolog step extraction, spec-file rename) all forward-track to Phase 4 entry packet per Aaron's routing election 2026-05-09. The Q-3-Step9-A disposition adds three forward-track items to the Phase 4 entry inheritance: Layer A affirmation gap (v0.1 spec-divergence with v0.2 ELK closure), nc_horn_incomplete_disjunctive count divergence (corpus-discriminator-scope question), and the disposition-split discipline itself as Phase-4-entry methodology candidate.
