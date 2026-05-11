@@ -76,6 +76,23 @@ export type { TauPrologProbe } from "./tau-prolog-probe.js";
 export { owlToFol } from "./lifter.js";
 export type { LifterConfig } from "./lifter.js";
 
+// --- Phase 4 Step 1: ARC module loader skeleton (spec §3.6.2 +
+//     phase-4-entry.md §7 step ledger). Kernel-pure types + schema
+//     validator + registration seam (mirrors tau-prolog-probe.ts
+//     pattern). Composition / adapter layers parse arc/core/*.json
+//     files and call registerARCModule; the lifter consults
+//     getARCModule at Phase 4 Step 3+ when arcModules is declared
+//     on SessionConfiguration / LifterConfiguration. ---
+export type { ARCModule, ARCEntry } from "./arc-types.js";
+export { validateARCModule } from "./arc-validation.js";
+export type { ARCValidationResult } from "./arc-validation.js";
+export {
+  registerARCModule,
+  getARCModule,
+  listRegisteredARCModules,
+  __resetARCModuleRegistryForTesting,
+} from "./arc-module-registry.js";
+
 // --- Phase 2 Step 1: projector skeleton (API §6.2) + audit artifact types
 //     (API §6.4) + frozen LOSS_SIGNATURE_SEVERITY_ORDER. Strategy routing
 //     and audit-artifact emission land in later Steps. ---
