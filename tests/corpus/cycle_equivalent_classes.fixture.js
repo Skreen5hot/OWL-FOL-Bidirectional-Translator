@@ -1,19 +1,57 @@
 /**
  * Phase 3 fixture — Cycle detection: EquivalentClasses cycle.
+ * **RE-BOUND to Phase 4 per Q-4-B architect ruling 2026-05-10** (corpus-before-code).
  *
  * Per Phase 3 entry packet §3.5 + architect Q-3-E ratification 2026-05-08
  * (step-N-bind): Step 5 (cycle detection per spec §5.4 + ADR-013) authoring
  * cycle fills the full fixture body.
  *
- * Status: Draft (stub) — STAYS Draft after Step 5 close per Q-3-Step5-B
- * Strategy (A) Visited-ancestor encoding scope. ADR-013 ratification 2026-05-09
- * covers 6 cycle-prone predicate classes; Step 5 minimum implements Class 1
- * (TransitiveObjectProperty) only. This fixture's cycle is Class 3
- * (recursive SubClassOf chain via mutual EquivalentClasses) — implementation
- * forward-tracked beyond Step 5 minimum to a subsequent architect-routable
- * cycle (Phase 3 follow-on Step OR Phase 4+ ARC-content surfacing per
- * ADR-013 §implementation-status's "Phase 4+ ARC content may extend with
- * implementation evidence per spec §0.2.3" framing).
+ * Status: Draft (stub) at Phase 3 — **RE-BOUND corpus-before-code at Phase 4
+ * entry-cycle 2026-05-10 per Q-3-Step5-B forward-track + Q-4-B ratification.**
+ * ADR-013 ratification 2026-05-09 covers 6 cycle-prone predicate classes;
+ * Step 5 minimum implements Class 1 (TransitiveObjectProperty) only. This
+ * fixture's cycle is Class 3 (recursive SubClassOf chain via mutual
+ * EquivalentClasses) — implementation forward-tracked beyond Step 5 minimum;
+ * Phase 4 BFO ARC content surfaces the Class-3 cycle-prone-predicate forcing
+ * case at lift time (BFO transitive predicates + EquivalentClasses chains
+ * within the loaded ARC module's import closure).
+ *
+ * ════════════════════════════════════════════════════════════════════════════
+ * AMENDMENT AUDIT TRAIL — Phase 4 re-binding, 2026-05-10
+ * ════════════════════════════════════════════════════════════════════════════
+ *
+ * (a) The amendment. Phase + phaseAuthored + phaseActivated + activationTiming
+ *     fields amended for Phase 4 re-binding. `phase: 3 → 4`; `phaseAuthored: 3
+ *     (carries the Phase 3 origin) + phaseActivated: 4` (Phase 4 boundary
+ *     surfaces the Class 3 forcing case); `activationTiming: 'step-N-bind' →
+ *     'corpus-before-code'` per Q-4-B architectural-commitment-tier
+ *     classification.
+ *
+ * (b) The substantive ruling. Per Q-4-B (architect ruling 2026-05-10) +
+ *     Q-3-Step5-B forward-track 2026-05-09: Class 3 cycle-prone-predicate
+ *     implementation is forward-tracked beyond Step 5 minimum to Phase 4 ARC-
+ *     content surfacing per ADR-013 §implementation-status's "Phase 4+ ARC
+ *     content may extend with implementation evidence per spec §0.2.3"
+ *     framing. Phase 4's BFO ARC content surfaces the EquivalentClasses-cycle
+ *     shape at lift time (per the cycle re-binding identifying BFO ARC's
+ *     mutually-equivalent class chains as the forcing demand surface).
+ *
+ * (c) Why corpus-before-code at Phase 4. Per Q-4-B (architect ruling
+ *     2026-05-10): "BFO No-Collapse adversarial canaries exercise the
+ *     No-Collapse Guarantee against ARC content (load-bearing for Phase 4's
+ *     substantive scope)... Cycle re-binding exercises ADR-013 visited-
+ *     ancestor pattern against BFO transitive predicates." The fixture
+ *     architecturally-commits the Phase 4 implementation to handle Class 3
+ *     correctly; this places it in the corpus-before-code tier.
+ *
+ * (d) Audit-trail unity. The amendment lands in the same Pass 2a corrective
+ *     commit as the 4 NEW Phase 4 corpus-before-code fixtures
+ *     (nc_bfo_continuant_occurrent + canary_connected_with_overlap +
+ *     canary_bfo_disjointness_silent_pass + p4_bfo_clif_layer_b) per
+ *     audit-trail-unity-per-surface ruling. Cross-references: phase-4-entry.md
+ *     §3.2 (corpus-before-code list); §11 Q-4-B verbatim ruling text;
+ *     manifest.json mirror entry.
+ * ════════════════════════════════════════════════════════════════════════════
  *
  * Exercises: Class hierarchy with EquivalentClasses cycle (A ≡ B, B ≡ C,
  * C ≡ A). The lifter emits 6 mutual unary implications; SLD chains them
@@ -74,32 +112,47 @@ export const fixture = {
     "reason code (when consumer config requested non-throwing behavior).",
 
   "expected_v0.1_verdict": {
-    ringStatus: "ring3-class-3-forward-tracked",
+    ringStatus: "ring3-class-3-rebound-to-phase-4-corpus-before-code",
     phaseAuthored: 3,
-    phaseActivated: 3,
+    phaseActivated: 4,
     expectedReason: "cycle_detected",
     forwardTrackedAt:
-      "step-5-close-2026-05-09; Class 3 implementation requires graph-based predicate-call analysis beyond ADR-013 §pattern's transitive-shape detection; routes as architect-mediated cycle when surfaced",
+      "step-5-close-2026-05-09; Class 3 implementation requires graph-based predicate-call analysis beyond ADR-013 §pattern's transitive-shape detection; **re-bound to Phase 4 corpus-before-code per Q-4-B architect ruling 2026-05-10** because BFO ARC content surfaces the EquivalentClasses-cycle forcing case at lift time",
   },
 
   "expected_v0.2_elk_verdict": null,
 
   meta: {
     verifiedStatus: "Draft",
-    phase: 3,
-    activationTiming: "step-N-bind",
-    stepBinding: 5,
+    phase: 4,
+    activationTiming: "corpus-before-code",
+    stepBinding: null,
+    rebindingHistory: [
+      {
+        phase: 3,
+        activationTiming: "step-N-bind",
+        stepBinding: 5,
+        rationale: "Phase 3 Step 5 binding per Q-3-E split; stub fixture; Class 3 forward-tracked beyond Step 5 minimum per Q-3-Step5-B 2026-05-09",
+      },
+      {
+        phase: 4,
+        activationTiming: "corpus-before-code",
+        stepBinding: null,
+        rationale: "Re-bound to Phase 4 corpus-before-code per Q-4-B architect ruling 2026-05-10; BFO ARC content surfaces Class 3 forcing case at lift time; Class 3 implementation expected at Phase 4 step-ledger Step 7 (lifter ObjectPropertyChain support per Q-Step6-3 forward-track) OR Step 6 (regularityCheck activation per spec §6.2.1)",
+      },
+    ],
     authoredAt: "2026-05-08",
-    authoredBy: "SME persona, Phase 3 entry packet final ratification cycle Pass 2a authoring (stub)",
+    rebindingAt: "2026-05-10",
+    authoredBy: "SME persona, Phase 3 entry packet final ratification cycle Pass 2a authoring (stub); re-bound at Phase 4 entry-cycle Pass 2a authoring 2026-05-10",
     relatedSpecSections: [
       "spec §5.4 (resolution depth bound + cycle detection)",
-      "ADR-011 (cycle-guard policy: visited-ancestor list for v0.1; SLG tabling planned for v0.2)",
+      "ADR-013 (visited-ancestor cycle-guard pattern; six cycle-prone predicate classes; Class 3 = mutual EquivalentClasses cycle)",
     ],
     relatedFixtures: [
-      "cycle_recursive_predicate (sibling: predicate-definition cycle)",
+      "cycle_recursive_predicate (sibling: predicate-definition cycle, Class 1)",
     ],
     architectAuthorization:
-      "Phase 3 entry packet §3.5 ratified 2026-05-08; step-N-bind per Q-3-E split; Step 5 binding; stub fixture per architect's audit-trail-unity preference for Pass 2a.",
+      "Phase 3 entry packet §3.5 ratified 2026-05-08; step-N-bind per Q-3-E split; Step 5 binding; stub fixture per architect's audit-trail-unity preference for Pass 2a. **Phase 4 re-binding ratified per Q-4-B architect ruling 2026-05-10**; corpus-before-code tier; Phase 4 Pass 2a authoring.",
   },
 };
 

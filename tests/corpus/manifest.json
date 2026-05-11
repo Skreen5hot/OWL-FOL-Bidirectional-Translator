@@ -1217,31 +1217,129 @@
     },
     {
       "fixtureId": "cycle_equivalent_classes",
-      "phase": 3,
-      "specSections": ["spec §5.4", "ADR-011"],
+      "phase": 4,
+      "specSections": ["spec §5.4", "ADR-013"],
       "acceptanceCriteria": [
-        "Phase 3 entry packet §3.5 step-N-bind (architect-ratified 2026-05-08 Q-3-E)",
-        "spec §5.4 cycle detection + ADR-011 visited-ancestor list"
+        "Phase 3 entry packet §3.5 step-N-bind (architect-ratified 2026-05-08 Q-3-E) — original binding",
+        "Phase 4 entry packet §3.2 corpus-before-code re-binding (architect-ratified 2026-05-10 Q-4-B)",
+        "spec §5.4 cycle detection + ADR-013 visited-ancestor list (Class 3 cycle-prone predicate)"
       ],
       "arcEntries": [],
       "regime": "equivalent",
       "expectedOutcome": {
-        "summary": "Stub for Step 5 authoring. Stub-level contract: query against EquivalentClasses cycle resolves without infinite loop; cycle_detected reason code emitted.",
+        "summary": "Class 3 cycle-prone-predicate fixture (recursive SubClassOf chain via mutual EquivalentClasses). Re-bound to Phase 4 corpus-before-code per Q-4-B architect ruling 2026-05-10 because BFO ARC content surfaces the EquivalentClasses-cycle forcing case at lift time. Phase 4 implementation closes Class 3 at Step 7 (lifter ObjectPropertyChain support per Q-Step6-3) OR Step 6 (regularityCheck activation per spec §6.2.1).",
         "fixtureType": "consistency-check-cycle-detection",
-        "canaryRole": "cycle-detection-class-hierarchy-cycle",
-        "stubStatus": "step-5-authoring-pending"
+        "canaryRole": "cycle-detection-class-3-mutual-equivalentclasses-cycle"
       },
       "expectedLossSignatureReasons": [],
-      "intendedToCatch": "cycle detection failure: infinite loop; depth-bound termination misreported as closure_truncated; thrown when consumer config requested non-throwing.",
+      "intendedToCatch": "cycle detection failure: infinite loop on EquivalentClasses cycle; depth-bound termination misreported as closure_truncated; thrown when consumer config requested non-throwing.",
       "expected_v0.1_verdict": {
-        "ringStatus": "ring3-stub-pending-step-5",
+        "ringStatus": "ring3-class-3-rebound-to-phase-4-corpus-before-code",
         "phaseAuthored": 3,
-        "phaseActivated": 3,
+        "phaseActivated": 4,
         "expectedReason": "cycle_detected",
-        "stepBinding": 5,
-        "activationTiming": "step-N-bind"
+        "corpusActivationTiming": "corpus-before-code",
+        "rebindingHistory": [
+          { "phase": 3, "activationTiming": "step-N-bind", "stepBinding": 5 },
+          { "phase": 4, "activationTiming": "corpus-before-code", "stepBinding": null }
+        ]
       },
       "expected_v0.2_elk_verdict": null
+    },
+    {
+      "fixtureId": "nc_bfo_continuant_occurrent",
+      "phase": 4,
+      "specSections": ["spec §3.4.1", "spec §3.6.2", "spec §8.5.1", "spec §8.5.2", "API §8.1"],
+      "acceptanceCriteria": [
+        "Phase 4 entry packet §3.2 corpus-before-code (architect-ratified 2026-05-10 Q-4-B)",
+        "ROADMAP §3.4 Phase 3 No-Collapse Adversarial Corpus (BFO-gated; activated at Phase 4)",
+        "spec §8.5.1 Horn-checkable fragment (simple disjointness Horn-checkable per Q-Frank-Step9-A banking)",
+        "spec §8.5.2 FOLFalse-in-head inconsistency proof outcome ordering"
+      ],
+      "arcEntries": ["BFO_0000002 (Continuant)", "BFO_0000003 (Occurrent)", "BFO Disjointness Map"],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "checkConsistency on lifted FOL with BFO 2020 ARC loaded returns consistent: 'false'. BFO Disjointness Map declares Continuant ⊓ Occurrent disjoint; alice asserted to both; Step 7 FOLFalse-in-head proof fires; Horn-checkable per spec §8.5.1.",
+        "fixtureType": "consistency-check-with-arc-modules",
+        "expectedConsistencyResult": "false",
+        "expectedReason": "inconsistent",
+        "canaryRole": "no-collapse-adversarial-bfo-disjointness-map-layer-b"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "checkConsistency silently returning consistent: 'true' on canonical BFO Disjointness Map firing (Continuant ⊓ Occurrent on alice). Specific failure modes: ARC loader fails to lift Disjointness Map as FOLFalse-in-head; Step 7 proof fails on Layer-B subsumption-derived bodies; mis-classifies disjointness as non-Horn (this fixture's body is TRIGGERED by alice's dual assertion, so rejection direction works in v0.1 regardless of the Layer A consistency-affirmation gap forward-tracked to v0.2).",
+      "expected_v0.1_verdict": {
+        "ringStatus": "ring3-arc-content-extension-bfo-disjointness-firing",
+        "phaseAuthored": 3,
+        "phaseActivated": 4,
+        "expectedConsistencyResult": "false",
+        "expectedReason": "inconsistent",
+        "expectedUnverifiedAxiomsCount": 0,
+        "corpusActivationTiming": "corpus-before-code",
+        "stepBinding": 4
+      },
+      "expected_v0.2_elk_verdict": "consistent: 'false' identical (ELK EL profile handles disjointness directly)"
+    },
+    {
+      "fixtureId": "canary_connected_with_overlap",
+      "phase": 4,
+      "specSections": ["spec §3.4.1", "spec §3.6.2"],
+      "acceptanceCriteria": [
+        "Phase 4 entry packet §3.2 corpus-before-code (architect-ratified 2026-05-10 Q-4-B)",
+        "ROADMAP §3.4 Phase 4 Wrong-Translation Canary Set",
+        "spec §3.4.1 Connected With as primitive + bridge axiom"
+      ],
+      "arcEntries": ["BFO_0000006 (SpatialRegion)", "RO_0002170 (connected_with)", "RO_0002131 (overlaps)"],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "Phase 4 lift with BFO 2020 ARC loaded produces lifted FOL containing: (1) Connected With as primitive predicate atom, (2) one-way bridge axiom overlaps → connected_with, (3) NO reverse-direction implication (the symmetric/biconditional emission per ADR-007 §4 decomposition is detected by the forbidden pattern's reverse-direction-implication test).",
+        "fixtureType": "lift-correctness-with-arc-modules",
+        "canaryRole": "wrong-translation-canary-connected-with-as-primitive"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "Phase 4 lifter's silent collapse of Connected With to defined-as-overlap form (corrupts BFO mereotopological asymmetry); incomplete bridge axiom (Connected With present but no implication relating it to overlap); symmetric biconditional emission detected via reverse-direction-implication test per ADR-007 §4 decomposition.",
+      "expected_v0.1_verdict": {
+        "ringStatus": "ring1-lift-correctness-arc-content-extension",
+        "phaseAuthored": 4,
+        "phaseActivated": 4,
+        "expectedRequiredPatternsMatched": 2,
+        "expectedForbiddenPatternsMatched": 0,
+        "expectedForbiddenPatternsCount": 1,
+        "corpusActivationTiming": "corpus-before-code",
+        "stepBinding": 5
+      },
+      "expected_v0.2_elk_verdict": null
+    },
+    {
+      "fixtureId": "canary_bfo_disjointness_silent_pass",
+      "phase": 4,
+      "specSections": ["spec §3.4.1", "spec §8.5.1", "spec §8.5.2", "spec §8.5.5", "API §8.1", "API §8.1.1"],
+      "acceptanceCriteria": [
+        "Phase 4 entry packet §3.2 corpus-before-code (architect-ratified 2026-05-10 Q-4-B)",
+        "ROADMAP §3.4 Phase 4 Wrong-Translation Canary Set",
+        "Q-Frank-4 publication discipline (per-canary catchall MUST-NOT-be-true assertion pattern)"
+      ],
+      "arcEntries": ["BFO_0000002 (Continuant)", "BFO_0000003 (Occurrent)", "BFO_0000015 (Process)", "BFO_0000050 (part_of)", "BFO Disjointness Map"],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "checkConsistency on lifted FOL with BFO ARC loaded MUST NOT return consistent: 'true'. KB has multiple paths to BFO Disjointness contradiction (direct + subsumption + part_of). Acceptable: 'false' OR 'undetermined' with populated unverifiedAxioms.",
+        "fixtureType": "consistency-check-with-arc-modules",
+        "expectedConsistencyResultMustNotBe": "true",
+        "expectedConsistencyResultAcceptable": ["false", "undetermined"],
+        "canaryRole": "no-collapse-adversarial-bfo-disjointness-silent-pass-catchall"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "canonical SILENT-PASS failure mode for No-Collapse Guarantee against BFO Layer B content. Catches: implementation that runs Horn resolution and silently returns 'true'; Step 7 proof failing on subsumption chains; detection of direct path but not indirect paths through subsumption or part_of.",
+      "expected_v0.1_verdict": {
+        "ringStatus": "ring3-arc-content-extension-bfo-silent-pass-catchall",
+        "phaseAuthored": 4,
+        "phaseActivated": 4,
+        "expectedConsistencyResultMustNotBe": "true",
+        "expectedConsistencyResultAcceptable": ["false", "undetermined"],
+        "expectedUnverifiedAxiomsMinCountIfUndetermined": 1,
+        "corpusActivationTiming": "corpus-before-code",
+        "stepBinding": 4
+      },
+      "expected_v0.2_elk_verdict": "MUST-NOT-be-true assertion holds; v0.2 ELK + tableau extensions close any non-Horn pathways through subsumption chains"
     },
     {
       "fixtureId": "cycle_recursive_predicate",

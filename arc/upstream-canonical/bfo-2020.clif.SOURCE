@@ -1,0 +1,206 @@
+# =============================================================================
+# STATUS: PHASE-5-FORWARD-TRACKED (Q-4-C source-state amendment cycle 2026-05-10)
+# =============================================================================
+#
+# This sidecar SHELL was path-fence-authored by SME at Phase 4 entry packet
+# Pass 2a per Q-4-C initial architect ratification 2026-05-10. Subsequently,
+# Aaron-Developer Pass 2a repo-traversal evidence 2026-05-10 confirmed the
+# BFO-ontology/BFO repo @ master HEAD 857be9f15100531c7202ef0eb73142f95b70f3a7
+# does NOT contain a canonical `bfo-2020.clif` at the granularity Q-4-C
+# initial ratification assumed (zero files matching `bfo-2020*` or
+# `bfo_2020*` at any depth). Per Q-4-C source-state amendment cycle
+# 2026-05-10 (`project/reviews/phase-4-entry-q-4-c-amendment.md`) Ruling 1,
+# §8.2 contingency operationalized: Layer B vendoring FORWARD-TRACKED to
+# Phase 5 entry-cycle.
+#
+# **DO NOT delete this sidecar at Phase 4 close.** Per Q-4-C source-state
+# amendment cycle Ruling 3 amendment table — sidecar shell preserved as
+# Phase-5-forward-tracked SME work-in-progress reference for Phase 5
+# vendoring (distinct from the fixture pull at Ruling 2, which deleted
+# `tests/corpus/p4_bfo_clif_layer_b.fixture.js` entirely; here the sidecar
+# shell preserves to seed Phase 5 entry-cycle Q-4-C analog authoring).
+#
+# **Phase 5 entry-cycle inherits per `phase-4-entry.md` §6.1 manifest:**
+#   - Source-state survey + architect ratification on the BFO-2020 Layer B
+#     canonical source candidate (BFO-ontology repo if source-state has
+#     improved; ontohub.org/bfo if upstream finalized; new candidate if
+#     surfaced by BFO-ecosystem evolution)
+#   - License-verification per ADR-010 (phase-agnostic per Q-4-C source-state
+#     amendment cycle Ruling 1 anchor 3)
+#   - License-verification-inheritance banking applies if same-source-repo
+#     at Phase 5 vendoring time (Phase 1 owl-axiomatization.clif.SOURCE
+#     LICENSE inheritance)
+#   - Renaming to `bfo-2020.clif.SOURCE` plausible at Phase 5 (or path
+#     re-prefix per Phase 5 naming convention)
+#   - `p5_bfo_clif_layer_b.fixture.js` re-authoring (the deleted Phase 4
+#     fixture's Phase 5 successor)
+#
+# The ORIGINAL Phase 4 Q-4-C initial-ratification sidecar shell follows
+# below for Phase 5 reference; values are NOT to be relied upon as
+# canonical at Phase 4 (Layer B vendoring did not occur at Phase 4). Phase 5
+# Q-4-C analog ratification re-validates source candidate + LICENSE
+# inheritance + master HEAD against then-current upstream state.
+#
+# Source-authority-chain banking holds at Phase 5 per Q-4-C source-state
+# amendment cycle Ruling 1 anchor 3.
+#
+# =============================================================================
+# ORIGINAL PHASE 4 Q-4-C INITIAL-RATIFICATION CONTENT (PRESERVED AS PHASE-5
+# REFERENCE; SUPERSEDED FOR PHASE 4 PER Q-4-C SOURCE-STATE AMENDMENT CYCLE):
+# =============================================================================
+#
+# Provenance sidecar for: bfo-2020.clif (Layer B — BFO ontology content in CLIF)
+#
+# This sidecar SHELL is path-fence-authored by SME at Phase 4 entry packet
+# Pass 2a per Q-4-C architect ratification 2026-05-10 (BFO-ontology repo BFO
+# 2020 CLIF approved as canonical source). [VERIFY] markers below close at
+# Pass 2a vendoring time per Aaron's binding-immediately verification ritual
+# + ADR-010 license-verification-at-vendoring-time discipline + Q-4-G
+# verification ritual phase-boundary retroactive batch run scope.
+#
+# **Pass 2a vendoring SME→Aaron handoff:** SME has authored the sidecar
+# structure + inherited the BFO-ontology repo license-verification values
+# from `owl-axiomatization.clif.SOURCE` (same repo, same CC BY 4.0 LICENSE,
+# same LICENSE file SHA-256 at the verified commit). Aaron fetches the
+# canonical bfo-2020.clif from the BFO-ontology repo at Pass 2a vendoring
+# time + flips the [VERIFY] markers below to Verified values per the
+# ADR-010 ritual:
+#   - upstream-url: confirm exact path within BFO-ontology/BFO repo
+#   - upstream-version-master-head-at-verification: current master HEAD
+#   - retrieved-at: vendoring date
+#   - sha256: verified SHA-256 of fetched file
+#   - file-line-count: line count of fetched file
+#   - file-author: per file header
+#   - file-version: per file header
+#
+# License-verification block values inherit from owl-axiomatization.clif.SOURCE
+# where applicable (same BFO-ontology/BFO repo; same CC BY 4.0 LICENSE; same
+# LICENSE file SHA-256 if no LICENSE change since 2026-05-06 verification).
+# Pass 2a Aaron re-confirms `bfo-repo-master-head-at-verification` against
+# current state (may differ from owl-axiomatization.clif.SOURCE's
+# 857be9f15100531c7202ef0eb73142f95b70f3a7 if BFO repo has new commits).
+#
+# **NOTE (Q-4-C source-state amendment 2026-05-10):** Aaron's Pass 2a
+# repo-traversal evidence subsequently disproved this SME hypothesis —
+# neither `bfo.clif` nor `bfo-2020.clif` exists in BFO-ontology/BFO at any
+# depth. The `[VERIFY]` markers below are PRESERVED AS-WRITTEN as
+# Phase-5-forward-tracked SME work-in-progress reference; Phase 5
+# entry-cycle re-validates. The notes at the end of this file ("Future
+# Phase 5+ vendorings inherit ...") still anticipate the forward-track
+# pattern correctly per Ruling 1 anchor 3 source-authority-chain banking.
+
+upstream-url: '[VERIFY at Pass 2a vendoring time — SME hypothesis: https://github.com/BFO-ontology/BFO/blob/master/src/owl/profiles/Common%20Logic/bfo.clif OR https://github.com/BFO-ontology/BFO/blob/master/src/ontology/fol-group/bfo-2020.clif — Aaron confirms exact path]'
+upstream-version-file-stable-since: '[VERIFY at Pass 2a vendoring time — earliest commit at which the canonical bfo-2020.clif file content stabilized for the BFO 2020 release]'
+upstream-version-master-head-at-verification: '[VERIFY at Pass 2a vendoring time — current BFO-ontology/BFO master HEAD; may differ from owl-axiomatization.clif.SOURCE 857be9f1...f3a7 if upstream has new commits]'
+retrieved-at: '[VERIFY at Pass 2a vendoring time — date of canonical fetch]'
+sha256: '[VERIFY at Pass 2a vendoring time — SHA-256 of fetched bfo-2020.clif content]'
+file-line-count: '[VERIFY at Pass 2a vendoring time — line count of fetched file]'
+file-author: '[VERIFY at Pass 2a vendoring time — per file header (likely Fabian Neuhaus + Barry Smith + collaborators per BFO repo contribution history)]'
+file-version: '[VERIFY at Pass 2a vendoring time — per file header (likely BFO 2020 / 2.0)]'
+
+# Provenance note: Layer B canonical source — distinct from Layer A
+# (owl-axiomatization.clif covering OWL constructs' canonical FOL semantics).
+# Per arc/upstream-canonical/README.md two-layer framing:
+#   - Layer A: what `SubClassOf`, `Transitive`, `InverseObjectProperties`
+#     etc. *mean* in FOL (covered by owl-axiomatization.clif)
+#   - Layer B: what BFO's `Continuant`, `Occurrent`, `part_of`, ternary
+#     parthood, BFO Disjointness Map etc. *mean* in FOL (covered by THIS file)
+# The two-layer discipline operationalizes per the ADR-010 banked principle
+# generalization (Q-β refinement 2026-05-06): license-verification-at-
+# vendoring-time discipline applies to all vendored canonical sources
+# regardless of format. Phase 4 entry-cycle Q-4-C ratifies this Layer B
+# vendoring under the same discipline.
+
+# Attribution per upstream license. Same BFO-ontology/BFO repo as Layer A;
+# same CC BY 4.0 LICENSE governs.
+license: CC-BY-4.0
+license-url: https://creativecommons.org/licenses/by/4.0/
+attribution: |
+  Basic Formal Ontology (BFO) Project.
+  Primary contributors to the BFO 2020 CLIF axiomatization include Barry
+  Smith, Fabian Neuhaus, Chris Mungall, and the BFO development community
+  (per BFO repository commit history at https://github.com/BFO-ontology/BFO).
+  Distributed under Creative Commons Attribution 4.0 International (CC BY 4.0).
+  See https://creativecommons.org/licenses/by/4.0/ for the full license text.
+  Source: https://github.com/BFO-ontology/BFO (LICENSE created 2022-04-19,
+  commit 294fa4167f2e59784abb1e1abb9467f7de37b0cd; same LICENSE governs as
+  owl-axiomatization.clif Layer A vendoring per `owl-axiomatization.clif.SOURCE`).
+modifications-to-vendored-file: |
+  None at vendoring. The file content is byte-stable upstream at the
+  verified commit; OFBT does not modify the vendored bytes. Pass 2a
+  vendoring confirms SHA-256 matches upstream content at master HEAD at
+  verification time.
+license-compatibility: |
+  CC BY 4.0 is permissive and compatible with OFBT's MIT distribution model
+  for the in-repo (GitHub) distribution context. CC BY 4.0 attribution +
+  license link is satisfied by this sidecar's `attribution`, `license`, and
+  `license-url` fields.
+
+  Forks or downstream redistributors of OFBT that include this vendored file
+  as part of their distributed artifact (e.g., via npm publish without
+  excluding `arc/upstream-canonical/` from the package files list) inherit
+  the CC BY 4.0 attribution + change-disclosure obligations. The vendoring
+  discipline anticipates this by keeping the file in `arc/upstream-canonical/`
+  (a development verification artifact path) rather than runtime paths.
+
+  OFBT's `package.json` `files` field (set per ADR-010 Q-α architect-ratified
+  developer item) excludes `arc/upstream-canonical/` from the npm package,
+  bounding the CC BY 4.0 compliance scope to the GitHub repo. Fork authors
+  who alter the `files` field to include this path inherit the CC BY 4.0
+  obligations downstream.
+
+  Formal legal review NOT performed at v0.1; the v0.2-trigger condition
+  recorded in ADR-010 (distribution-model change for runtime ARC manifest
+  loading) applies identically to Layer B vendoring. Phase 4 vendoring
+  inherits the same banked principle.
+
+# License verification block — Pass 2a SME→Aaron handoff. Most values inherit
+# from owl-axiomatization.clif.SOURCE (same BFO-ontology/BFO repo; same
+# CC BY 4.0 LICENSE governs; same LICENSE file SHA-256 if no LICENSE change
+# upstream since 2026-05-06 owl-axiomatization.clif verification). Aaron
+# re-confirms at Pass 2a vendoring time per the binding-immediately ritual.
+license-verification:
+  bfo-repo-license-url: https://github.com/BFO-ontology/BFO/blob/294fa4167f2e59784abb1e1abb9467f7de37b0cd/LICENSE
+  bfo-repo-license-commit-sha: 294fa4167f2e59784abb1e1abb9467f7de37b0cd  # "Create LICENSE" (2022-04-19, OBO-Foundry initiative PR; same LICENSE applies to both Layer A and Layer B vendored files)
+  bfo-repo-master-head-at-verification: '[VERIFY at Pass 2a vendoring time — Aaron re-confirms current master HEAD; may differ from owl-axiomatization.clif.SOURCE 857be9f1...f3a7 if upstream has new commits since 2026-05-06]'
+  license-text-confirmed: CC-BY-4.0
+  license-file-sha256: f5b745ef98087f531e719ee8ca6a96809444573ecc7173c6fa68eaad39b3cc3f  # Same LICENSE file as owl-axiomatization.clif.SOURCE; Aaron re-confirms at Pass 2a vendoring time that no LICENSE change upstream
+  license-file-line-count: 395
+  license-first-line: "Attribution 4.0 International"
+  cc-by-attribution-url: https://creativecommons.org/licenses/by/4.0/
+  modifications-to-vendored-file: '[VERIFY at Pass 2a vendoring time — confirm none; SME-default expectation is byte-stable file content per upstream stability]'
+  discrepancy-resolution-cycle: 'Phase 4 entry-cycle Q-4-C architect ratification 2026-05-10 (Layer B vendoring source approved as BFO-ontology repo BFO 2020 CLIF); ADR-010 license-verification-at-vendoring-time discipline applied at Pass 2a vendoring time per Q-4-G verification ritual phase-boundary retroactive batch run scope'
+  verified-by: '[VERIFY at Pass 2a vendoring time — Aaron, in-repo SME-persona verification ritual per AUTHORING_DISCIPLINE; SME path-fence-authored shell pre-vendoring; Aaron flips [VERIFY] markers at Pass 2a]'
+  verified-at: '[VERIFY at Pass 2a vendoring time — Pass 2a vendoring date]'
+
+# Notes captured at vendoring time. Layer B vs Layer A discipline framing
+# per arc/upstream-canonical/README.md.
+notes: |
+  This is the BFO 2020 CLIF axiomatization (Layer B per
+  arc/upstream-canonical/README.md) — it defines the canonical FOL semantics
+  of BFO ontology content (Continuant, Occurrent, IndependentContinuant,
+  Process, Disposition, Quality, part_of, has_part, BFO Disjointness Map
+  commitments, ternary parthood semantics, etc.).
+
+  This is the COMPLEMENT to Layer A's owl-axiomatization.clif (which covers
+  OWL primitives' FOL semantics — SubClassOf, Transitive, etc.). The two
+  layers together provide the canonical semantic ground for OFBT's Phase 4+
+  ARC content lift correctness:
+    - Layer A licenses the lifted shape of OWL constructs (covered Phase 1+)
+    - Layer B licenses the lifted shape of BFO ontology content (covered Phase 4)
+
+  Phase 4 ARC content per `arc/core/bfo-2020.json` (40 Verified ARCEntry
+  instances per Aaron-led parallel workstream) lifts under loaded ARC
+  modules to FOL whose semantics matches this canonical Layer B CLIF. The
+  `p4_bfo_clif_layer_b.fixture.js` corpus-before-code fixture exercises
+  this lift-correctness parity per Phase 4 entry packet §3.2 + §3.4.
+
+  License-verification ritual operates at Pass 2a vendoring time per
+  ADR-010 + Q-4-G + the binding-immediately discipline. Aaron's Pass 2a
+  vendoring closes [VERIFY] markers above; verification ritual run report
+  attaches to Pass 2a commit per audit-trail-unity-per-surface.
+
+  Future Phase 5+ vendorings (IAO, CCO modules etc.) inherit the same
+  Layer B vendoring discipline established here; Phase-N vendoring sidecar
+  authoring is a banked SME pattern per the Q-4-C ruling 2026-05-10's
+  source-authority-chain extension banking.
