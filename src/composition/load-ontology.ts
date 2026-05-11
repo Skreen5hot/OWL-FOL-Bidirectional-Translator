@@ -34,7 +34,11 @@ import {
   SessionRequiredError,
   SessionDisposedError,
   OFBTError,
+  ARCManifestError,
 } from "../kernel/errors.js";
+import { getARCModule } from "../kernel/arc-module-registry.js";
+import { validateARCModuleDependencies } from "../kernel/arc-vocabulary.js";
+import type { ARCModule } from "../kernel/arc-types.js";
 import type { OWLOntology } from "../kernel/owl-types.js";
 import type { FOLAxiom } from "../kernel/fol-types.js";
 import type { LifterConfiguration, Session } from "./session.js";
@@ -212,6 +216,51 @@ export async function loadOntology(
           "structural_annotation_mismatch"
         );
       }
+    }
+  }
+
+  // --- Phase 4 Step 2: ARC module dependency validation per spec §3.6.4 ---
+  // Spec §3.6.4 declares that modules may depend on other modules (e.g.,
+  // `cco/realizable-holding.json` depends on `core/bfo-2020.json`). When
+  // a session declares arcModules whose loaded ARCModule object has a
+  // `dependencies` field naming peer modules NOT also declared, throw
+  // ARCManifestError per spec §3.6.4 ("The lifter validates dependencies
+  // at createSession() and throws ARCManifestError if a declared module's
+  // dependencies are not also loaded").
+  //
+  // Architectural placement: spec wording says "validated at createSession()"
+  // but session.ts createSession is synchronous + has no async path to
+  // resolve the registry. Validating at loadOntology before lifter
+  // dispatch achieves the same contract (the error fires before any
+  // FOL state is produced) without contorting the session-creation API.
+  // v0.1 current modules (core/bfo-2020 + core/iao-information) declare
+  // no dependencies → check is vacuously valid for current callers.
+  // Future Phase 6 CCO modules trigger the check.
+  if (
+    Array.isArray(session.config.arcModules) &&
+    session.config.arcModules.length > 0
+  ) {
+    const declaredIds = new Set(session.config.arcModules);
+    const loadedModules: ARCModule[] = [];
+    for (const id of session.config.arcModules) {
+      const m = getARCModule(id);
+      if (m !== null) loadedModules.push(m);
+    }
+    const depResult = validateARCModuleDependencies(loadedModules, declaredIds);
+    if (!depResult.valid) {
+      const first = depResult.missing[0];
+      const remainder =
+        depResult.missing.length > 1
+          ? ` (and ${depResult.missing.length - 1} more)`
+          : "";
+      throw new ARCManifestError(
+        `ARC module dependency missing: module '${first.module}' depends on '${first.missingDependency}'${remainder} but it is not in session.config.arcModules (declared: [${session.config.arcModules.join(", ")}]). Per spec §3.6.4: every declared module's dependencies must also be loaded. Add the missing dependency to arcModules at createSession.`,
+        {
+          missingProperties: depResult.missing.map(
+            (m) => `${m.module} -> ${m.missingDependency}`
+          ),
+        }
+      );
     }
   }
 

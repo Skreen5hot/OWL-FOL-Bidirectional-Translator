@@ -114,6 +114,12 @@
 import { UnsupportedConstructError } from "./errors.js";
 import { canonicalizeIRI } from "./iri.js";
 import { canonicalizeLiteral } from "./datatype-canon.js";
+import { getARCModule } from "./arc-module-registry.js";
+import {
+  extractARCVocabulary,
+  findNonARCPropertyIRIs,
+} from "./arc-vocabulary.js";
+import type { ARCModule } from "./arc-types.js";
 import type {
   OWLOntology,
   TBoxAxiom,
@@ -180,6 +186,51 @@ export async function owlToFol(
   // canary_punned_construct_rejection expects typed UnsupportedConstructError
   // with the documented `construct` field per case.
   rejectPuntedConstructs(ontology);
+
+  // (1b) Phase 4 Step 2: strict-mode pre-scan per spec §3.6.3 + Q-4-F
+  // ratified ruling 2026-05-10. When `arcCoverage === 'strict'` AND
+  // `arcModules` declares one or more module ids, every property IRI in
+  // the input ontology must be covered by a loaded ARC module's vocabulary
+  // (the canonicalized set of `iri` fields across the loaded modules'
+  // entries). Any non-ARC property IRI throws UnsupportedConstructError
+  // with the offending IRI in the `construct` field; reason code reuses
+  // `unsupported_construct` per Q-3-Step6-B reason-code-reuse-bounded-by-
+  // semantic-state-alignment principle (per entry packet §2.2). The
+  // rejection happens at lift time per Q-4-F (NOT evaluator time) so a
+  // strict-mode lift that fails produces no FOL state.
+  //
+  // Resolution: the registry seam (`getARCModule` from
+  // arc-module-registry.ts) returns null when a declared module id was
+  // never registered. Composition layer is responsible for ensuring the
+  // declared modules are registered before the lifter runs; if any are
+  // missing here we silently skip them (the strict check on present
+  // modules still fires). Composition-layer load-ontology.ts performs the
+  // dependency-validation check separately per spec §3.6.4.
+  if (config?.arcCoverage === "strict" && Array.isArray(config.arcModules)) {
+    const loadedModules: ARCModule[] = [];
+    for (const id of config.arcModules) {
+      const m = getARCModule(id);
+      if (m !== null) loadedModules.push(m);
+    }
+    const vocabulary = extractARCVocabulary(loadedModules, ontology.prefixes);
+    const offending = findNonARCPropertyIRIs(ontology, vocabulary);
+    if (offending.length > 0) {
+      const first = offending[0];
+      const loadedIds = config.arcModules.join(", ");
+      const remainder =
+        offending.length > 1
+          ? ` (and ${offending.length - 1} more)`
+          : "";
+      throw new UnsupportedConstructError(
+        `Strict mode (arcCoverage: 'strict'): property IRI '${first}'${remainder} is not covered by any loaded ARC module (loaded: ${loadedIds}). Per spec §3.6.3 + Q-4-F: strict mode rejects the entire lift when any input predicate is outside the loaded ARC vocabulary. Either switch to arcCoverage: 'permissive' (default) or load additional ARC modules covering the offending predicate.`,
+        {
+          construct: first,
+          suggestion:
+            "Load an ARC module covering this predicate, or switch to permissive mode.",
+        }
+      );
+    }
+  }
 
   const axioms: FOLAxiom[] = [];
   const prefixes = ontology.prefixes;
