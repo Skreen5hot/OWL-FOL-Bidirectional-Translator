@@ -288,7 +288,21 @@ export async function loadOntology(
   }
 
   // --- Lift ontology (pure; propagates lifter errors per API §5.5 throws) ---
-  const folAxioms = await owlToFol(ontology, config);
+  // Phase 4 Step 3: build an effective lifter config that uses session-level
+  // configuration as the default (per spec §3.6.2 — createSession's arcModules
+  // is the canonical declaration surface), with per-call config overriding
+  // any explicitly-supplied fields. This makes session-level settings like
+  // arcCoverage + arcModules flow through to the lifter even when the
+  // consumer calls loadOntology(session, ontology) without a per-call config.
+  // Divergence detection against the per-call config has already run above
+  // (arc_manifest_version_mismatch + structural_annotation_mismatch); any
+  // per-call override that survives that check is consistent with the
+  // session and safe to apply.
+  const effectiveLifterConfig: LifterConfiguration = {
+    ...session.config,
+    ...(config ?? {}),
+  };
+  const folAxioms = await owlToFol(ontology, effectiveLifterConfig);
 
   // --- Translate FOL → Prolog clauses per ADR-007 §11 (pure) ---
   // The translator emits sorted clauses for multi-ontology accumulation

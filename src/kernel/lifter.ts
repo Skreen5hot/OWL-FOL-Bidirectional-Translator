@@ -119,6 +119,7 @@ import {
   extractARCVocabulary,
   findNonARCPropertyIRIs,
 } from "./arc-vocabulary.js";
+import { emitARCAxioms } from "./arc-axiom-emitter.js";
 import type { ARCModule } from "./arc-types.js";
 import type {
   OWLOntology,
@@ -274,6 +275,28 @@ export async function owlToFol(
   // per the OWL standard (preserved for round-trip in Phase 2 projector,
   // not lifted to FOL).
   axioms.push(...emitStructuralAnnotations(ontology, config));
+
+  // (7) Phase 4 Step 3: ARC-derived axiom emission per spec §3.4.1 +
+  // phase-4-entry.md §2.5. When `config.arcModules` declares loaded ARC
+  // modules, append the ARC-derived FOL axioms (parthood transitivity
+  // for entries with owlCharacteristics: "owl:TransitiveProperty" at
+  // Step 3 minimum). Source-order discipline: ARC-derived axioms append
+  // AFTER input-derived axioms so the canonical output always reads
+  // input-first; sorting within the ARC-derived block is determined by
+  // canonicalized IRI for byte-stable accumulation determinism. The
+  // FOL→Prolog translator's ADR-013 visited-ancestor cycle-guard
+  // (Phase 3 Step 5) automatically recognizes the emitted transitivity
+  // axioms — no additional cycle-detection wiring required here.
+  if (Array.isArray(config?.arcModules) && config.arcModules.length > 0) {
+    const loadedModules: ARCModule[] = [];
+    for (const id of config.arcModules) {
+      const m = getARCModule(id);
+      if (m !== null) loadedModules.push(m);
+    }
+    if (loadedModules.length > 0) {
+      axioms.push(...emitARCAxioms(loadedModules, ontology.prefixes));
+    }
+  }
 
   return axioms;
 }
