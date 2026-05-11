@@ -1,0 +1,54 @@
+{
+  "@context": "https://ontology-of-freedom.org/ofbt/arc-context.jsonld",
+  "@id": "arc:module:core/iao-information",
+  "@type": "ARCModule",
+  "moduleId": "core/iao-information",
+  "arcManifestVersion": "0.1.0",
+  "entries": [
+    {
+      "@type": "ARCEntry",
+      "name": "Denotes",
+      "level": "Instance-level",
+      "context": "Information",
+      "notation": "—",
+      "formalDefinition": "Designative ICE denotes Entity",
+      "owlCharacteristics": "—",
+      "owlRealization": "IAO",
+      "subPropertyOf": "—",
+      "domain": "Designative Information Content Entity",
+      "range": "Entity",
+      "iri": "obo:IAO_0000219",
+      "notes": "v3.2 had wrong IRI (cco:ont00001052 — does not exist in loaded data); correct is obo:IAO_0000219"
+    },
+    {
+      "@type": "ARCEntry",
+      "name": "Designates",
+      "level": "Instance-level",
+      "context": "Information",
+      "notation": "—",
+      "formalDefinition": "Designative Name designates Entity",
+      "owlCharacteristics": "—",
+      "owlRealization": "CCO",
+      "subPropertyOf": "—",
+      "domain": "Designative Name",
+      "range": "Entity",
+      "iri": "cco:ont00001916",
+      "notes": "v3.2 had wrong IRI (cco:ont00001058 — does not exist in loaded data); correct is cco:ont00001916; no super-property declared in loaded CCO"
+    },
+    {
+      "@type": "ARCEntry",
+      "name": "Is About",
+      "level": "Instance-level",
+      "context": "Information",
+      "notation": "—",
+      "formalDefinition": "ICE is about Entity",
+      "owlCharacteristics": "—",
+      "owlRealization": "IAO",
+      "subPropertyOf": "—",
+      "domain": "Information Content Entity",
+      "range": "Entity",
+      "iri": "obo:IAO_0000136",
+      "notes": "Resolved 2026-05-05 to option (a) per SME decision: IAO is the canonical source. CCO parallel cco:ont00001808 noted but not used (no equivalence declared in loaded data). v0.2 may revisit equivalence assertion if Phase 5+ corpus surfaces a need."
+    }
+  ]
+}
