@@ -15,15 +15,26 @@
 
 import { IRIFormatError } from "./errors.js";
 
-// Reserved prefixes recognized without explicit declaration. These are the
-// W3C standard prefixes universally understood; any other prefix MUST be
-// declared in OWLOntology.prefixes (per §3.10.1) or the lookup throws
-// IRIFormatError with form: 'curie'.
+// Reserved prefixes recognized without explicit declaration. These are
+// universally understood prefixes (W3C standard core + OBO Foundry canonical
+// `obo:`); any other prefix MUST be declared in OWLOntology.prefixes (per
+// §3.10.1) or the lookup throws IRIFormatError with form: 'curie'.
+//
+// `obo:` added Phase 4 Step 4 activation (Q-4-Step4-A fixture activation
+// 2026-05-14): BFO 2020 ARC content declares class IRIs in `obo:` CURIE
+// form per OBO Foundry convention; consumers asserting BFO IRIs via full-
+// URI form would otherwise see a canonicalization mismatch between the
+// loaded ARC content and the input ABox. Adding `obo:` to STANDARD_PREFIXES
+// resolves both sides to the same canonical full-URI form. Backward-compat:
+// ontology-declared `obo:` (e.g., bound to a different namespace) still
+// takes precedence per the `(prefixes?.[prefix]) ?? STANDARD_PREFIXES[prefix]`
+// lookup at the CURIE expansion site.
 const STANDARD_PREFIXES: Readonly<Record<string, string>> = Object.freeze({
   rdf: "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
   rdfs: "http://www.w3.org/2000/01/rdf-schema#",
   owl: "http://www.w3.org/2002/07/owl#",
   xsd: "http://www.w3.org/2001/XMLSchema#",
+  obo: "http://purl.obolibrary.org/obo/",
 });
 
 const SCHEME_RE = /^[A-Za-z][A-Za-z0-9+\-.]*:/;

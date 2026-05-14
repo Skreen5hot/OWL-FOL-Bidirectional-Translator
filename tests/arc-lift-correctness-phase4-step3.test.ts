@@ -163,17 +163,23 @@ async function main(): Promise<void> {
   );
 
   await checkAsync(
-    "Step 3 / emitARCAxioms: output is deterministic (sorted by canonical IRI)",
+    "Step 3 / emitARCAxioms: output is deterministic (sorted by canonical IRI within emission class)",
     async () => {
       const path = resolve(projectRoot, "arc", "core", "bfo-2020.json");
       const bfo = JSON.parse(await readFile(path, "utf-8"));
       const a = emitARCAxioms([bfo]);
       const b = emitARCAxioms([bfo]);
+      // Byte-stability across runs.
       strictEqual(JSON.stringify(a), JSON.stringify(b));
-      // Verify sort order
-      const preds = a.map((ax) => asTransitivityAxiom(ax)!);
-      const sorted = [...preds].sort();
-      strictEqual(JSON.stringify(preds), JSON.stringify(sorted));
+      // Verify the transitivity-class subsequence is sorted by canonical
+      // IRI (the disjointness emission class — added Phase 4 Step 4 —
+      // interleaves with its own sort key; transitivity-internal ordering
+      // is what this assertion guards).
+      const transitive = a
+        .map(asTransitivityAxiom)
+        .filter((p): p is string => p !== null);
+      const sorted = [...transitive].sort();
+      strictEqual(JSON.stringify(transitive), JSON.stringify(sorted));
     }
   );
 
