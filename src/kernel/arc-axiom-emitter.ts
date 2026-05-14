@@ -45,11 +45,12 @@
  * ARCModule[] to FOLAxiom[].
  */
 
-import type { ARCModule } from "./arc-types.js";
+import type { ARCModule, DisjointnessAxiom } from "./arc-types.js";
 import type {
   FOLAtom,
   FOLAxiom,
   FOLConjunction,
+  FOLFalse,
   FOLImplication,
   FOLUniversal,
   FOLVariable,
@@ -86,6 +87,33 @@ function universal(varName: string, body: FOLAxiom): FOLUniversal {
  * shape. This identity is load-bearing for ADR-013's
  * `detectTransitivePredicate` recognition.
  */
+function falsum(): FOLFalse {
+  return { "@type": "fol:False" };
+}
+
+/**
+ * Phase 4 Step 4 (Q-4-Step4-A.1): build one pairwise binary disjointness
+ * axiom from two class IRIs:
+ *
+ *   ∀x. C₁(x) ∧ C₂(x) → False
+ *
+ * Identical shape to the lifter's `DisjointWith` emission
+ * (lifter.ts:587-604) — single Universal binding "x" + Implication
+ * with Conjunction body + fol:False consequent. This identity is
+ * load-bearing for Step 7's `isFalseHeadAxiom` recognition + Skolem-
+ * witness inconsistency-proof firing on the lifted ABox.
+ */
+function pairwiseDisjointnessAxiom(class1IRI: string, class2IRI: string): FOLUniversal {
+  const x = variable("x");
+  return universal(
+    "x",
+    implication(
+      conjunction([atom(class1IRI, [x]), atom(class2IRI, [x])]),
+      falsum()
+    )
+  );
+}
+
 function transitivityAxiom(propIRI: string): FOLUniversal {
   const x = variable("x");
   const y = variable("y");
@@ -125,19 +153,60 @@ export function emitARCAxioms(
   modules: ReadonlyArray<ARCModule>,
   prefixes?: Record<string, string>
 ): FOLAxiom[] {
-  // Collect (canonicalIRI, axiom) pairs first; sort; then strip the
-  // sort key for the return value.
+  // Collect (sortKey, axiom) pairs first; sort; then strip the sort key
+  // for the return value. Sort key composition: "<emission-class>::<iri-or-pair>"
+  // — emission-class prefix ('transitive', 'disjoint') keeps the two
+  // emission surfaces partitioned in deterministic output, with within-
+  // class ordering by canonical IRI / IRI-pair.
   const collected: Array<{ key: string; axiom: FOLAxiom }> = [];
   for (const m of modules) {
+    // (1) Property-characteristic emission per Step 3 (Transitive only at
+    // v0.1 minimum).
     for (const entry of m.entries) {
       if (typeof entry.iri !== "string" || entry.iri.length === 0) continue;
-      // Property-characteristic emission (Step 3 minimum: Transitive only).
-      // The catalogue stores characteristics as a free-text field per the
-      // upstream convention; we match the exact `"owl:TransitiveProperty"`
-      // marker. Future characteristics would extend this switch.
       if (entry.owlCharacteristics === "owl:TransitiveProperty") {
         const canonical = canonicalizeIRI(entry.iri, prefixes);
-        collected.push({ key: canonical, axiom: transitivityAxiom(canonical) });
+        collected.push({
+          key: "transitive::" + canonical,
+          axiom: transitivityAxiom(canonical),
+        });
+      }
+    }
+    // (2) Phase 4 Step 4 (Q-4-Step4-A.1): disjointness emission per the
+    // optional `disjointnessAxioms` field. For each N-ary axiom, expand
+    // pairwise to N(N-1)/2 binary `∀x. Cᵢ(x) ∧ Cⱼ(x) → False` axioms
+    // (i < j enumeration). Validator at arc-validation.ts guards
+    // N ≥ 2 + IRI well-formedness; emitter trusts those invariants and
+    // skips defensively-malformed entries (length < 2 or non-string).
+    const disjointnessAxioms = m.disjointnessAxioms;
+    if (Array.isArray(disjointnessAxioms)) {
+      for (const ax of disjointnessAxioms as DisjointnessAxiom[]) {
+        if (!Array.isArray(ax.classes) || ax.classes.length < 2) continue;
+        const canonicalIRIs: string[] = [];
+        for (const iri of ax.classes) {
+          if (typeof iri === "string" && iri.length > 0) {
+            canonicalIRIs.push(canonicalizeIRI(iri, prefixes));
+          }
+        }
+        if (canonicalIRIs.length < 2) continue;
+        for (let i = 0; i < canonicalIRIs.length; i++) {
+          for (let j = i + 1; j < canonicalIRIs.length; j++) {
+            // Stable pair-ordering: lexicographically smaller IRI first
+            // so the emitted axiom shape is deterministic across input
+            // orderings of `classes`. (Architect Q-4-Step4-A.1 ratifies
+            // pairwise expansion semantics; pair-internal ordering is an
+            // emitter implementation choice that we lock to lex-order
+            // for byte-stability.)
+            const a = canonicalIRIs[i];
+            const b = canonicalIRIs[j];
+            const lo = a < b ? a : b;
+            const hi = a < b ? b : a;
+            collected.push({
+              key: "disjoint::" + lo + "::" + hi,
+              axiom: pairwiseDisjointnessAxiom(lo, hi),
+            });
+          }
+        }
       }
     }
   }

@@ -62,6 +62,60 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   );
 }
 
+/**
+ * Phase 4 Step 4 (Q-4-Step4-A architect ratification 2026-05-11) helper:
+ * IRI well-formedness check for DisjointnessAxiom.classes entries.
+ *
+ * Per Q-4-Step4-A.1 + canonical-sources sub-ruling: each class IRI must
+ * be a non-empty string. Beyond non-emptiness, the validator does NOT
+ * verify the IRI resolves against any canonical source — that's the
+ * `binding-immediately` discipline's job at vendoring/authoring time
+ * (per the verification ritual report for the BFO Disjointness Map's
+ * canonical-IRI confirmation against bfo.owl). Structural validation
+ * here covers only string non-emptiness; semantic correctness routes
+ * to the verification ritual binding-immediately surface.
+ */
+function isWellFormedIRI(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0;
+}
+
+function validateDisjointnessAxiom(
+  axiom: unknown,
+  index: number,
+  errors: string[]
+): void {
+  if (!isPlainObject(axiom)) {
+    errors.push(`disjointnessAxioms[${index}]: not an object`);
+    return;
+  }
+  if (axiom["@type"] !== "DisjointnessAxiom") {
+    errors.push(
+      `disjointnessAxioms[${index}]: @type must be "DisjointnessAxiom" (got ${JSON.stringify(axiom["@type"])})`
+    );
+  }
+  const classes = axiom.classes;
+  if (!Array.isArray(classes)) {
+    errors.push(
+      `disjointnessAxioms[${index}].classes: must be an array (got ${typeof classes})`
+    );
+    return;
+  }
+  // N ≥ 2 cardinality per Q-4-Step4-A.1 ratification (N-ary pairwise-disjoint
+  // semantics). A 0- or 1-element list cannot express disjointness.
+  if (classes.length < 2) {
+    errors.push(
+      `disjointnessAxioms[${index}].classes: must contain ≥ 2 elements per Q-4-Step4-A.1 N-ary pairwise-disjoint semantics (got ${classes.length})`
+    );
+  }
+  for (let i = 0; i < classes.length; i++) {
+    if (!isWellFormedIRI(classes[i])) {
+      errors.push(
+        `disjointnessAxioms[${index}].classes[${i}]: must be a non-empty string IRI (got ${JSON.stringify(classes[i])})`
+      );
+    }
+  }
+}
+
 function validateEntry(
   entry: unknown,
   index: number,
@@ -128,6 +182,21 @@ export function validateARCModule(value: unknown): ARCValidationResult {
   } else {
     for (let i = 0; i < value.entries.length; i++) {
       validateEntry(value.entries[i], i, errors);
+    }
+  }
+
+  // Phase 4 Step 4 (Q-4-Step4-A): optional disjointnessAxioms field. When
+  // present, must be an array; each element validates per
+  // validateDisjointnessAxiom (N ≥ 2 cardinality + IRI well-formedness).
+  if (value.disjointnessAxioms !== undefined) {
+    if (!Array.isArray(value.disjointnessAxioms)) {
+      errors.push(
+        `disjointnessAxioms: must be an array when present (got ${typeof value.disjointnessAxioms})`
+      );
+    } else {
+      for (let i = 0; i < value.disjointnessAxioms.length; i++) {
+        validateDisjointnessAxiom(value.disjointnessAxioms[i], i, errors);
+      }
     }
   }
 

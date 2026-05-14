@@ -1539,6 +1539,38 @@
         "activationTiming": "step-N-bind"
       },
       "expected_v0.2_elk_verdict": null
+    },
+    {
+      "fixtureId": "bfo_disjointness_map_axiom_emission",
+      "phase": 4,
+      "specSections": ["spec §3.4.1", "spec §3.6.1", "spec §3.6.2", "spec §8.5.1"],
+      "acceptanceCriteria": [
+        "Phase 4 entry packet §3.3 step-N-bind + corpus addition transparency (Q-4-Step4-A architect ratification 2026-05-11; mid-phase architectural-gap micro-cycle)",
+        "Q-4-Step4-A.1 N-ary semantics ruling: emitter expands N-ary to pairwise binary axioms",
+        "Q-4-Step4-A.2 simple disjointness only ruling: DisjointUnion deferred to v0.2 / future-phase",
+        "Q-4-Step4-A.3 disjointnessAxioms field naming ruling"
+      ],
+      "arcEntries": ["BFO Disjointness Map (11 disjointnessAxioms in arc/core/bfo-2020.json per Q-4-Step4-A)", "BFO_0000002 (Continuant)", "BFO_0000003 (Occurrent)", "BFO_0000004 (IndependentContinuant)", "BFO_0000020 (SpecificallyDependentContinuant)", "BFO_0000031 (GenericallyDependentContinuant)", "BFO_0000015 (Process)", "BFO_0000035 (ProcessBoundary)", "BFO_0000008 (TemporalRegion)", "BFO_0000011 (SpatiotemporalRegion)"],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "Lift of an empty input ontology with BFO 2020 ARC module loaded produces lifted FOL containing pairwise binary universal-implication axioms derived from the BFO Disjointness Map per Q-4-Step4-A.1 emitter implementation note. Spot-checked: binary Continuant_Occurrent_root (1 pairwise axiom) + ternary Continuant_subkinds IC/SDC/GDC (3 pairwise axioms) + 4-ary Occurrent_subkinds Process/PB/TR/STR (2 of 6 pairs sampled). 6 requiredPatterns must match; 2 forbiddenPatterns must NOT match.",
+        "fixtureType": "lift-correctness-with-arc-modules",
+        "expectedRequiredPatternsCount": 6,
+        "expectedForbiddenPatternsCount": 2,
+        "canaryRole": "bfo-disjointness-map-axiom-emission-unit-level"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "Phase 4 Step 4 BFO Disjointness Map axiom emission failure modes: (1) lifter loads disjointnessAxioms field but fails to emit any FOL axioms; (2) lifter emits N-ary single-axiom shape (3-conjunct on ternary disjointnessAxiom) instead of pairwise-expanded binary shape per Q-4-Step4-A.1 implementation note; (3) lifter emits each pair twice (forward + reverse direction) corrupting determinism + Step-7 proof structure; (4) lifter emits the wrong False-in-head shape.",
+      "expected_v0.1_verdict": {
+        "ringStatus": "ring1-lift-correctness-arc-content-extension-disjointness",
+        "phaseAuthored": 4,
+        "phaseActivated": 4,
+        "expectedRequiredPatternsMatched": 6,
+        "expectedForbiddenPatternsMatched": 0,
+        "corpusActivationTiming": "step-N-bind",
+        "stepBinding": 4
+      },
+      "expected_v0.2_elk_verdict": null
     }
   ]
 }

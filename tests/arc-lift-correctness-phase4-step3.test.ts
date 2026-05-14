@@ -148,10 +148,15 @@ async function main(): Promise<void> {
       const path = resolve(projectRoot, "arc", "core", "bfo-2020.json");
       const bfo = JSON.parse(await readFile(path, "utf-8"));
       const axioms = emitARCAxioms([bfo]);
-      strictEqual(axioms.length, 8);
-      for (const ax of axioms) {
-        const pred = asTransitivityAxiom(ax);
-        ok(pred !== null, `axiom matches transitivity shape; got ${JSON.stringify(ax)}`);
+      // Filter to transitivity-shape only — emitARCAxioms also emits
+      // disjointness axioms at Phase 4 Step 4 (Q-4-Step4-A pairwise
+      // expansion); this test scopes the assertion to the transitivity
+      // emission surface only.
+      const transitive = axioms
+        .map(asTransitivityAxiom)
+        .filter((p): p is string => p !== null);
+      strictEqual(transitive.length, 8);
+      for (const pred of transitive) {
         ok(typeof pred === "string" && pred.length > 0);
       }
     }
@@ -322,9 +327,18 @@ async function main(): Promise<void> {
       ok(axioms.length >= 9);
       const first = axioms[0] as FOLAtom;
       strictEqual(first["@type"], "fol:Atom");
-      // Remaining 4 should be the ARC-derived transitivity rules.
+      // Remaining axioms are ARC-derived (8 transitivity rules + N
+      // pairwise disjointness axioms from the BFO Disjointness Map per
+      // Phase 4 Step 4). Source-order discipline: ARC-derived axioms
+      // append AFTER the single input-derived axiom; assert that the
+      // input atom isn't intermixed with ARC-derived axioms (the
+      // input atom is at index 0 only).
       for (let i = 1; i < axioms.length; i++) {
-        ok(asTransitivityAxiom(axioms[i]) !== null);
+        const t = (axioms[i] as { "@type"?: unknown })["@type"];
+        ok(
+          t === "fol:Universal",
+          `axioms[${i}]: ARC-derived axioms are all fol:Universal-rooted (transitivity or disjointness); got ${String(t)}`
+        );
       }
     }
   );

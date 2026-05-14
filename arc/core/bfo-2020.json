@@ -605,5 +605,95 @@
       "iri": "obo:BFO_0000153",
       "notes": "Verified against loaded BFO 2020 in triplestore"
     }
+  ],
+  "disjointnessAxioms": [
+    {
+      "@type": "DisjointnessAxiom",
+      "name": "Continuant_Occurrent_root",
+      "classes": ["obo:BFO_0000002", "obo:BFO_0000003"],
+      "comment": "Root BFO Disjointness Map commitment: Continuant ⊓ Occurrent = ⊥. The top-level Entity (BFO_0000001) partition into temporally-persistent Continuants and temporally-extended Occurrents.",
+      "sourceReference": "BFO 2020 ISO/IEC 21838-2; bfo-2020.owl DisjointClasses(BFO_0000002 BFO_0000003)",
+      "notes": "Verified against loaded BFO 2020 in triplestore"
+    },
+    {
+      "@type": "DisjointnessAxiom",
+      "name": "Continuant_subkinds",
+      "classes": ["obo:BFO_0000004", "obo:BFO_0000020", "obo:BFO_0000031"],
+      "comment": "Continuant sub-partition: IndependentContinuant ⊓ SpecificallyDependentContinuant ⊓ GenericallyDependentContinuant pairwise disjoint. Ternary N-ary; expands to 3 pairwise binary FOL axioms per Q-4-Step4-A.1 ruling.",
+      "sourceReference": "BFO 2020 ISO/IEC 21838-2; bfo-2020.owl DisjointClasses(BFO_0000004 BFO_0000020 BFO_0000031)",
+      "notes": "Verified against loaded BFO 2020 in triplestore"
+    },
+    {
+      "@type": "DisjointnessAxiom",
+      "name": "IndependentContinuant_material_immaterial",
+      "classes": ["obo:BFO_0000040", "obo:BFO_0000141"],
+      "comment": "IndependentContinuant sub-partition: MaterialEntity ⊓ ImmaterialEntity = ⊥.",
+      "sourceReference": "BFO 2020 ISO/IEC 21838-2; bfo-2020.owl DisjointClasses(BFO_0000040 BFO_0000141)",
+      "notes": "Verified against loaded BFO 2020 in triplestore"
+    },
+    {
+      "@type": "DisjointnessAxiom",
+      "name": "MaterialEntity_subkinds",
+      "classes": ["obo:BFO_0000030", "obo:BFO_0000027", "obo:BFO_0000024"],
+      "comment": "MaterialEntity sub-partition: Object ⊓ ObjectAggregate ⊓ FiatObjectPart pairwise disjoint. Ternary N-ary.",
+      "sourceReference": "BFO 2020 ISO/IEC 21838-2; bfo-2020.owl DisjointClasses(BFO_0000030 BFO_0000027 BFO_0000024)",
+      "notes": "Verified against loaded BFO 2020 in triplestore"
+    },
+    {
+      "@type": "DisjointnessAxiom",
+      "name": "ImmaterialEntity_subkinds",
+      "classes": ["obo:BFO_0000140", "obo:BFO_0000006", "obo:BFO_0000029"],
+      "comment": "ImmaterialEntity sub-partition: ContinuantFiatBoundary ⊓ SpatialRegion ⊓ Site pairwise disjoint. Ternary N-ary.",
+      "sourceReference": "BFO 2020 ISO/IEC 21838-2; bfo-2020.owl DisjointClasses(BFO_0000140 BFO_0000006 BFO_0000029)",
+      "notes": "Verified against loaded BFO 2020 in triplestore"
+    },
+    {
+      "@type": "DisjointnessAxiom",
+      "name": "ContinuantFiatBoundary_dimensions",
+      "classes": ["obo:BFO_0000147", "obo:BFO_0000142", "obo:BFO_0000146"],
+      "comment": "ContinuantFiatBoundary dimensional partition: ZeroDimensional ⊓ OneDimensional ⊓ TwoDimensional pairwise disjoint. Ternary N-ary. BFO_0000147 = zero-dimensional continuant fiat boundary; BFO_0000142 = one-dimensional continuant fiat boundary; BFO_0000146 = two-dimensional continuant fiat boundary. All three confirmed against bfo.owl at Pass 2b vendoring-analog-time fetch 2026-05-14 (rdfs:label verification + subClassOf BFO_0000140 continuant-fiat-boundary parent confirms the dimensional partition).",
+      "sourceReference": "BFO 2020 ISO/IEC 21838-2; bfo.owl DisjointClasses for ContinuantFiatBoundary sub-partition (BFO_0000140 parent; BFO_0000147 / BFO_0000142 / BFO_0000146 the three dimensional subclasses)",
+      "notes": "Verified against bfo.owl at Pass 2b vendoring-analog-time 2026-05-14; [VERIFY] markers flipped to canonical IRIs per binding-immediately discipline + Q-4-Step4-A canonical-sources sub-ruling"
+    },
+    {
+      "@type": "DisjointnessAxiom",
+      "name": "SpatialRegion_dimensions",
+      "classes": ["obo:BFO_0000018", "obo:BFO_0000026", "obo:BFO_0000009", "obo:BFO_0000028"],
+      "comment": "SpatialRegion dimensional partition: ZeroDimensional ⊓ OneDimensional ⊓ TwoDimensional ⊓ ThreeDimensional pairwise disjoint. 4-ary N-ary; expands to 6 pairwise binary FOL axioms. All 4 IRIs verified against bfo.owl at Pass 2b vendoring-analog-time 2026-05-14: BFO_0000018 = zero-dimensional spatial region; BFO_0000026 = one-dimensional spatial region; BFO_0000009 = two-dimensional spatial region; BFO_0000028 = three-dimensional spatial region (rdfs:label confirmation against canonical OWL source).",
+      "sourceReference": "BFO 2020 ISO/IEC 21838-2; bfo.owl DisjointClasses for SpatialRegion sub-partition (BFO_0000018 / BFO_0000026 / BFO_0000009 / BFO_0000028 the four dimensional subclasses)",
+      "notes": "Verified against bfo.owl at Pass 2b vendoring-analog-time 2026-05-14; all 4 [VERIFY] medium-confidence IRIs confirmed correct per binding-immediately discipline + Q-4-Step4-A canonical-sources sub-ruling"
+    },
+    {
+      "@type": "DisjointnessAxiom",
+      "name": "SpecificallyDependentContinuant_subkinds",
+      "classes": ["obo:BFO_0000019", "obo:BFO_0000017"],
+      "comment": "SpecificallyDependentContinuant sub-partition: Quality ⊓ RealizableEntity = ⊥.",
+      "sourceReference": "BFO 2020 ISO/IEC 21838-2; bfo-2020.owl DisjointClasses(BFO_0000019 BFO_0000017)",
+      "notes": "Verified against loaded BFO 2020 in triplestore"
+    },
+    {
+      "@type": "DisjointnessAxiom",
+      "name": "RealizableEntity_subkinds",
+      "classes": ["obo:BFO_0000023", "obo:BFO_0000016"],
+      "comment": "RealizableEntity sub-partition: Role ⊓ Disposition = ⊥. (Disposition has Function as sub-class per BFO 2020; the Disposition/Function relation is sub-class, not partition; not encoded as disjointness.)",
+      "sourceReference": "BFO 2020 ISO/IEC 21838-2; bfo-2020.owl DisjointClasses(BFO_0000023 BFO_0000016)",
+      "notes": "Verified against loaded BFO 2020 in triplestore"
+    },
+    {
+      "@type": "DisjointnessAxiom",
+      "name": "Occurrent_subkinds",
+      "classes": ["obo:BFO_0000015", "obo:BFO_0000035", "obo:BFO_0000008", "obo:BFO_0000011"],
+      "comment": "Occurrent sub-partition: Process ⊓ ProcessBoundary ⊓ TemporalRegion ⊓ SpatiotemporalRegion pairwise disjoint. 4-ary N-ary; expands to 6 pairwise binary FOL axioms per Q-4-Step4-A.1 ruling.",
+      "sourceReference": "BFO 2020 ISO/IEC 21838-2; bfo-2020.owl DisjointClasses(BFO_0000015 BFO_0000035 BFO_0000008 BFO_0000011)",
+      "notes": "Verified against loaded BFO 2020 in triplestore"
+    },
+    {
+      "@type": "DisjointnessAxiom",
+      "name": "TemporalRegion_dimensions",
+      "classes": ["obo:BFO_0000148", "obo:BFO_0000038"],
+      "comment": "TemporalRegion dimensional partition: ZeroDimensionalTemporalRegion ⊓ OneDimensionalTemporalRegion = ⊥. ZeroDimensionalTemporalRegion is the parent of TemporalInstant (BFO_0000203); OneDimensionalTemporalRegion is the parent of TemporalInterval (BFO_0000202); the Instant/Interval distinction is via dimensional partition.",
+      "sourceReference": "BFO 2020 ISO/IEC 21838-2; bfo-2020.owl DisjointClasses(BFO_0000148 BFO_0000038)",
+      "notes": "Verified against loaded BFO 2020 in triplestore"
+    }
   ]
 }

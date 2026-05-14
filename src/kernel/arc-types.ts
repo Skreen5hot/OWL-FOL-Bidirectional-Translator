@@ -94,4 +94,51 @@ export interface ARCModule {
   arcManifestVersion: string;
   /** The ARC entries this module ships. */
   entries: ARCEntry[];
+  /**
+   * Optional N-ary simple disjointness axioms per spec §3.4.1 + Q-4-Step4-A
+   * architect ratification 2026-05-11 (Option A — top-level field on
+   * ARCModule). Each axiom declares a set of pairwise-disjoint classes;
+   * the lifter expands N-ary to N(N-1)/2 pairwise binary FOL axioms
+   * (`∀x. Cᵢ(x) ∧ Cⱼ(x) → False`) per Q-4-Step4-A.1 ruling.
+   *
+   * Currently used by `core/bfo-2020` for the BFO Disjointness Map (11
+   * commitments → 29 emitted binary axioms). Optional + omitted on modules
+   * that declare no disjointness commitments.
+   */
+  disjointnessAxioms?: DisjointnessAxiom[];
+}
+
+/**
+ * A simple disjointness axiom per spec §3.4.1 + Q-4-Step4-A.
+ *
+ * `classes` is an N-element list of class IRIs (N ≥ 2) with
+ * pairwise-disjoint semantics per OWL `DisjointClasses`. The lifter
+ * expands N-ary to pairwise binary FOL axioms at emission time per
+ * Q-4-Step4-A.1 ruling.
+ *
+ * Q-4-Step4-A.2 ratified Phase 4 ships **simple disjointness only**
+ * (NOT DisjointUnion / Entity-cover entailment); the latter is
+ * forward-tracked to v0.2 ELK closure or a future phase forcing case.
+ *
+ * SME-discretion metadata fields (`name`, `comment`, `sourceReference`,
+ * `notes`) are optional and not consumed by the emitter; they support
+ * provenance + audit-trail integrity at the corpus-content surface.
+ */
+export interface DisjointnessAxiom {
+  /** Discriminator. Always the literal string `"DisjointnessAxiom"`. */
+  "@type": "DisjointnessAxiom";
+  /**
+   * N-element list of class IRIs (N ≥ 2). Pairwise-disjoint semantics per
+   * OWL `DisjointClasses`. Each pair (i, j) with i < j emits one binary
+   * FOL axiom `∀x. classes[i](x) ∧ classes[j](x) → False`.
+   */
+  classes: string[];
+  /** Optional human-readable axiom name (e.g., `"Continuant_Occurrent_root"`). */
+  name?: string;
+  /** Optional comment describing the partition semantics. */
+  comment?: string;
+  /** Optional reference to the canonical source (BFO 2020 OWL / ISO/IEC 21838-2 / ...). */
+  sourceReference?: string;
+  /** Optional audit-trail notes from SME path-fence authoring. */
+  notes?: string;
 }
