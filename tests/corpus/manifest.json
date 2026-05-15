@@ -1282,27 +1282,31 @@
     {
       "fixtureId": "canary_connected_with_overlap",
       "phase": 4,
-      "specSections": ["spec §3.4.1", "spec §3.6.2"],
+      "specSections": ["spec §3.4", "spec §3.4.1", "spec §3.6.2"],
       "acceptanceCriteria": [
         "Phase 4 entry packet §3.2 corpus-before-code (architect-ratified 2026-05-10 Q-4-B)",
         "ROADMAP §3.4 Phase 4 Wrong-Translation Canary Set",
-        "spec §3.4.1 Connected With as primitive + bridge axiom"
+        "spec §3.4.1 Connected With ratified axiom set: reflexivity + symmetry + parthood-extension bridge",
+        "AMENDED at Q-4-Step5-A architect ruling 2026-05-14 (Phase 4 mid-phase architectural-gap micro-cycle 2/~3): Q-4-Step5-A.1 Option (d) spec-literal + fixture amendment APPROVED; Q-4-Step5-A.3 cco:ont00001810 spec-literal IRI APPROVED"
       ],
-      "arcEntries": ["BFO_0000006 (SpatialRegion)", "RO_0002170 (connected_with)", "RO_0002131 (overlaps)"],
+      "arcEntries": ["BFO_0000006 (SpatialRegion)", "cco:ont00001810 (Connected With per spec §3.4 canonical IRI; previously RO_0002170 — amended at Q-4-Step5-A 2026-05-14)", "RO_0002131 (overlaps; input ABox; not spec-ratified axiom surface)", "obo:BFO_0000176 (continuant_part_of P predicate; parthood-extension bridge antecedent)", "BFO Disjointness Map + bridgeAxioms (reflexivity + symmetry + parthood-extension per Q-4-Step5-A.2 schema extension)"],
       "regime": "equivalent",
       "expectedOutcome": {
-        "summary": "Phase 4 lift with BFO 2020 ARC loaded produces lifted FOL containing: (1) Connected With as primitive predicate atom, (2) one-way bridge axiom overlaps → connected_with, (3) NO reverse-direction implication (the symmetric/biconditional emission per ADR-007 §4 decomposition is detected by the forbidden pattern's reverse-direction-implication test).",
+        "summary": "Phase 4 lift with BFO 2020 ARC loaded (including bridgeAxioms field per Q-4-Step5-A.2 schema extension) produces lifted FOL containing: (1) Connected With (cco:ont00001810) as primitive predicate atom; (2) reflexivity ∀x. C(x,x) emitted from bridgeAxioms[axiomForm:'reflexivity']; (3) symmetry ∀x,y. C(y,x) → C(x,y) emitted from bridgeAxioms[axiomForm:'symmetry']; (4) parthood-extension bridge ∀x,y,z. P(x,y) ∧ C(z,x) → C(z,y) emitted from bridgeAxioms[axiomForm:'parthood-extension']; AND (5) NO reverse-direction connected_with → overlaps implication (the wrong-translation canary forbiddenPattern). 4 requiredPatterns + 1 forbiddenPattern.",
         "fixtureType": "lift-correctness-with-arc-modules",
-        "canaryRole": "wrong-translation-canary-connected-with-as-primitive"
+        "expectedRequiredPatternsCount": 4,
+        "expectedForbiddenPatternsCount": 1,
+        "canaryRole": "wrong-translation-canary-connected-with-as-primitive-with-spec-literal-bridge-axioms"
       },
       "expectedLossSignatureReasons": [],
-      "intendedToCatch": "Phase 4 lifter's silent collapse of Connected With to defined-as-overlap form (corrupts BFO mereotopological asymmetry); incomplete bridge axiom (Connected With present but no implication relating it to overlap); symmetric biconditional emission detected via reverse-direction-implication test per ADR-007 §4 decomposition.",
+      "intendedToCatch": "Phase 4 lifter's silent collapse of Connected With to defined-as-overlap form OR failure to emit spec §3.4.1 ratified bridge axioms (reflexivity + symmetry + parthood-extension) from ARC content's bridgeAxioms field per Q-4-Step5-A.2. Catches: (1) reverse-direction connected_with → overlaps emission [biconditional collapse]; (2) failure to emit spec-literal bridge axioms from ARC; (3) symmetric biconditional emission per ADR-007 §4 decomposition.",
       "expected_v0.1_verdict": {
-        "ringStatus": "ring1-lift-correctness-arc-content-extension",
+        "ringStatus": "ring1-lift-correctness-arc-content-extension-bridge-axioms",
         "phaseAuthored": 4,
         "phaseActivated": 4,
-        "expectedRequiredPatternsMatched": 2,
+        "expectedRequiredPatternsMatched": 4,
         "expectedForbiddenPatternsMatched": 0,
+        "expectedRequiredPatternsCount": 4,
         "expectedForbiddenPatternsCount": 1,
         "corpusActivationTiming": "corpus-before-code",
         "stepBinding": 5

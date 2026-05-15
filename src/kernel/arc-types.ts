@@ -106,7 +106,75 @@ export interface ARCModule {
    * that declare no disjointness commitments.
    */
   disjointnessAxioms?: DisjointnessAxiom[];
+  /**
+   * Optional bridge axioms per spec §3.4 + §3.4.1 + Q-4-Step5-A architect
+   * ratification 2026-05-14 (Option A — top-level field on ARCModule).
+   * Each axiom declares one of the spec-ratified bridge-axiom shapes for
+   * a primitive relation (currently Connected With per spec §3.4 line 295);
+   * the emitter expands per `axiomForm` per Q-4-Step5-A.2.1 ruling.
+   *
+   * Currently used by `core/bfo-2020` for Connected With's 3 spec-literal
+   * bridge axioms (reflexivity + symmetry + parthood-extension). Optional
+   * + omitted on modules that declare no bridge commitments.
+   */
+  bridgeAxioms?: BridgeAxiom[];
 }
+
+/**
+ * A bridge axiom per spec §3.4 + §3.4.1 + Q-4-Step5-A architect ratification
+ * 2026-05-14 (Q-4-Step5-A.2 schema extension + Q-4-Step5-A.2.1 discriminated-
+ * union with axiomForm enum).
+ *
+ * Discriminated union over `axiomForm`. Each form has its own emitter
+ * expansion per Q-4-Step5-A.2.1 architect ruling:
+ *
+ *   - `"reflexivity"` → ∀x. C(x, x)
+ *       — `predicate` is the canonical IRI of the reflexive binary relation
+ *       (e.g., `cco:ont00001810` for Connected With).
+ *
+ *   - `"symmetry"` → ∀x,y. C(y, x) → C(x, y)
+ *       — `predicate` is the canonical IRI of the symmetric binary relation.
+ *       Phase 1 lifter's `owl:SymmetricProperty` characteristic emission
+ *       produces an equivalent FOL shape (∀x,y. P(x,y) → P(y,x)); double-
+ *       emission gap is Q-4-Step5-A.4 Developer reconnaissance scope.
+ *
+ *   - `"parthood-extension"` → ∀x,y,z. P(x, y) ∧ C(z, x) → C(z, y)
+ *       — `predicate` is the canonical IRI of the connection relation
+ *       (the C in spec §3.4.1 line 309); `parthoodPredicate` is the
+ *       canonical IRI of the parthood relation (the P; e.g.,
+ *       `obo:BFO_0000176` continuant_part_of). Spec §3.4.1 line 309's
+ *       parthood-extension bridge: connections inherit through parthood.
+ *
+ * SME-discretion metadata fields (`comment`, `sourceReference`, `notes`)
+ * optional and not consumed by the emitter; they support provenance +
+ * audit-trail integrity at the corpus-content surface.
+ */
+export type BridgeAxiom =
+  | {
+      "@type": "BridgeAxiom";
+      axiomForm: "reflexivity";
+      predicate: string;
+      comment?: string;
+      sourceReference?: string;
+      notes?: string;
+    }
+  | {
+      "@type": "BridgeAxiom";
+      axiomForm: "symmetry";
+      predicate: string;
+      comment?: string;
+      sourceReference?: string;
+      notes?: string;
+    }
+  | {
+      "@type": "BridgeAxiom";
+      axiomForm: "parthood-extension";
+      predicate: string;
+      parthoodPredicate: string;
+      comment?: string;
+      sourceReference?: string;
+      notes?: string;
+    };
 
 /**
  * A simple disjointness axiom per spec §3.4.1 + Q-4-Step4-A.

@@ -29,12 +29,22 @@ import { IRIFormatError } from "./errors.js";
 // ontology-declared `obo:` (e.g., bound to a different namespace) still
 // takes precedence per the `(prefixes?.[prefix]) ?? STANDARD_PREFIXES[prefix]`
 // lookup at the CURIE expansion site.
+//
+// `cco:` added Phase 4 Step 5 activation (Q-4-Step5-A 2026-05-15): same
+// rationale extended to CCO Foundry IRIs. The CCO Connected With relation
+// (`cco:ont00001810`) is declared in `arc/core/bfo-2020.json`'s ARCEntry +
+// bridgeAxioms field per spec §3.4 ratified canonical IRI; canonicalization
+// must resolve to the full URI form `https://www.commoncoreontologies.org/`
+// (verified at Pass 2b vendoring-analog-time against
+// CommonCoreOntologies/CommonCoreOntologies@develop/src/cco-modules/
+// ExtendedRelationOntology.ttl @prefix declaration).
 const STANDARD_PREFIXES: Readonly<Record<string, string>> = Object.freeze({
   rdf: "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
   rdfs: "http://www.w3.org/2000/01/rdf-schema#",
   owl: "http://www.w3.org/2002/07/owl#",
   xsd: "http://www.w3.org/2001/XMLSchema#",
   obo: "http://purl.obolibrary.org/obo/",
+  cco: "https://www.commoncoreontologies.org/",
 });
 
 const SCHEME_RE = /^[A-Za-z][A-Za-z0-9+\-.]*:/;

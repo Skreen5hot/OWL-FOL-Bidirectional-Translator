@@ -45,7 +45,7 @@
  * ARCModule[] to FOLAxiom[].
  */
 
-import type { ARCModule, DisjointnessAxiom } from "./arc-types.js";
+import type { ARCModule, BridgeAxiom, DisjointnessAxiom } from "./arc-types.js";
 import type {
   FOLAtom,
   FOLAxiom,
@@ -110,6 +110,84 @@ function pairwiseDisjointnessAxiom(class1IRI: string, class2IRI: string): FOLUni
     implication(
       conjunction([atom(class1IRI, [x]), atom(class2IRI, [x])]),
       falsum()
+    )
+  );
+}
+
+/**
+ * Phase 4 Step 5 (Q-4-Step5-A.2.1): build the reflexivity axiom shape:
+ *
+ *   ∀x. C(x, x)
+ *
+ * Emitted from a BridgeAxiom with axiomForm "reflexivity" per spec §3.4.1
+ * line 307 ratified axiom set. Single Universal binding "x"; Atom body
+ * with both arguments bound to x.
+ */
+function reflexivityAxiom(predicateIRI: string): FOLUniversal {
+  const x = variable("x");
+  return universal("x", atom(predicateIRI, [x, x]));
+}
+
+/**
+ * Phase 4 Step 5 (Q-4-Step5-A.2.1): build the symmetry axiom shape:
+ *
+ *   ∀x,y. C(y, x) → C(x, y)
+ *
+ * Emitted from a BridgeAxiom with axiomForm "symmetry" per spec §3.4.1
+ * line 308 ratified axiom set. Argument order C(y, x) → C(x, y) matches
+ * the canonical Prolog clause form (`C(X, Y) :- C(Y, X)` per spec §3.4.1
+ * line 308 verbatim) — body uses x,y order in the head.
+ *
+ * Q-4-Step5-A.4 reconnaissance scope: Phase 1 lifter's
+ * `owl:SymmetricProperty` characteristic (lifter.ts:826) emits
+ * `∀x,y. P(x,y) → P(y,x)`. Composability with this bridgeAxioms-emitted
+ * shape (potential double-emit) deferred per architect ruling.
+ */
+function symmetryAxiom(predicateIRI: string): FOLUniversal {
+  const x = variable("x");
+  const y = variable("y");
+  return universal(
+    "x",
+    universal(
+      "y",
+      implication(atom(predicateIRI, [y, x]), atom(predicateIRI, [x, y]))
+    )
+  );
+}
+
+/**
+ * Phase 4 Step 5 (Q-4-Step5-A.2.1): build the parthood-extension bridge
+ * axiom shape:
+ *
+ *   ∀x,y,z. P(x, y) ∧ C(z, x) → C(z, y)
+ *
+ * Emitted from a BridgeAxiom with axiomForm "parthood-extension" per
+ * spec §3.4 line 296 + spec §3.4.1 line 309 ratified axiom set. Says
+ * "if x is part of y, and z is connected to x, then z is connected to y"
+ * — connections inherit through parthood. Quad-quantifier shape:
+ * Universal x → Universal y → Universal z → Implication.
+ */
+function parthoodExtensionBridgeAxiom(
+  connectionIRI: string,
+  parthoodIRI: string
+): FOLUniversal {
+  const x = variable("x");
+  const y = variable("y");
+  const z = variable("z");
+  return universal(
+    "x",
+    universal(
+      "y",
+      universal(
+        "z",
+        implication(
+          conjunction([
+            atom(parthoodIRI, [x, y]),
+            atom(connectionIRI, [z, x]),
+          ]),
+          atom(connectionIRI, [z, y])
+        )
+      )
     )
   );
 }
@@ -206,6 +284,57 @@ export function emitARCAxioms(
               axiom: pairwiseDisjointnessAxiom(lo, hi),
             });
           }
+        }
+      }
+    }
+    // (3) Phase 4 Step 5 (Q-4-Step5-A.2.1): bridge axiom emission per
+    // the optional `bridgeAxioms` field. Each axiom dispatches on
+    // axiomForm to the corresponding emitter function:
+    //   - "reflexivity" → reflexivityAxiom(predicate)
+    //   - "symmetry" → symmetryAxiom(predicate)
+    //   - "parthood-extension" → parthoodExtensionBridgeAxiom(predicate, parthoodPredicate)
+    // Validator at arc-validation.ts guards axiomForm enum membership +
+    // IRI well-formedness + parthood-extension's required parthoodPredicate;
+    // emitter trusts those invariants and silently skips defensively-
+    // malformed entries (unknown axiomForm or missing required fields).
+    const bridgeAxioms = m.bridgeAxioms;
+    if (Array.isArray(bridgeAxioms)) {
+      for (const ax of bridgeAxioms as BridgeAxiom[]) {
+        if (typeof ax.predicate !== "string" || ax.predicate.length === 0) continue;
+        const canonicalC = canonicalizeIRI(ax.predicate, prefixes);
+        switch (ax.axiomForm) {
+          case "reflexivity":
+            collected.push({
+              key: "bridge::reflexivity::" + canonicalC,
+              axiom: reflexivityAxiom(canonicalC),
+            });
+            break;
+          case "symmetry":
+            collected.push({
+              key: "bridge::symmetry::" + canonicalC,
+              axiom: symmetryAxiom(canonicalC),
+            });
+            break;
+          case "parthood-extension": {
+            if (
+              typeof ax.parthoodPredicate !== "string" ||
+              ax.parthoodPredicate.length === 0
+            ) {
+              continue;
+            }
+            const canonicalP = canonicalizeIRI(ax.parthoodPredicate, prefixes);
+            collected.push({
+              key: "bridge::parthood-extension::" + canonicalC + "::" + canonicalP,
+              axiom: parthoodExtensionBridgeAxiom(canonicalC, canonicalP),
+            });
+            break;
+          }
+          default:
+            // Unknown axiomForm — validator should have rejected at
+            // module-registration; defensive skip preserves emitter
+            // robustness against future schema additions reaching
+            // this code path before validation catches up.
+            continue;
         }
       }
     }

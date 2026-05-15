@@ -604,6 +604,48 @@
       "range": "Temporal Region",
       "iri": "obo:BFO_0000153",
       "notes": "Verified against loaded BFO 2020 in triplestore"
+    },
+    {
+      "@type": "ARCEntry",
+      "name": "Connected With",
+      "level": "Instance-level",
+      "context": "Mereotopology",
+      "notation": "C",
+      "formalDefinition": "Primitive per spec §3.4; defining content supplied by property characteristics (owl:SymmetricProperty + owl:ReflexiveProperty per spec §3.4 line 295) + bridgeAxioms field's reflexivity + symmetry + parthood-extension forms per spec §3.4.1 ratified axiom set. Path-fence-authored at Q-4-Step5-A 2026-05-14 (Phase 4 mid-phase architectural-gap micro-cycle 2/~3).",
+      "owlCharacteristics": "owl:SymmetricProperty, owl:ReflexiveProperty",
+      "owlRealization": "CCO",
+      "subPropertyOf": "—",
+      "domain": "Immaterial Entity",
+      "range": "Immaterial Entity",
+      "iri": "cco:ont00001810",
+      "notes": "Connected With per spec §3.4 ratified canonical IRI cco:ont00001810. Verified against CommonCoreOntologies/CommonCoreOntologies@develop/src/cco-modules/ExtendedRelationOntology.ttl at Pass 2b vendoring-analog-time 2026-05-15: cco: prefix maps to https://www.commoncoreontologies.org/ (per @prefix declaration); canonical CCO definition restricts domain + range to Immaterial Entity (`x is_connected_with y iff x and y are both instances of Immaterial Entity and there exists an instance of Immaterial Entity z that is part of both x and y`). Bridge axiom semantics emitted via bridgeAxioms field below per Q-4-Step5-A.2 schema extension."
+    }
+  ],
+  "bridgeAxioms": [
+    {
+      "@type": "BridgeAxiom",
+      "axiomForm": "reflexivity",
+      "predicate": "cco:ont00001810",
+      "comment": "Connected With reflexivity per spec §3.4.1 ratified axiom set line 307: C(X, X). Emitter expansion (per Q-4-Step5-A.2.1 architect ruling 2026-05-14 + ADR-007 §11 FOL→Prolog per-variant translation table): ∀x. C(x, x).",
+      "sourceReference": "BFO 2020 / CCO mereotopology; spec §3.4.1 line 307 ratified reflexivity axiom",
+      "notes": "Path-fence-authored 2026-05-14 per Q-4-Step5-A.2 + Q-4-Step5-A.2.1 architect rulings; discriminated-union schema shape with axiomForm enum per Q-4-Step5-A.2.1 ruling."
+    },
+    {
+      "@type": "BridgeAxiom",
+      "axiomForm": "symmetry",
+      "predicate": "cco:ont00001810",
+      "comment": "Connected With symmetry per spec §3.4.1 ratified axiom set line 308: C(X, Y) :- C(Y, X). Emitter expansion: ∀x,y. C(y, x) → C(x, y). This axiom + the owl:SymmetricProperty characteristic on cco:ont00001810 (per spec §3.4 line 295) are semantically equivalent; the ARC content's bridgeAxioms field is the canonical emission surface per Q-4-Step5-A.2 ruling, independent of OWL Property Characteristic handling.",
+      "sourceReference": "BFO 2020 / CCO mereotopology; spec §3.4.1 line 308 ratified symmetry axiom",
+      "notes": "Path-fence-authored 2026-05-14 per Q-4-Step5-A.2 + Q-4-Step5-A.2.1 architect rulings. Composability with Phase 1 emitter's owl:SymmetricProperty handling is Q-4-Step5-A.4 Developer reconnaissance scope (potential double-emit concern: if Phase 1 emits symmetry from owl:SymmetricProperty AND bridgeAxioms emits symmetry, the lifted FOL would contain two structurally-identical axioms — Q-4-Step5-A.4 reconnaissance identifies the gap if any)."
+    },
+    {
+      "@type": "BridgeAxiom",
+      "axiomForm": "parthood-extension",
+      "predicate": "cco:ont00001810",
+      "parthoodPredicate": "obo:BFO_0000176",
+      "comment": "Connected With parthood-extension bridge per spec §3.4.1 ratified axiom set line 309: C(Z, Y) :- P(X, Y), C(Z, X). Emitter expansion: ∀x,y,z. P(x, y) ∧ C(z, x) → C(z, y). This is the spec-named 'bridge axiom' (spec §3.4 line 296) — propagates connection through parthood chains; the load-bearing semantic surface for BFO mereotopological closure per spec §3.4.1's 'bridge composes with parthood transitivity' framing. parthoodPredicate field names the P predicate (obo:BFO_0000176 = continuant_part_of); the predicate field names the C predicate (cco:ont00001810).",
+      "sourceReference": "BFO 2020 / CCO mereotopology; spec §3.4 line 296 + spec §3.4.1 line 309 ratified parthood-extension bridge axiom",
+      "notes": "Path-fence-authored 2026-05-14 per Q-4-Step5-A.2 + Q-4-Step5-A.2.1 architect rulings. This axiom composes with Step 3's parthood transitivity emission (already shipped at commit dab9e0b) — the spec §3.4.1 worked example demonstrates: P(boundary_1, region_a) + P(region_a, region_b) + C(observer, boundary_1) entails C(observer, region_b) via transitivity + parthood-extension composition (spec §3.4.1 lines 313-330). Cycle-guard per ADR-013 visited-ancestor pattern handles the cycle-prone parthood predicate class."
     }
   ],
   "disjointnessAxioms": [

@@ -253,7 +253,7 @@ async function main(): Promise<void> {
 
   // --- Real-file validation: arc/core/bfo-2020.json ---
 
-  await checkAsync("arc/core/bfo-2020.json: validates as ARCModule with 40 entries", async () => {
+  await checkAsync("arc/core/bfo-2020.json: validates as ARCModule with 41 entries (40 original RELATION entries + Connected With added at Q-4-Step5-A Pass 2b)", async () => {
     const path = resolve(projectRoot, "arc", "core", "bfo-2020.json");
     const raw = await readFile(path, "utf-8");
     const parsed = JSON.parse(raw);
@@ -261,7 +261,7 @@ async function main(): Promise<void> {
     ok(r.valid, r.valid ? "" : r.errors.join("; "));
     if (r.valid) {
       strictEqual(r.module.moduleId, "core/bfo-2020");
-      strictEqual(r.module.entries.length, 40);
+      strictEqual(r.module.entries.length, 41);
       strictEqual(r.module.arcManifestVersion, "0.1.0");
     }
   });
@@ -273,7 +273,7 @@ async function main(): Promise<void> {
     registerARCModule(parsed);
     const got = getARCModule("core/bfo-2020");
     ok(got !== null);
-    if (got !== null) strictEqual(got.entries.length, 40);
+    if (got !== null) strictEqual(got.entries.length, 41);
   });
 
   await checkAsync("arc/core/iao-information.json: validates as ARCModule (Phase 5 skeleton)", async () => {

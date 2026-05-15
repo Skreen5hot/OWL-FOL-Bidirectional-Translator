@@ -116,6 +116,58 @@ function validateDisjointnessAxiom(
   }
 }
 
+/**
+ * Phase 4 Step 5 (Q-4-Step5-A architect ratification 2026-05-14) helper:
+ * validate a BridgeAxiom discriminated-union entry per Q-4-Step5-A.2.1
+ * schema shape.
+ *
+ * Validates: @type discriminator, axiomForm enum membership, required
+ * predicate field (non-empty IRI), and form-specific fields
+ * (`parthoodPredicate` required for "parthood-extension"). Errors
+ * collected in single pass per existing arc-validation discipline.
+ */
+const BRIDGE_AXIOM_FORMS: ReadonlySet<string> = new Set([
+  "reflexivity",
+  "symmetry",
+  "parthood-extension",
+]);
+
+function validateBridgeAxiom(
+  axiom: unknown,
+  index: number,
+  errors: string[]
+): void {
+  if (!isPlainObject(axiom)) {
+    errors.push(`bridgeAxioms[${index}]: not an object`);
+    return;
+  }
+  if (axiom["@type"] !== "BridgeAxiom") {
+    errors.push(
+      `bridgeAxioms[${index}]: @type must be "BridgeAxiom" (got ${JSON.stringify(axiom["@type"])})`
+    );
+  }
+  const form = axiom.axiomForm;
+  if (typeof form !== "string" || !BRIDGE_AXIOM_FORMS.has(form)) {
+    errors.push(
+      `bridgeAxioms[${index}].axiomForm: must be one of "reflexivity" | "symmetry" | "parthood-extension" (got ${JSON.stringify(form)})`
+    );
+  }
+  if (!isWellFormedIRI(axiom.predicate)) {
+    errors.push(
+      `bridgeAxioms[${index}].predicate: must be a non-empty string IRI (got ${JSON.stringify(axiom.predicate)})`
+    );
+  }
+  // Form-specific structural integrity:
+  // parthood-extension requires `parthoodPredicate` (the P in spec §3.4.1 line 309).
+  if (form === "parthood-extension") {
+    if (!isWellFormedIRI(axiom.parthoodPredicate)) {
+      errors.push(
+        `bridgeAxioms[${index}].parthoodPredicate: must be a non-empty string IRI when axiomForm is "parthood-extension" (got ${JSON.stringify(axiom.parthoodPredicate)})`
+      );
+    }
+  }
+}
+
 function validateEntry(
   entry: unknown,
   index: number,
@@ -196,6 +248,21 @@ export function validateARCModule(value: unknown): ARCValidationResult {
     } else {
       for (let i = 0; i < value.disjointnessAxioms.length; i++) {
         validateDisjointnessAxiom(value.disjointnessAxioms[i], i, errors);
+      }
+    }
+  }
+
+  // Phase 4 Step 5 (Q-4-Step5-A): optional bridgeAxioms field. When present,
+  // must be an array; each element validates per validateBridgeAxiom
+  // (axiomForm enum + IRI well-formedness + form-specific required fields).
+  if (value.bridgeAxioms !== undefined) {
+    if (!Array.isArray(value.bridgeAxioms)) {
+      errors.push(
+        `bridgeAxioms: must be an array when present (got ${typeof value.bridgeAxioms})`
+      );
+    } else {
+      for (let i = 0; i < value.bridgeAxioms.length; i++) {
+        validateBridgeAxiom(value.bridgeAxioms[i], i, errors);
       }
     }
   }
