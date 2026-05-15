@@ -154,7 +154,7 @@ export const fixture = {
     prefixes: {
       bfo: "http://purl.obolibrary.org/obo/",
       ro: "http://purl.obolibrary.org/obo/",
-      cco: "[VERIFY:cco_prefix]", // Aaron-Developer confirms canonical CCO IRI prefix at Pass 2b vendoring-analog time
+      cco: "https://www.commoncoreontologies.org/", // Verified at Pass 2b vendoring-analog-time 2026-05-15 against CommonCoreOntologies/CommonCoreOntologies@develop/src/cco-modules/ExtendedRelationOntology.ttl @prefix declaration
       ex: PREFIX,
     },
     tbox: [],
