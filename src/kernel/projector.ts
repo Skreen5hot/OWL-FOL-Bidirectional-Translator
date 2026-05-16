@@ -350,6 +350,9 @@ const OWL_DIFFERENT_FROM_IRI = "http://www.w3.org/2002/07/owl#differentFrom";
 function isReservedIdentityPredicate(iri: string): boolean {
   return iri === OWL_SAME_AS_IRI || iri === OWL_DIFFERENT_FROM_IRI;
 }
+import { getARCModule } from "./arc-module-registry.js";
+import { regularityCheck } from "./arc-vocabulary.js";
+import type { ARCModule } from "./arc-types.js";
 import type {
   FolToOwlConfig,
   LossSignature,
@@ -535,7 +538,7 @@ export async function folToOwl(
     const positionedEntry = positioned[i];
     if (positionedEntry !== null && positionedEntry.strategy === "property-chain") {
       const chainAxiom = positionedEntry.axiom as ObjectPropertyChainAxiom;
-      const chainRP = await emitChainRecoveryPayload(axiom, chainAxiom);
+      const chainRP = await emitChainRecoveryPayload(axiom, chainAxiom, config);
       newRecoveryPayloads.push(chainRP);
       rpCount++;
     }
@@ -1943,25 +1946,64 @@ async function emitNafResidueIfApplicable(
 
 /**
  * Step 6 — chain Recovery Payload emission per architect Q-Step6-1 ruling
- * (always-emit regularity_scope_warning at Phase 2). Phase 2 cannot verify
- * regularity against an import closure (no ARC content); per spec §6.2.1's
- * literal framing, every detected chain emits the warning.
+ * (Phase 2 baseline: always-emit regularity_scope_warning) +
+ * Q-4-Step6-A ruling 2026-05-14/15 (Phase 4 Step 6 strengthening:
+ * Sub-option α non-transitive chain certification).
+ *
+ * Phase 4 strengthening (non-breaking per ADR-011 behavioral-contract
+ * evolution discipline):
+ *   - When `config.arcModules` declares loaded ARC modules + every chain
+ *     role's `owlCharacteristics` is non-transitive per the loaded
+ *     modules' ARC content, the regularity_scope_warning scopeNote is
+ *     OMITTED (chain regularity-certified per Sub-option α).
+ *   - Otherwise (no arcModules loaded, OR any chain role is transitive)
+ *     the warning is EMITTED (Phase 2 baseline preserved).
+ *
+ * Per Q-4-Step6-A.4 step-boundary ruling: this function ONLY controls
+ * warning emission. The strategy router's fall-through to Annotated
+ * Approximation (when chain can't be lift-correctly emitted) is Step 8's
+ * separate concern.
  *
  * Emission shape per ADR-011 §1 (content-addressed @id) + ADR-007 §7
  * (Recovery Payload contract):
  *   - approximationStrategy: "PROPERTY_CHAIN"
  *   - relationIRI: the chain's superProperty (Q)
- *   - originalFOL: the source axiom verbatim (preserves FOL for Phase 4
- *     regularity-check upgrade)
+ *   - originalFOL: the source axiom verbatim (preserves FOL for downstream
+ *     consumers; v0.2 ELK closure path may re-validate under full SROIQ)
  *   - projectedForm: empty (the OWL projection IS the ObjectPropertyChain
  *     RBox axiom; consumers read it from the ontology output)
- *   - scopeNotes: one note documenting the regularity check's bounded
- *     verification per spec §6.2.1
+ *   - scopeNotes: 0 (regularity-certified) or 1 (warning) entries.
  */
 async function emitChainRecoveryPayload(
   axiom: FOLAxiom,
   chain: ObjectPropertyChainAxiom,
+  config?: FolToOwlConfig,
 ): Promise<RecoveryPayload> {
+  // Phase 4 Step 6 regularity certification per Q-4-Step6-A.1.1
+  // Sub-option α. Default: cannot-certify (Phase 2 baseline preserved).
+  // When arcModules are declared, resolve loaded modules from the
+  // kernel-pure registry + run regularityCheck against the chain's roles.
+  let certification: "regularity-certified" | "cannot-certify" = "cannot-certify";
+  if (Array.isArray(config?.arcModules) && config.arcModules.length > 0) {
+    const loadedModules: ARCModule[] = [];
+    for (const id of config.arcModules) {
+      const m = getARCModule(id);
+      if (m !== null) loadedModules.push(m);
+    }
+    if (loadedModules.length > 0) {
+      certification = regularityCheck(
+        chain.chain,
+        loadedModules,
+        config.prefixes
+      );
+    }
+  }
+  const scopeNotes: string[] =
+    certification === "regularity-certified"
+      ? []
+      : [
+          "regularity_scope_warning: import closure not loaded; regularity verified against currently-loaded graph only",
+        ];
   const rpId = await contentAddressedId("ofbt:rp/", {
     originalFOL: axiom,
     relationIRI: chain.superProperty,
@@ -1974,9 +2016,7 @@ async function emitChainRecoveryPayload(
     relationIRI: chain.superProperty,
     originalFOL: axiom,
     projectedForm: "",
-    scopeNotes: [
-      "regularity_scope_warning: import closure not loaded; regularity verified against currently-loaded graph only",
-    ],
+    scopeNotes,
   };
 }
 

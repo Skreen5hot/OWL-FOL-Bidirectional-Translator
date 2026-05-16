@@ -259,3 +259,70 @@ export function findNonARCPropertyIRIs(
   }
   return offending;
 }
+
+/**
+ * Result of the Step 6 regularity certification per Q-4-Step6-A.1.1
+ * architect ratification 2026-05-14/15 (Sub-option α non-transitive
+ * chain certification).
+ */
+export type RegularityCheckResult = "regularity-certified" | "cannot-certify";
+
+/**
+ * Phase 4 Step 6 — regularityCheck per Q-4-Step6-A architect ruling +
+ * Sub-option α minimum-viable certification (Q-4-Step6-A.1.1).
+ *
+ * Spec-formally-correct anchor per Horrocks, Kutz, Sattler (2007):
+ * transitivity is THE canonical regularity-restricting characteristic in
+ * SROIQ. A property chain whose roles are all NON-transitive is provably
+ * regular under SROIQ's regularity restriction. v0.1 minimum-viable
+ * certification: scan each chain role; if ANY role's loaded ARC entry
+ * has `owl:TransitiveProperty` in its `owlCharacteristics` field, return
+ * `'cannot-certify'`. Otherwise return `'regularity-certified'`.
+ *
+ * Substring match (`String.includes`) per architect ruling code-shape:
+ * accommodates ARC entries with comma-separated multi-characteristic
+ * strings (e.g., `"owl:TransitiveProperty, owl:SymmetricProperty"`).
+ *
+ * Forward-track: full SROIQ Horrocks regularity check (with role
+ * hierarchy + composition closure) defers to v0.2 ELK closure path per
+ * project/v0.2-roadmap.md v0.2-09 entry per Q-4-Step6-A.3 ruling. Phase
+ * 4 ships the bounded transitivity check; Phase 5+ may extend on
+ * implementation evidence per spec §0.2.3.
+ *
+ * Q-4-Step6-A.4 Step 6 / Step 8 boundary: this function ONLY signals
+ * regularity certification status. The projector's strategy router
+ * (Step 8 fall-through to Annotated Approximation when chain can't be
+ * lift-correctly emitted) is a separate concern; Step 6 controls only
+ * the warning emission per non-breaking strengthening discipline.
+ */
+export function regularityCheck(
+  chainRoleIRIs: ReadonlyArray<string>,
+  modules: ReadonlyArray<ARCModule>,
+  prefixes?: Record<string, string>
+): RegularityCheckResult {
+  // Build canonical-IRI → owlCharacteristics index across the loaded
+  // modules. Single pass; lookup is O(1) per role.
+  const characteristicsByIRI = new Map<string, string>();
+  for (const m of modules) {
+    for (const entry of m.entries) {
+      if (typeof entry.iri === "string" && entry.iri.length > 0) {
+        const canonical = canonicalizeIRI(entry.iri, prefixes);
+        characteristicsByIRI.set(canonical, entry.owlCharacteristics);
+      }
+    }
+  }
+  for (const roleIRI of chainRoleIRIs) {
+    if (typeof roleIRI !== "string" || roleIRI.length === 0) continue;
+    const canonical = canonicalizeIRI(roleIRI, prefixes);
+    const characteristics = characteristicsByIRI.get(canonical);
+    // Substring match per architect ruling code-shape — accommodates
+    // multi-characteristic strings like "owl:TransitiveProperty, owl:Reflexive".
+    if (
+      typeof characteristics === "string" &&
+      characteristics.includes("owl:TransitiveProperty")
+    ) {
+      return "cannot-certify";
+    }
+  }
+  return "regularity-certified";
+}

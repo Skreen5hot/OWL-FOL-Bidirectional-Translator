@@ -1575,6 +1575,80 @@
         "stepBinding": 4
       },
       "expected_v0.2_elk_verdict": null
+    },
+    {
+      "fixtureId": "regularity_check_clears_warning",
+      "phase": 4,
+      "specSections": ["spec §6.1.2", "spec §6.2.1", "spec §3.6.2"],
+      "acceptanceCriteria": [
+        "Phase 4 entry packet §3.3 step-N-bind (Q-4-Step6-A architect ratification 2026-05-14/15; mid-phase architectural-gap micro-cycle 3/3 hits Q-4-A ~3 projection EXACT MATCH)",
+        "Q-4-Step6-A.1 Reading 3 hybrid + Q-4-Step6-A.1.1 Sub-option α non-transitive chain certification per Horrocks, Kutz, and Sattler 2007",
+        "Q-4-Step6-A.4 Step 6 / Step 8 boundary preservation (Step 6 = warning emission control; Step 8 = LossSignature emission)"
+      ],
+      "arcEntries": ["BFO_0000196 (bearer_of — owlCharacteristics non-transitive)", "BFO_0000057 (has_participant — owlCharacteristics non-transitive)"],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "Phase 4 Step 6 projector with BFO 2020 ARC loaded + Sub-option α regularityCheck applied to chain over non-transitive roles (bearer_of ∘ has_participant) produces RecoveryPayload containing chain emission per ADR-007 §11 BUT WITHOUT regularity_scope_warning (omitted because regularityCheck returns 'regularity-certified'; non-breaking strengthening per ADR-011 + Q-4-Step6-A.4 step boundary preservation).",
+        "fixtureType": "projector-emission-control-regularity-check",
+        "expectedRecoveryPayloadShape": {
+          "chainEmission": "present",
+          "regularityScopeWarning": "absent",
+          "regularityCheckResult": "regularity-certified"
+        },
+        "canaryRole": "regularity-check-affirmative-skip-warning-unit-level"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "Phase 4 Step 6 regularityCheck affirmative skip-warning failure modes: (1) projector ignores regularityCheck result + emits warning unconditionally (Phase 2 baseline preserved but Step 6 strengthening dropped); (2) regularityCheck returns 'cannot-certify' for chain over non-transitive roles (Sub-option α logic inverted); (3) regularityCheck consults wrong owlCharacteristics field semantics; (4) projector clears warning but corrupts other RecoveryPayload fields.",
+      "expected_v0.1_verdict": {
+        "ringStatus": "ring2-projector-emission-control-regularity-check-affirmative",
+        "phaseAuthored": 4,
+        "phaseActivated": 4,
+        "expectedRecoveryPayloadShape": {
+          "chainEmission": "present",
+          "regularityScopeWarning": "absent",
+          "regularityCheckResult": "regularity-certified"
+        },
+        "corpusActivationTiming": "step-N-bind",
+        "stepBinding": 6
+      },
+      "expected_v0.2_elk_verdict": "v0.2 ELK closure extends Sub-option α to full SROIQ Horrocks regularity check per v0.2-09 forward-track; affirmative-skip-warning outcome holds across v0.1 + v0.2; certification logic extends"
+    },
+    {
+      "fixtureId": "regularity_check_keeps_warning",
+      "phase": 4,
+      "specSections": ["spec §6.1.2", "spec §6.2.1", "spec §3.6.2"],
+      "acceptanceCriteria": [
+        "Phase 4 entry packet §3.3 step-N-bind (Q-4-Step6-A architect ratification 2026-05-14/15)",
+        "Q-4-Step6-A.1 Reading 3 hybrid + Q-4-Step6-A.1.1 Sub-option α non-transitive chain certification per Horrocks, Kutz, and Sattler 2007",
+        "Q-4-Step6-A.4 Step 6 / Step 8 boundary preservation; Phase 2 baseline preservation per ADR-011 non-breaking strengthening signal-preserving discipline"
+      ],
+      "arcEntries": ["BFO_0000176 (continuant_part_of — owl:TransitiveProperty)", "BFO_0000178 (has_continuant_part — owl:TransitiveProperty)"],
+      "regime": "equivalent",
+      "expectedOutcome": {
+        "summary": "Phase 4 Step 6 projector with BFO 2020 ARC loaded + Sub-option α regularityCheck applied to chain containing owl:TransitiveProperty roles (continuant_part_of ∘ has_continuant_part) produces RecoveryPayload containing chain emission per ADR-007 §11 AND ALSO regularity_scope_warning (kept because regularityCheck returns 'cannot-certify'; Phase 2 baseline preserved per ADR-011 + Q-4-Step6-A.4 step boundary).",
+        "fixtureType": "projector-emission-control-regularity-check",
+        "expectedRecoveryPayloadShape": {
+          "chainEmission": "present",
+          "regularityScopeWarning": "present",
+          "regularityCheckResult": "cannot-certify"
+        },
+        "canaryRole": "regularity-check-conservative-default-keeps-warning-unit-level"
+      },
+      "expectedLossSignatureReasons": [],
+      "intendedToCatch": "Phase 4 Step 6 regularityCheck conservative-default keeps-warning failure modes: (1) projector clears warning for chain containing transitive role (Sub-option α inverted — false-positive certification); (2) projector drops warning silently (Phase 2 baseline corruption); (3) regularityCheck iteration bug short-circuiting on non-transitive roles; (4) projector conflates Step 6 warning emission with Step 8 LossSignature emission per Q-4-Step6-A.4 boundary violation.",
+      "expected_v0.1_verdict": {
+        "ringStatus": "ring2-projector-emission-control-regularity-check-conservative",
+        "phaseAuthored": 4,
+        "phaseActivated": 4,
+        "expectedRecoveryPayloadShape": {
+          "chainEmission": "present",
+          "regularityScopeWarning": "present",
+          "regularityCheckResult": "cannot-certify"
+        },
+        "corpusActivationTiming": "step-N-bind",
+        "stepBinding": 6
+      },
+      "expected_v0.2_elk_verdict": "v0.2 ELK closure extends Sub-option α to full SROIQ Horrocks regularity check per v0.2-09 forward-track; v0.2 disposition may EITHER certify the chain (formal analysis permits) OR maintain cannot-certify (transitivity-restriction confirmed); disposition surfaces at v0.2 entry-cycle"
     }
   ]
 }
